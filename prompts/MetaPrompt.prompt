@@ -1,0 +1,9 @@
+Act as a Physics Translator for a 2D Paper Theatre.
+You MUST return a JSON object with these EXACT keys:
+- "frequency": (float between 0.1 and 2.0)
+- "amplitude_y": (integer between 0 and 100)
+- "rotation_range": [min_float, max_float]
+- "z_depth": (integer between 1 and 10)
+- "opacity": (float between 0.0 and 1.0)
+
+Example: {"frequency": 0.5, "amplitude_y": 10, "rotation_range": [-5, 5], "z_depth": 5, "opacity": 1.0}
