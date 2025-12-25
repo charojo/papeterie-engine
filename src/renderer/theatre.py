@@ -1,12 +1,15 @@
 import pygame
 import sys
 from pathlib import Path
+import math
 
 class ParallaxLayer:
-    def __init__(self, asset_path, z_depth, vertical_percent, target_height=None):
+    def __init__(self, asset_path, z_depth, vertical_percent, target_height=None, bob_amplitude=0, bob_frequency=0):
         self.z_depth = z_depth
         self.asset_path = Path(asset_path)
         self.vertical_percent = vertical_percent
+        self.bob_amplitude = bob_amplitude
+        self.bob_frequency = bob_frequency
         
         if self.asset_path.exists():
             original_image = pygame.image.load(str(self.asset_path)).convert_alpha()
@@ -27,16 +30,31 @@ class ParallaxLayer:
         screen_w, screen_h = screen.get_size()
         img_w, img_h = self.image.get_size()
         
-        # 1. FIX DIRECTION: Remove the '-' to move Left-to-Right
-        # We use modulo to wrap the position seamlessly
-        x = (scroll_x / self.z_depth) % img_w
+        # Define a wrap_width that is larger than the screen, so the boat can
+        # fully disappear before reappearing on the other side.
+        wrap_width = screen_w + img_w
         
+        # Calculate the parallax-adjusted scroll position
+        parallax_scroll = scroll_x / self.z_depth
+        
+        # Use modulo with the wrap_width to create a repeating loop
+        x = parallax_scroll % wrap_width
+        
+        # Adjust the final drawing position so the boat starts off-screen
+        draw_x = x - img_w
+
         # 2. FIX POSITION: Calculate Y dynamically
-        y = (screen_h * self.vertical_percent) - (img_h / 2)
+        base_y = (screen_h * self.vertical_percent) - img_h
         
-        # Draw the images for seamless tiling
-        screen.blit(self.image, (x, y))
-        screen.blit(self.image, (x - img_w, y))
+        # 3. ADD BOBBING
+        bob_offset = 0
+        if self.bob_amplitude > 0 and self.bob_frequency > 0:
+            bob_offset = math.sin(scroll_x * self.bob_frequency) * self.bob_amplitude
+            
+        y = base_y + bob_offset
+        
+        # Draw the single boat image at its calculated position
+        screen.blit(self.image, (draw_x, y))
 
 def run_theatre():
     pygame.init()
@@ -49,7 +67,9 @@ def run_theatre():
         "sprites/boat/boat.png", 
         z_depth=2, 
         vertical_percent=0.7, 
-        target_height=150
+        target_height=150,
+        bob_amplitude=5,
+        bob_frequency=0.05
     )
     
     while True:
