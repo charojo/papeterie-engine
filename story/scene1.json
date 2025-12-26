@@ -1,0 +1,15 @@
+{
+    "scene_name": "Opening Scene",
+    "duration_sec": 10,
+    "layers": [
+        {
+            "sprite_name": "stars"
+        },
+        {
+            "sprite_name": "clouds"
+        },
+        {
+            "sprite_name": "boat"
+        }
+    ]
+}
