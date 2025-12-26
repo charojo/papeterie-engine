@@ -193,13 +193,13 @@ class ParallaxLayer:
                 if delta_x != 0:
                     raw_slope = delta_y / delta_x
                     tilt_angle_rad = math.atan(raw_slope)
-                    tilt_angle_deg = math.degrees(tilt_angle_rad)
+                    tilt_angle_deg = math.degrees(tilt_angle_rad) * 50.0  # Apply a scaling factor
                     
                 current_tilt = max(-self.environmental_reaction.max_tilt_angle, 
                                    min(self.environmental_reaction.max_tilt_angle, 
-                                       tilt_angle_deg)) * 50
+                                       tilt_angle_deg)) 
 
-                logging.info(f"DEBUG (Tilt Calc): Sprite '{self.asset_path.parent.name}': Y_behind={y_at_behind_point:.2f}, Y_ahead={y_at_ahead_point:.2f}, Delta_Y={delta_y:.2f}, Raw_Slope={raw_slope:.4f}, Tilt_Deg={tilt_angle_deg:.2f}, Final_Tilt={current_tilt:.2f}")
+                logging.debug(f"DEBUG (Tilt Calc): Sprite '{self.asset_path.parent.name}': Y_behind={y_at_behind_point:.2f}, Y_ahead={y_at_ahead_point:.2f}, Delta_Y={delta_y:.2f}, Raw_Slope={raw_slope:.4f}, Tilt_Deg={tilt_angle_deg:.2f}, Final_Tilt={current_tilt:.2f}")
 
             # Else (if no environment_layer_for_tilt), current_tilt remains 0
             
@@ -249,7 +249,7 @@ class ParallaxLayer:
         logging.debug(f"Environment: Layer '{self.asset_path.parent.name}' (z={self.z_depth}) at x_coord={x_coord}: effective_y={effective_y:.2f}") # Reverted to debug
         return effective_y
 
-def run_theatre(scene_path: str = "story/scene1.json"):
+def run_theatre(scene_path: str = "assets/story/scene1.json"):
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', force=True)
     
     pygame.init()
@@ -261,15 +261,17 @@ def run_theatre(scene_path: str = "story/scene1.json"):
     last_modified_time = 0
     scene_config = {}
     scene_layers = []
-    sprite_base_dir = Path("sprites")
+    sprite_base_dir = Path("assets/sprites")
 
     # Initialize persistent state variables here
     previous_env_y: Dict[str, float] = {}
     env_y_direction: Dict[str, int] = {} # 1 for up, -1 for down, 0 for no change
+    max_positive_tilts: Dict[str, float] = {}
+    min_negative_tilts: Dict[str, float] = {}
 
     def load_scene():
         # Use nonlocal to modify variables in the enclosing run_theatre scope
-        nonlocal scene_config, scene_layers, last_modified_time, previous_env_y, env_y_direction
+        nonlocal scene_config, scene_layers, last_modified_time, previous_env_y, env_y_direction, max_positive_tilts, min_negative_tilts
         try:
             with open(scene_file_path, 'r') as f:
                 scene_config = json.load(f)
@@ -277,6 +279,8 @@ def run_theatre(scene_path: str = "story/scene1.json"):
             # Clear previous state for new scene
             previous_env_y.clear()
             env_y_direction.clear()
+            max_positive_tilts.clear()
+            min_negative_tilts.clear()
 
             new_scene_layers = []
             for layer_data in scene_config.get("layers", []):

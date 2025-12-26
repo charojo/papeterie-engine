@@ -64,7 +64,7 @@ def test_environmental_reaction_pivot_on_crest(mocker):
 
     # 1. Create a mock wave layer (environment)
     # We'll control its get_y_at_x directly in the test scenarios
-    wave_layer = ParallaxLayer("sprites/wave1/waves1.png", z_depth=2, vertical_percent=0.7, scroll_speed=0.5)
+    wave_layer = ParallaxLayer("assets/sprites/wave1/waves1.png", z_depth=2, vertical_percent=0.7, scroll_speed=0.5)
     wave_layer.get_y_at_x = MagicMock(return_value=400) # Default to a flat surface for now
 
     # 2. Create the boat layer (reacting sprite)
@@ -73,7 +73,7 @@ def test_environmental_reaction_pivot_on_crest(mocker):
         target_sprite_name="wave1",
         max_tilt_angle=30.0
     )
-    boat_layer = ParallaxLayer("sprites/boat/boat.png", z_depth=3, vertical_percent=0.6, scroll_speed=0.5, environmental_reaction=boat_reaction)
+    boat_layer = ParallaxLayer("assets/sprites/boat/boat.png", z_depth=3, vertical_percent=0.6, scroll_speed=0.5, environmental_reaction=boat_reaction)
     
     # Simulate the boat's approximate y position if it were resting on the wave
     boat_approx_y = wave_layer.get_y_at_x(mock_screen.get_size()[1], 0, 0) - boat_layer.original_image_size[1] # Adjust for sprite height

@@ -31,13 +31,13 @@ The system follows a clear **Compiler-Renderer** separation:
 
 ## Directory Structure Highlights
 
-*   `/sprites`: Contains `.png` sprite assets. Each `<name>.png` is expected to have a corresponding `<name>.prompt` and, after compilation, a `<name>.prompt.json` metadata file.
-*   `/prompts`: Stores system instructions for the AI, such as `MetaPrompt.prompt` (for initial metadata generation) and `MetaFixupPrompt.prompt` (for correcting malformed output).
+*   `/assets/sprites`: Contains `.png` sprite assets. Each `<name>.png` is expected to have a corresponding `<name>.prompt` and, after compilation, a `<name>.prompt.json` metadata file.
+*   `/assets/story`: Contains scene configuration files (e.g., `scene1.json`) that define the composition of layers for an animation.
+*   `/assets/prompts`: Stores system instructions for the AI, such as `MetaPrompt.prompt` (for initial metadata generation) and `MetaFixupPrompt.prompt` (for correcting malformed output).
 *   `/src`: The main Python source code, organized into sub-packages:
     *   `/src/compiler`: Contains the `SpriteCompiler` logic (`engine.py`), Gemini client integration (`gemini_client.py`), and Pydantic data models (`models.py`).
     *   `/src/renderer`: Contains the `ParallaxLayer` and `run_theatre` logic (`theatre.py`) for scene rendering.
 *   `/tests`: Houses the Pytest test suite, ensuring behavioral validation of the engine components.
-*   `/story`: Contains scene configuration files (e.g., `scene1.json`) that define the composition of layers for an animation.
 *   `pyproject.toml`: Defines project metadata and dependencies.
 *   `uv.lock`: Lock file for `uv` managed dependencies.
 *   `main.py`: A simple entry point for the application.

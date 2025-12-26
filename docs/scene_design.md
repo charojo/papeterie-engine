@@ -12,7 +12,7 @@ This document outlines the principles for designing scenes using `sceneX.json` f
 
 Each object within the `layers` array in `sceneX.json` represents a `SceneLayer` and can define the following properties:
 
-*   `sprite_name` (string, **required**): The name of the sprite directory (e.g., "boat" for `/sprites/boat`). This links to the sprite's `.meta` and `.png` files.
+*   `sprite_name` (string, **required**): The name of the sprite directory (e.g., "boat" for `/assets/sprites/boat`). This links to the sprite's `.meta` and `.png` files.
 *   `x_offset` (integer, default: `0`): Horizontal offset in pixels from the sprite's calculated scroll position. Positive values move the sprite right.
 *   `y_offset` (integer, default: `0`): Vertical offset in pixels from the sprite's calculated vertical position. Positive values move the sprite down.
 *   `z_depth` (integer, default: `1`, range: `1-10`): The layer's depth. Lower values are further back. **This should always be set in `sceneX.json` for clarity.**

@@ -35,8 +35,8 @@ GEMINI_API_KEY=your_google_ai_studio_api_key
 ## 4. Project Directory Structure
 
 * `src/`: All Python source code (Compiler, Renderer, Models).
-* `prompts/`: Meta-instruction templates for Gemini.
-* `sprites/`: Folder for sprite assets (e.g., `/sprites/boat/boat.png`).
+* `assets/prompts/`: Meta-instruction templates for Gemini.
+* `assets/sprites/`: Folder for sprite assets (e.g., `/sprites/boat/boat.png`).
 * `tests/`: Behavioral test suite.
 * `AGENTS.md`: Specific behavioral rules for AI Thought Partners.
 

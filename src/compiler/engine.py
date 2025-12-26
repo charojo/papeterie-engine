@@ -15,8 +15,8 @@ import json
 class SpriteCompiler:
     def __init__(self):
         self.client = GeminiCompilerClient()
-        self.prompt_path = Path("prompts")
-        self.sprite_dir = Path("sprites")
+        self.prompt_path = Path("assets/prompts")
+        self.sprite_dir = Path("assets/sprites")
 
     def load_meta_fixup_prompt(self) -> str:
         """Loads the system instruction templates for fixing metadata."""

@@ -26,7 +26,7 @@ Each `.meta` file (e.g., `boat.meta`) is a JSON file defining the following prop
     *   `"center"`: The vertical center of the sprite is aligned with `vertical_percent`.
     *   `"bottom"`: The bottom edge of the sprite is aligned with `vertical_percent`.
 
-## Example (`sprites/boat/boat.meta`)
+## Example (`assets/sprites/boat/boat.meta`)
 
 ```json
 {

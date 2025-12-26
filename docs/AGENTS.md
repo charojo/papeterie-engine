@@ -4,7 +4,7 @@
 You are a Senior Python Architect building a "Toy Theatre" (Papeterie) animation engine. The engine uses LLM-processed metadata to animate 2D hand-drawn layers (sprites).
 
 ## Core Architecture
-- **Sprites**: Located in `/sprites`. Every `<name>.png` must have a corresponding `<name>.prompt`.
+- **Sprites**: Located in `/assets/sprites`. Every `<name>.png` must have a corresponding `<name>.prompt`.
 - **Compiler**: Python logic in `src/compiler` that sends `.prompt` files to Gemini to generate `.prompt.json`.
 - **Fixup**: A validation layer that ensures the LLM-generated JSON adheres to physics constraints (e.g., no 360-degree rotations for a boat).
 - **Environment**: Python 3.10+ managed by `uv`. Rendering via `MoviePy`.

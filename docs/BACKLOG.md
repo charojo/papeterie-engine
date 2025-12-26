@@ -2,11 +2,9 @@
 
 This file lists features, improvements, and bugs to be addressed in the Papeterie Engine. Gemini can refer to this backlog for future tasks and suggestions.
 
-## Work in Progress
+## Done (Accepted for now)
 
-*   **Sprite Environmental Reaction:** Implement a feature where a sprite reacts to its environment by detecting the first non-transparent area in the next parallax layer. This will enable sprites to interact dynamically with the scene's geometry, such as a boat bobbing on waves or a character standing on a platform.
-    *   **BUG:** The wave crest calculation and boat tilting are still not functioning as expected. `previous_env_y` and `env_y_direction` are not updating correctly, preventing peak/valley detection. Further debugging of state management and directional change detection is required.
-    *   **Enhancement: Predictive Tilting:** Introduce an `anticipation_factor` to allow reacting sprites to sample the environment's height at a point slightly ahead of their current horizontal position, leading to more fluid and believable interactions.
+*   **Sprite Environmental Reaction:** Implemented feature where a sprite reacts to its environment by detecting the first non-transparent area in the next parallax layer, enabling interactions like a boat bobbing on waves. Includes a bug where full tilt range and consistent peak/valley detection require further refinement, and an enhancement for predictive tilting is proposed.
 
 ## Unprioritized / Ideas
 

@@ -25,7 +25,7 @@ The primary goal is to enable the export of a specified segment of an animated s
 
 Export functionality could be triggered via:
 *   A new function within `src/renderer/theatre.py` (e.g., `export_movie(scene_config, duration_sec, output_filename)`).
-*   A dedicated CLI argument when running `theatre.py` (e.g., `python src/renderer/theatre.py --export-scene story/scene1.json --duration 5 --output output.mp4`).
+*   A dedicated CLI argument when running `theatre.py` (e.g., `python src/renderer/theatre.py --export-scene assets/story/scene1.json --duration 5 --output output.mp4`).
 
 ### 4.2. Movie Generation Logic
 

@@ -48,7 +48,7 @@ To support dynamic environmental reactions, two new Pydantic models and an Enum 
 
 ## 4. Compiler Integration
 
-*   **`prompts/MetaPrompt.prompt`:** The system instruction prompt for the LLM was updated to guide it in generating the `environmental_reaction` object when a sprite's description implies environmental interaction. This ensures that the generated JSON metadata adheres to the new schema.
+*   **`assets/prompts/MetaPrompt.prompt`:** The system instruction prompt for the LLM was updated to guide it in generating the `environmental_reaction` object when a sprite's description implies environmental interaction. This ensures that the generated JSON metadata adheres to the new schema.
 
     ```
     ... (previous prompt content)
@@ -93,7 +93,7 @@ To support dynamic environmental reactions, two new Pydantic models and an Enum 
     *   When iterating through layers, if a layer has `environmental_reaction` configured, it finds its `target_sprite_name`'s layer and calls `get_y_at_x` on the environment layer to determine the `environment_y` at the reacting sprite's horizontal center.
     *   This `environment_y` is then passed to the reacting sprite's `draw` method.
 
-## 6. Example Configuration (`story/scene1.json` excerpt)
+## 6. Example Configuration (`assets/story/scene1.json` excerpt)
 
 To make a `boat` sprite pivot on a `wave1` sprite, the `boat` layer in `scene1.json` (or its `.meta` file) would include:
 
