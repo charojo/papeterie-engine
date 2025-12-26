@@ -4,9 +4,10 @@ from pathlib import Path
 import math
 import json
 import logging
+from typing import Dict, Any, Optional # Added Dict, Any, Optional
 
 class ParallaxLayer:
-    def __init__(self, asset_path, z_depth, vertical_percent, target_height=None, bob_amplitude=0, bob_frequency=0.0, scroll_speed=1.0, is_background=False, tile_horizontal=False, tile_border=0, height_scale=None, fill_down=False, vertical_anchor="center"):
+    def __init__(self, asset_path, z_depth, vertical_percent, target_height=None, bob_amplitude=0, bob_frequency=0.0, scroll_speed=1.0, is_background=False, tile_horizontal=False, tile_border=0, height_scale=None, fill_down=False, vertical_anchor="center", x_offset: int = 0, y_offset: int = 0):
         self.z_depth = z_depth
         self.asset_path = Path(asset_path)
         self.vertical_percent = vertical_percent
@@ -19,6 +20,8 @@ class ParallaxLayer:
         self.height_scale = height_scale
         self.fill_down = fill_down
         self.vertical_anchor = vertical_anchor
+        self.x_offset = x_offset # Store x_offset
+        self.y_offset = y_offset # Store y_offset
         
         if self.asset_path.exists():
             original_image = pygame.image.load(str(self.asset_path)).convert_alpha()
@@ -61,16 +64,16 @@ class ParallaxLayer:
                 bottom_color = processed_image.get_at((w // 2, h - 1))
                 
                 # Create a new surface that can extend to the bottom of the screen
-                # The height is the original image height plus the screen height, 
-                # ensuring it can cover any vertical position.
                 new_h = h + screen_h 
                 filled_surface = pygame.Surface((w, new_h), pygame.SRCALPHA)
                 
-                # Fill the entire new surface with the bottom color
-                filled_surface.fill(bottom_color)
-
                 # Blit the original sprite onto the top of this new surface
                 filled_surface.blit(processed_image, (0, 0))
+                
+                # Fill the area *below* the original sprite with the bottom color
+                fill_rect = pygame.Rect(0, h, w, new_h - h)
+                filled_surface.fill(bottom_color, fill_rect)
+
                 self.image = filled_surface
             else:
                 self.image = processed_image
@@ -79,7 +82,7 @@ class ParallaxLayer:
             self.image.fill((255, 0, 255))
 
     @classmethod
-    def from_sprite_dir(cls, sprite_dir_path: str):
+    def from_sprite_dir(cls, sprite_dir_path: str, overrides: Optional[Dict[str, Any]] = None):
         sprite_dir = Path(sprite_dir_path)
         sprite_name = sprite_dir.name
         meta_path = sprite_dir / f"{sprite_name}.meta"
@@ -96,9 +99,13 @@ class ParallaxLayer:
             meta = json.load(f)
             logging.info(f"Loaded sprite '{sprite_name}' with metadata: {meta}")
 
+        if overrides:
+            # Merge overrides, giving precedence to scene-specific values
+            meta.update({k: v for k, v in overrides.items() if v is not None})
+
         return cls(
             asset_path=str(asset_path),
-            z_depth=meta.get("z_depth", 1),
+            z_depth=meta.get("z_depth", 1), # Now meta includes overrides for z_depth
             vertical_percent=meta.get("vertical_percent", 0.5),
             target_height=meta.get("target_height"),
             bob_amplitude=meta.get("bob_amplitude", 0),
@@ -109,7 +116,9 @@ class ParallaxLayer:
             tile_border=meta.get("tile_border", 0),
             height_scale=meta.get("height_scale"),
             fill_down=meta.get("fill_down", False),
-            vertical_anchor=meta.get("vertical_anchor", "center")
+            vertical_anchor=meta.get("vertical_anchor", "center"),
+            x_offset=meta.get("x_offset", 0), # Pass x_offset
+            y_offset=meta.get("y_offset", 0)  # Pass y_offset
         )
             
     def draw(self, screen, scroll_x):
@@ -159,11 +168,11 @@ class ParallaxLayer:
         bob_offset = 0
         if self.bob_amplitude > 0 and self.bob_frequency > 0:
             bob_offset = math.sin(scroll_x * self.bob_frequency) * self.bob_amplitude
-        y = base_y + bob_offset
+        y = base_y + bob_offset + self.y_offset # Add y_offset here
 
         if self.tile_horizontal:
             # Tiling logic for wide sprites like clouds
-            start_x = parallax_scroll % img_w_for_blit
+            start_x = (parallax_scroll + self.x_offset) % img_w_for_blit # Add x_offset here
             current_x = start_x - img_w_for_blit
             while current_x < screen_w:
                 screen.blit(image_to_draw, (current_x, y))
@@ -171,7 +180,7 @@ class ParallaxLayer:
         else:
             # Single-sprite logic for sprites like the boat
             wrap_width = screen_w + img_w_for_blit
-            x = parallax_scroll % wrap_width
+            x = (parallax_scroll + self.x_offset) % wrap_width # Add x_offset here
             draw_x = x - img_w_for_blit
             screen.blit(image_to_draw, (draw_x, y))
 
@@ -183,29 +192,65 @@ def run_theatre(scene_path: str = "story/scene1.json"):
     clock = pygame.time.Clock()
     scroll = 0
     
-    logging.info(f"Theatre initialized. Loading scene: {scene_path}")
-    
-    with open(scene_path, 'r') as f:
-        scene_config = json.load(f)
-
-    # Load all layers from the scene config
+    scene_file_path = Path(scene_path)
+    last_modified_time = 0
+    scene_config = {}
     scene_layers = []
     sprite_base_dir = Path("sprites")
-    for layer_data in scene_config.get("layers", []):
-        sprite_name = layer_data.get("sprite_name")
-        if sprite_name:
-            sprite_dir = sprite_base_dir / sprite_name
-            layer = ParallaxLayer.from_sprite_dir(str(sprite_dir))
-            scene_layers.append(layer)
+
+    def load_scene():
+        nonlocal scene_config, scene_layers, last_modified_time
+        try:
+            with open(scene_file_path, 'r') as f:
+                scene_config = json.load(f)
             
-    # Sort layers by z_depth to draw background first
-    scene_layers.sort(key=lambda layer: layer.z_depth, reverse=False)
+            new_scene_layers = []
+            for layer_data in scene_config.get("layers", []):
+                sprite_name = layer_data.get("sprite_name")
+                if sprite_name:
+                    sprite_dir = sprite_base_dir / sprite_name
+                    
+                    overrides = {
+                        "z_depth": layer_data.get("z_depth"),
+                        "vertical_percent": layer_data.get("vertical_percent"),
+                        "target_height": layer_data.get("target_height"),
+                        "bob_amplitude": layer_data.get("bob_amplitude"),
+                        "bob_frequency": layer_data.get("bob_frequency"),
+                        "scroll_speed": layer_data.get("scroll_speed"),
+                        "tile_horizontal": layer_data.get("tile_horizontal"),
+                        "fill_down": layer_data.get("fill_down"),
+                        "vertical_anchor": layer_data.get("vertical_anchor"),
+                        "is_background": layer_data.get("is_background"),
+                        "x_offset": layer_data.get("x_offset"),
+                        "y_offset": layer_data.get("y_offset")
+                    }
+                    filtered_overrides = {k: v for k, v in overrides.items() if v is not None}
+
+                    layer = ParallaxLayer.from_sprite_dir(str(sprite_dir), overrides=filtered_overrides)
+                    new_scene_layers.append(layer)
+                    
+            new_scene_layers.sort(key=lambda layer: layer.z_depth, reverse=False)
+            scene_layers = new_scene_layers
+            last_modified_time = os.path.getmtime(scene_file_path)
+            logging.info(f"Loaded {len(scene_layers)} layers. Scene reloaded due to file change.")
+        except Exception as e:
+            logging.error(f"Error reloading scene: {e}")
+
+    logging.info(f"Theatre initialized. Loading scene: {scene_path}")
+    import os # Import os for os.path.getmtime
+    load_scene() # Initial scene load
 
     logging.info(f"Loaded {len(scene_layers)} layers. Starting main theatre loop.")
     while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT: return
         
+        # Check for scene file changes
+        current_modified_time = os.path.getmtime(scene_file_path)
+        if current_modified_time != last_modified_time:
+            logging.info(f"Detected change in {scene_file_path}. Reloading scene...")
+            load_scene()
+
         scroll += 3 # Adjust this for speed
         screen.fill((200, 230, 255)) # Sky
         

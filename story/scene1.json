@@ -8,12 +8,13 @@
         {
             "sprite_name": "clouds"
         },
-        { "sprite_name": "wave6" },
-        { "sprite_name": "wave5" },
-        { "sprite_name": "wave4" },
-        { "sprite_name": "boat" },,
-        { "sprite_name": "wave1" }
-        { "sprite_name": "wave3" },
-        { "sprite_name": "wave2" }
+        { "sprite_name": "wave6", "vertical_percent": 0.62, "x_offset": 40, "y_offset": 70 },
+        { "sprite_name": "wave6", "vertical_percent": 0.64, "x_offset":  0, "y_offset": 70 },
+        { "sprite_name": "wave5", "vertical_percent": 0.68, "x_offset":  0, "y_offset": 70 },
+        { "sprite_name": "wave4", "vertical_percent": 0.70, "x_offset":  0, "y_offset": 70 },
+        { "sprite_name": "boat",  "vertical_percent": 0.67, "x_offset":  0, "y_offset": 70 },
+        { "sprite_name": "wave1", "vertical_percent": 0.72, "x_offset":  0, "y_offset": 70 },
+        { "sprite_name": "wave2", "vertical_percent": 0.75, "x_offset":  0, "y_offset": 70 },
+        { "sprite_name": "wave3", "vertical_percent": 0.80, "x_offset":  0, "y_offset": 70 }
     ]
 }

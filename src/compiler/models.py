@@ -15,7 +15,17 @@ class SceneLayer(BaseModel):
     sprite_name: str
     x_offset: int = 0
     y_offset: int = 0
-    scroll_speed: float = 0.0  # Horizontal movement speed
+    
+    # Optional overrides from SpriteMetadata
+    z_depth: Optional[int] = Field(None, ge=1, le=10, description="Layer depth: 1 (back) to 10 (front)")
+    vertical_percent: Optional[float] = None
+    target_height: Optional[int] = None
+    bob_amplitude: Optional[float] = None
+    bob_frequency: Optional[float] = None
+    scroll_speed: Optional[float] = None  # Horizontal movement speed
+    tile_horizontal: Optional[bool] = None
+    fill_down: Optional[bool] = None
+    vertical_anchor: Optional[str] = None
 
 class SceneConfig(BaseModel):
     """The master 'Stage Script' for a complete animation."""

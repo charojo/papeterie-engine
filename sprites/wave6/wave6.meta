@@ -1,6 +1,5 @@
 {
-    "z_depth": 3,
-    "vertical_percent": 1.0,
+    "vertical_percent": 0.95,
     "target_height": 80,
     "bob_amplitude": 1.5,
     "bob_frequency": 0.01,

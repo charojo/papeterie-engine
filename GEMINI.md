@@ -72,3 +72,7 @@ The project uses `uv` for dependency management.
     *   The `master` branch is protected; direct pushes are prohibited.
     *   All changes must be made on branches prefixed with `feature/` or `fix/`.
     *   Merges to `master` occur only via GitHub Pull Requests, and `uv run pytest` must pass for integration.
+
+## Project Backlog
+
+Future features, improvements, and bugs are tracked in `BACKLOG.md`. This file serves as a reference for unprioritized tasks and ideas that Gemini can consult for potential future work. When presenting new ideas or tasks for later implementation, please add them to `BACKLOG.md`.
