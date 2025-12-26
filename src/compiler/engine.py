@@ -28,6 +28,17 @@ class SpriteCompiler:
         self.prompt_path = Path("prompts")
         self.sprite_dir = Path("sprites")
 
+    def load_meta_fixup_prompt(self) -> str:
+        """Loads the system instruction templates for fixing metadata."""
+        path = self.prompt_path / "MetaFixupPrompt.prompt"
+        return path.read_text()
+
+    def fixup_metadata(self, raw_json_str: str, error_message: str) -> str:
+        fixup_prompt = self.load_meta_fixup_prompt()
+        full_prompt = f"""Original JSON (malformed):\n{raw_json_str}\nError: {error_message}\nPlease fix the JSON according to the rules.\n"""
+        print("Attempting fixup...")
+        return self.client.generate_metadata(fixup_prompt, full_prompt)
+
     def compile_sprite(self, sprite_name: str, user_description: str) -> SpriteMetadata:
         # 1. Load instructions
         system_meta = (self.prompt_path / "MetaPrompt.prompt").read_text()
@@ -44,8 +55,16 @@ class SpriteCompiler:
             
         except (ValidationError, json.JSONDecodeError) as e:
             print(f"Fixup required for {sprite_name}: {e}")
-            # This is where we will call MetaFixupPrompt in the next iteration!
-            raise e
+            # Attempt to fix the malformed JSON
+            try:
+                fixed_json_str = self.fixup_metadata(raw_json_str, str(e))
+                data = json.loads(fixed_json_str)
+                data["name"] = sprite_name # Ensure name is present after fixup
+                print(f"SUCCESS: Fixup applied for {sprite_name}.")
+                return SpriteMetadata(**data)
+            except (ValidationError, json.JSONDecodeError) as fixup_e:
+                print(f"ERROR: Fixup failed for {sprite_name}: {fixup_e}")
+                raise fixup_e # Re-raise if fixup also fails
 
     def save_metadata(self, sprite_name: str, metadata: SpriteMetadata):
         """Saves the compiled JSON next to the PNG."""

@@ -2,9 +2,11 @@ import pygame
 import sys
 from pathlib import Path
 import math
+import json
+import logging
 
 class ParallaxLayer:
-    def __init__(self, asset_path, z_depth, vertical_percent, target_height=None, bob_amplitude=0, bob_frequency=0):
+    def __init__(self, asset_path, z_depth, vertical_percent, target_height=None, bob_amplitude=0, bob_frequency=0.0):
         self.z_depth = z_depth
         self.asset_path = Path(asset_path)
         self.vertical_percent = vertical_percent
@@ -25,6 +27,26 @@ class ParallaxLayer:
         else:
             self.image = pygame.Surface((100, 50))
             self.image.fill((255, 0, 255))
+
+    @classmethod
+    def from_sprite_dir(cls, sprite_dir_path: str):
+        sprite_dir = Path(sprite_dir_path)
+        sprite_name = sprite_dir.name
+        meta_path = sprite_dir / f"{sprite_name}.meta"
+        asset_path = sprite_dir / f"{sprite_name}.png"
+
+        with open(meta_path, 'r') as f:
+            meta = json.load(f)
+            logging.info(f"Loaded sprite '{sprite_name}' with metadata: {meta}")
+
+        return cls(
+            asset_path=str(asset_path),
+            z_depth=meta.get("z_depth", 1),
+            vertical_percent=meta.get("vertical_percent", 0.5),
+            target_height=meta.get("target_height"),
+            bob_amplitude=meta.get("bob_amplitude", 0),
+            bob_frequency=meta.get("bob_frequency", 0.0)
+        )
             
     def draw(self, screen, scroll_x):
         screen_w, screen_h = screen.get_size()
@@ -57,21 +79,18 @@ class ParallaxLayer:
         screen.blit(self.image, (draw_x, y))
 
 def run_theatre():
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+    
     pygame.init()
     screen = pygame.display.set_mode((1280, 720))
     clock = pygame.time.Clock()
     scroll = 0
     
+    logging.info("Theatre initialized. Loading sprites...")
     # Let's place the boat at 70% down the screen (the "water line")
-    boat = ParallaxLayer(
-        "sprites/boat/boat.png", 
-        z_depth=2, 
-        vertical_percent=0.7, 
-        target_height=150,
-        bob_amplitude=5,
-        bob_frequency=0.05
-    )
+    boat = ParallaxLayer.from_sprite_dir("sprites/boat")
     
+    logging.info("Starting main theatre loop.")
     while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT: return
