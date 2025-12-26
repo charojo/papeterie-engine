@@ -5,5 +5,13 @@ You MUST return a JSON object with these EXACT keys:
 - "rotation_range": [min_float, max_float]
 - "z_depth": (integer between 1 and 10)
 - "opacity": (float between 0.0 and 1.0)
+- "environmental_reaction": (optional object if the sprite interacts with another layer)
 
-Example: {"frequency": 0.5, "amplitude_y": 10, "rotation_range": [-5, 5], "z_depth": 5, "opacity": 1.0}
+If the sprite's description implies interaction with another layer (e.g., a boat on waves), include an 'environmental_reaction' object with these EXACT keys:
+- "reaction_type": (string, currently only "pivot_on_crest")
+- "target_sprite_name": (string, the name of the sprite it reacts to, e.g., "wave1")
+- "max_tilt_angle": (float between 0.0 and 90.0)
+- "vertical_follow_factor": (float between 0.0 and 1.0, default 0.0, indicating how much the sprite's vertical position follows the environment)
+
+Example for a non-reacting sprite: {"frequency": 0.5, "amplitude_y": 10, "rotation_range": [-5, 5], "z_depth": 5, "opacity": 1.0}
+Example for a reacting sprite (boat on wave1): {"frequency": 0.3, "amplitude_y": 5, "rotation_range": [-2, 2], "z_depth": 7, "opacity": 1.0, "environmental_reaction": {"reaction_type": "pivot_on_crest", "target_sprite_name": "wave1", "max_tilt_angle": 15.0, "vertical_follow_factor": 0.2}}

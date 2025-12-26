@@ -1,5 +1,16 @@
 from pydantic import BaseModel, Field
 from typing import List, Tuple, Optional
+from enum import Enum
+
+class EnvironmentalReactionType(str, Enum):
+    PIVOT_ON_CREST = "pivot_on_crest"
+
+class EnvironmentalReaction(BaseModel):
+    """Defines how a sprite reacts to its environment."""
+    reaction_type: EnvironmentalReactionType = Field(..., description="The type of environmental reaction.")
+    target_sprite_name: str = Field(..., description="The name of the sprite layer this sprite reacts to.")
+    max_tilt_angle: float = Field(..., ge=0.0, le=90.0, description="Maximum tilt angle in degrees when reacting to the environment.")
+    vertical_follow_factor: float = Field(0.0, ge=0.0, le=1.0, description="How much the sprite's vertical position follows the environment (0.0 to 1.0).")
 
 class SpriteMetadata(BaseModel):
     """Schema for individual paper-cut assets."""
@@ -9,8 +20,7 @@ class SpriteMetadata(BaseModel):
     rotation_range: Tuple[float, float] = Field((-5.0, 5.0), description="Tilt range in degrees")
     z_depth: int = Field(..., ge=1, le=10, description="Layer depth: 1 (back) to 10 (front)")
     opacity: float = Field(1.0, ge=0.0, le=1.0)
-    reacts_to_environment: Optional[bool] = Field(None, description="Does this sprite react to the environment (e.g., pivot on a wave)?")
-    max_env_tilt: Optional[float] = Field(None, description="Maximum tilt angle in degrees when reacting to the environment.")
+    environmental_reaction: Optional[EnvironmentalReaction] = Field(None, description="Defines how this sprite reacts to its environment.")
 
 class SceneLayer(BaseModel):
     """Individual layer configuration within a story scene."""
@@ -28,8 +38,7 @@ class SceneLayer(BaseModel):
     tile_horizontal: Optional[bool] = None
     fill_down: Optional[bool] = None
     vertical_anchor: Optional[str] = None
-    reacts_to_environment: Optional[bool] = None # Allow scene override
-    max_env_tilt: Optional[float] = None        # Allow scene override
+    environmental_reaction: Optional[EnvironmentalReaction] = Field(None, description="Defines how this sprite reacts to its environment (scene override).")
 
 class SceneConfig(BaseModel):
     """The master 'Stage Script' for a complete animation."""

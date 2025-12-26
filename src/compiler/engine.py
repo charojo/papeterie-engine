@@ -7,16 +7,6 @@ from .models import SpriteMetadata
 # In a real setup, you'd use the Google Generative AI SDK here
 # For now, we'll build the orchestration logic
 
-class SpriteCompiler:
-    def __init__(self, sprite_dir: str = "sprites", prompt_dir: str = "prompts"):
-        self.sprite_dir = Path(sprite_dir)
-        self.prompt_dir = Path(prompt_dir)
-        
-    def load_meta_prompt(self, name: str) -> str:
-        """Loads the system instruction templates."""
-        path = self.prompt_dir / f"{name}.prompt"
-        return path.read_text()
-
 from .gemini_client import GeminiCompilerClient
 from .models import SpriteMetadata
 from pydantic import ValidationError
