@@ -173,7 +173,7 @@ class ParallaxLayer:
                 reacting_sprite_current_x = (parallax_scroll + self.x_offset + img_w_for_blit / 2)
 
                 # Sample the environment's Y at points slightly ahead and behind the sprite's center
-                sample_offset = img_w_for_blit / 4 # Sample a quarter of the boat's width away
+                sample_offset = 5.0 # Smaller fixed offset for more sensitive slope detection
                 
                 y_at_behind_point = environment_layer_for_tilt.get_y_at_x(screen_h, scroll_x, int(reacting_sprite_current_x - sample_offset))
                 y_at_ahead_point = environment_layer_for_tilt.get_y_at_x(screen_h, scroll_x, int(reacting_sprite_current_x + sample_offset))
@@ -188,14 +188,18 @@ class ParallaxLayer:
                 delta_y = y_at_behind_point - y_at_ahead_point
                 delta_x = 2 * sample_offset
 
+                raw_slope = 0.0
+                tilt_angle_deg = 0.0
                 if delta_x != 0:
                     raw_slope = delta_y / delta_x
                     tilt_angle_rad = math.atan(raw_slope)
                     tilt_angle_deg = math.degrees(tilt_angle_rad)
                     
-                    current_tilt = max(-self.environmental_reaction.max_tilt_angle, 
-                                       min(self.environmental_reaction.max_tilt_angle, 
-                                           tilt_angle_deg))
+                current_tilt = max(-self.environmental_reaction.max_tilt_angle, 
+                                   min(self.environmental_reaction.max_tilt_angle, 
+                                       tilt_angle_deg)) * 50
+
+                logging.info(f"DEBUG (Tilt Calc): Sprite '{self.asset_path.parent.name}': Y_behind={y_at_behind_point:.2f}, Y_ahead={y_at_ahead_point:.2f}, Delta_Y={delta_y:.2f}, Raw_Slope={raw_slope:.4f}, Tilt_Deg={tilt_angle_deg:.2f}, Final_Tilt={current_tilt:.2f}")
 
             # Else (if no environment_layer_for_tilt), current_tilt remains 0
             
