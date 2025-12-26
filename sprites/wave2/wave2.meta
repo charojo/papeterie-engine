@@ -1,0 +1,11 @@
+{
+    "z_depth": 8,
+    "vertical_percent": 0.80,
+    "target_height": 80,
+    "bob_amplitude": 3.5,
+    "bob_frequency": 0.05,
+    "scroll_speed": 0.4,
+    "tile_horizontal": true,
+    "fill_down": true,
+    "vertical_anchor": "top"
+}

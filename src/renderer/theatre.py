@@ -6,7 +6,7 @@ import json
 import logging
 
 class ParallaxLayer:
-    def __init__(self, asset_path, z_depth, vertical_percent, target_height=None, bob_amplitude=0, bob_frequency=0.0, scroll_speed=1.0, is_background=False, tile_horizontal=False, tile_border=0, height_scale=None):
+    def __init__(self, asset_path, z_depth, vertical_percent, target_height=None, bob_amplitude=0, bob_frequency=0.0, scroll_speed=1.0, is_background=False, tile_horizontal=False, tile_border=0, height_scale=None, fill_down=False, vertical_anchor="center"):
         self.z_depth = z_depth
         self.asset_path = Path(asset_path)
         self.vertical_percent = vertical_percent
@@ -17,6 +17,8 @@ class ParallaxLayer:
         self.tile_horizontal = tile_horizontal
         self.tile_border = tile_border
         self.height_scale = height_scale
+        self.fill_down = fill_down
+        self.vertical_anchor = vertical_anchor
         
         if self.asset_path.exists():
             original_image = pygame.image.load(str(self.asset_path)).convert_alpha()
@@ -27,25 +29,51 @@ class ParallaxLayer:
                 crop_rect = pygame.Rect(self.tile_border, 0, w - (2 * self.tile_border), h)
                 original_image = original_image.subsurface(crop_rect)
 
+            processed_image = original_image
             # 2. SCALING LOGIC (target_height vs height_scale)
             if self.height_scale is not None:
-                # height_scale takes precedence if present
-                # Check if display surface exists, otherwise default to a reasonable height
                 screen_surface = pygame.display.get_surface()
-                screen_h = screen_surface.get_height() if screen_surface else 720 
-
+                if screen_surface is None:
+                    raise RuntimeError("pygame.display.set_mode() must be called before creating ParallaxLayer with height_scale. Screen surface is None.")
+                screen_h = screen_surface.get_height()
                 target_h = int(screen_h * self.height_scale)
-                w, h = original_image.get_size()
+                w, h = processed_image.get_size()
                 aspect_ratio = w / h
                 target_w = int(target_h * aspect_ratio)
-                self.image = pygame.transform.smoothscale(original_image, (target_w, target_h))
+                processed_image = pygame.transform.smoothscale(processed_image, (target_w, target_h))
             elif target_height:
-                w, h = original_image.get_size()
+                w, h = processed_image.get_size()
                 aspect_ratio = w / h
                 target_width = int(target_height * aspect_ratio)
-                self.image = pygame.transform.smoothscale(original_image, (target_width, target_height))
+                processed_image = pygame.transform.smoothscale(processed_image, (target_width, target_height))
+            
+            self.original_image_size = processed_image.get_size() # Store original size after scaling
+
+            # 3. FILL DOWN LOGIC
+            if self.fill_down:
+                screen_surface = pygame.display.get_surface()
+                if screen_surface is None:
+                    raise RuntimeError("pygame.display.set_mode() must be called before creating ParallaxLayer with fill_down=True. Screen surface is None.")
+                screen_h = screen_surface.get_height()
+                w, h = processed_image.get_size()
+                
+                # Sample the bottom edge color
+                bottom_color = processed_image.get_at((w // 2, h - 1))
+                
+                # Create a new surface that can extend to the bottom of the screen
+                # The height is the original image height plus the screen height, 
+                # ensuring it can cover any vertical position.
+                new_h = h + screen_h 
+                filled_surface = pygame.Surface((w, new_h), pygame.SRCALPHA)
+                
+                # Fill the entire new surface with the bottom color
+                filled_surface.fill(bottom_color)
+
+                # Blit the original sprite onto the top of this new surface
+                filled_surface.blit(processed_image, (0, 0))
+                self.image = filled_surface
             else:
-                self.image = original_image
+                self.image = processed_image
         else:
             self.image = pygame.Surface((100, 50))
             self.image.fill((255, 0, 255))
@@ -55,7 +83,14 @@ class ParallaxLayer:
         sprite_dir = Path(sprite_dir_path)
         sprite_name = sprite_dir.name
         meta_path = sprite_dir / f"{sprite_name}.meta"
-        asset_path = sprite_dir / f"{sprite_name}.png"
+        
+        # Find the PNG asset dynamically, as filename might not exactly match sprite_name (e.g., "waves1.png" for "wave1")
+        png_files = list(sprite_dir.glob("*.png"))
+        if not png_files:
+            raise FileNotFoundError(f"No PNG asset found in sprite directory: {sprite_dir}")
+        if len(png_files) > 1:
+            logging.warning(f"Multiple PNG assets found in {sprite_dir}. Using the first one: {png_files[0]}")
+        asset_path = png_files[0]
 
         with open(meta_path, 'r') as f:
             meta = json.load(f)
@@ -72,7 +107,9 @@ class ParallaxLayer:
             is_background=meta.get("is_background", False),
             tile_horizontal=meta.get("tile_horizontal", False),
             tile_border=meta.get("tile_border", 0),
-            height_scale=meta.get("height_scale")
+            height_scale=meta.get("height_scale"),
+            fill_down=meta.get("fill_down", False),
+            vertical_anchor=meta.get("vertical_anchor", "center")
         )
             
     def draw(self, screen, scroll_x):
@@ -101,11 +138,24 @@ class ParallaxLayer:
             return 
 
         # Common calculations for all scrolling sprites
-        img_w, img_h = self.image.get_size()
-        image_to_draw = self.image
+        img_w_for_blit, img_h_for_blit = self.image.get_size()
+        image_to_draw = self.image # Re-added this line
+        
+        # Determine the height to use for vertical positioning
+        # If fill_down is true, we want to position the *original* sprite content, not the tall filled surface
+        img_h_for_positioning = self.original_image_size[1] if self.fill_down else img_h_for_blit
+
         parallax_scroll = scroll_x * self.scroll_speed
         
-        base_y = (screen_h * self.vertical_percent) - (img_h / 2)
+        # A single, consistent block for vertical positioning
+        base_y_from_top = screen_h * self.vertical_percent
+        if self.vertical_anchor == "bottom":
+            base_y = base_y_from_top - img_h_for_positioning
+        elif self.vertical_anchor == "top":
+            base_y = base_y_from_top
+        else: # Default to "center"
+            base_y = base_y_from_top - (img_h_for_positioning / 2)
+
         bob_offset = 0
         if self.bob_amplitude > 0 and self.bob_frequency > 0:
             bob_offset = math.sin(scroll_x * self.bob_frequency) * self.bob_amplitude
@@ -113,16 +163,16 @@ class ParallaxLayer:
 
         if self.tile_horizontal:
             # Tiling logic for wide sprites like clouds
-            start_x = parallax_scroll % img_w
-            current_x = start_x - img_w
+            start_x = parallax_scroll % img_w_for_blit
+            current_x = start_x - img_w_for_blit
             while current_x < screen_w:
                 screen.blit(image_to_draw, (current_x, y))
-                current_x += img_w
+                current_x += img_w_for_blit
         else:
             # Single-sprite logic for sprites like the boat
-            wrap_width = screen_w + img_w
+            wrap_width = screen_w + img_w_for_blit
             x = parallax_scroll % wrap_width
-            draw_x = x - img_w
+            draw_x = x - img_w_for_blit
             screen.blit(image_to_draw, (draw_x, y))
 
 def run_theatre(scene_path: str = "story/scene1.json"):
@@ -149,7 +199,7 @@ def run_theatre(scene_path: str = "story/scene1.json"):
             scene_layers.append(layer)
             
     # Sort layers by z_depth to draw background first
-    scene_layers.sort(key=lambda layer: layer.z_depth, reverse=True)
+    scene_layers.sort(key=lambda layer: layer.z_depth, reverse=False)
 
     logging.info(f"Loaded {len(scene_layers)} layers. Starting main theatre loop.")
     while True:

@@ -1,4 +1,7 @@
 {
+  "model": {
+    "name": "gemini-2.5-flash"
+  },
   "tools": {
     "core": [
       "run_shell_command",
@@ -8,12 +11,10 @@
       "list_directory"
     ]
   },
-
   "agentOptions": {
     "autoApprove": true,
     "allowFileSystemWrites": true
   },
-
   "context": {
     "fileName": [
       "AGENTS.md",
