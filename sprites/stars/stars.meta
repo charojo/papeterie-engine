@@ -3,6 +3,5 @@
     "target_height": 720,
     "bob_amplitude": 0,
     "bob_frequency": 0.0,
-    "scroll_speed": 0.0,
     "is_background": true
 }

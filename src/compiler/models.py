@@ -9,6 +9,8 @@ class SpriteMetadata(BaseModel):
     rotation_range: Tuple[float, float] = Field((-5.0, 5.0), description="Tilt range in degrees")
     z_depth: int = Field(..., ge=1, le=10, description="Layer depth: 1 (back) to 10 (front)")
     opacity: float = Field(1.0, ge=0.0, le=1.0)
+    reacts_to_environment: Optional[bool] = Field(None, description="Does this sprite react to the environment (e.g., pivot on a wave)?")
+    max_env_tilt: Optional[float] = Field(None, description="Maximum tilt angle in degrees when reacting to the environment.")
 
 class SceneLayer(BaseModel):
     """Individual layer configuration within a story scene."""
@@ -26,6 +28,8 @@ class SceneLayer(BaseModel):
     tile_horizontal: Optional[bool] = None
     fill_down: Optional[bool] = None
     vertical_anchor: Optional[str] = None
+    reacts_to_environment: Optional[bool] = None # Allow scene override
+    max_env_tilt: Optional[float] = None        # Allow scene override
 
 class SceneConfig(BaseModel):
     """The master 'Stage Script' for a complete animation."""

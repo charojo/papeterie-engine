@@ -7,7 +7,7 @@ import logging
 from typing import Dict, Any, Optional # Added Dict, Any, Optional
 
 class ParallaxLayer:
-    def __init__(self, asset_path, z_depth, vertical_percent, target_height=None, bob_amplitude=0, bob_frequency=0.0, scroll_speed=1.0, is_background=False, tile_horizontal=False, tile_border=0, height_scale=None, fill_down=False, vertical_anchor="center", x_offset: int = 0, y_offset: int = 0):
+    def __init__(self, asset_path, z_depth, vertical_percent, target_height=None, bob_amplitude=0, bob_frequency=0.0, scroll_speed=1.0, is_background=False, tile_horizontal=False, tile_border=0, height_scale=None, fill_down=False, vertical_anchor="center", x_offset: int = 0, y_offset: int = 0, reacts_to_environment: bool = False, max_env_tilt: float = 0.0):
         self.z_depth = z_depth
         self.asset_path = Path(asset_path)
         self.vertical_percent = vertical_percent
@@ -22,6 +22,8 @@ class ParallaxLayer:
         self.vertical_anchor = vertical_anchor
         self.x_offset = x_offset # Store x_offset
         self.y_offset = y_offset # Store y_offset
+        self.reacts_to_environment = reacts_to_environment # New: does this sprite react to environment
+        self.max_env_tilt = max_env_tilt         # New: max tilt when reacting
         
         if self.asset_path.exists():
             original_image = pygame.image.load(str(self.asset_path)).convert_alpha()
@@ -110,7 +112,7 @@ class ParallaxLayer:
             target_height=meta.get("target_height"),
             bob_amplitude=meta.get("bob_amplitude", 0),
             bob_frequency=meta.get("bob_frequency", 0.0),
-            scroll_speed=meta.get("scroll_speed", 1.0 / meta.get("z_depth", 1)),
+            scroll_speed=meta.get("scroll_speed", 0.0), # Default to 0.0 as it will be managed by scene
             is_background=meta.get("is_background", False),
             tile_horizontal=meta.get("tile_horizontal", False),
             tile_border=meta.get("tile_border", 0),
@@ -118,10 +120,12 @@ class ParallaxLayer:
             fill_down=meta.get("fill_down", False),
             vertical_anchor=meta.get("vertical_anchor", "center"),
             x_offset=meta.get("x_offset", 0), # Pass x_offset
-            y_offset=meta.get("y_offset", 0)  # Pass y_offset
+            y_offset=meta.get("y_offset", 0),  # Pass y_offset
+            reacts_to_environment=meta.get("reacts_to_environment", False), # Pass new field
+            max_env_tilt=meta.get("max_env_tilt", 0.0)           # Pass new field
         )
             
-    def draw(self, screen, scroll_x):
+    def draw(self, screen, scroll_x, environment_y: Optional[float] = None):
         screen_w, screen_h = screen.get_size()
 
         if self.is_background:
@@ -148,7 +152,7 @@ class ParallaxLayer:
 
         # Common calculations for all scrolling sprites
         img_w_for_blit, img_h_for_blit = self.image.get_size()
-        image_to_draw = self.image # Re-added this line
+        image_to_draw = self.image
         
         # Determine the height to use for vertical positioning
         # If fill_down is true, we want to position the *original* sprite content, not the tall filled surface
@@ -170,6 +174,23 @@ class ParallaxLayer:
             bob_offset = math.sin(scroll_x * self.bob_frequency) * self.bob_amplitude
         y = base_y + bob_offset + self.y_offset # Add y_offset here
 
+        current_tilt = 0
+        if self.reacts_to_environment and environment_y is not None and self.max_env_tilt > 0:
+            # Calculate tilt based on environment_y relative to sprite's y position
+            # Normalize the difference to a range of -1 to 1, then scale by max_env_tilt
+            # A simplistic approach for now, can be refined.
+            y_diff = (environment_y - y) / (img_h_for_positioning / 2) # Normalize by half sprite height
+            current_tilt = max(-self.max_env_tilt, min(self.max_env_tilt, y_diff * self.max_env_tilt))
+            
+            image_to_draw = pygame.transform.rotate(image_to_draw, current_tilt)
+            # Get a new rect for the rotated image, centered at the original desired position
+            rotated_rect = image_to_draw.get_rect(center=(parallax_scroll + self.x_offset + img_w_for_blit / 2, y + img_h_for_blit / 2))
+            draw_x = rotated_rect.x # Use top-left of the rotated rect for blitting
+            y = rotated_rect.y     # Use top-left of the rotated rect for blitting
+
+        else:
+            draw_x = (parallax_scroll + self.x_offset) % (screen_w + img_w_for_blit) - img_w_for_blit
+
         if self.tile_horizontal:
             # Tiling logic for wide sprites like clouds
             start_x = (parallax_scroll + self.x_offset) % img_w_for_blit # Add x_offset here
@@ -183,6 +204,30 @@ class ParallaxLayer:
             x = (parallax_scroll + self.x_offset) % wrap_width # Add x_offset here
             draw_x = x - img_w_for_blit
             screen.blit(image_to_draw, (draw_x, y))
+
+    def get_y_at_x(self, screen_h: int, scroll_x: int, x_coord: int) -> float:
+        """Calculates the y-coordinate of the sprite at a given x_coord."""
+        # This logic is a simplified version of what's in draw, focused on Y position.
+        img_h_for_blit = self.image.get_size()[1] # Get height of current image (could be rotated)
+        img_h_for_positioning = self.original_image_size[1] if self.fill_down else img_h_for_blit
+
+        parallax_scroll = scroll_x * self.scroll_speed
+        
+        base_y_from_top = screen_h * self.vertical_percent
+        if self.vertical_anchor == "bottom":
+            base_y = base_y_from_top - img_h_for_positioning
+        elif self.vertical_anchor == "top":
+            base_y = base_y_from_top
+        else: # Default to "center"
+            base_y = base_y_from_top - (img_h_for_positioning / 2)
+
+        bob_offset = 0
+        if self.bob_amplitude > 0 and self.bob_frequency > 0:
+            bob_offset = math.sin(scroll_x * self.bob_frequency) * self.bob_amplitude
+            
+        # This y is the top-left corner of the sprite's bounding box *before* any tilt
+        y = base_y + bob_offset + self.y_offset
+        return y
 
 def run_theatre(scene_path: str = "story/scene1.json"):
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -222,7 +267,9 @@ def run_theatre(scene_path: str = "story/scene1.json"):
                         "vertical_anchor": layer_data.get("vertical_anchor"),
                         "is_background": layer_data.get("is_background"),
                         "x_offset": layer_data.get("x_offset"),
-                        "y_offset": layer_data.get("y_offset")
+                        "y_offset": layer_data.get("y_offset"),
+                        "reacts_to_environment": layer_data.get("reacts_to_environment"), # New field
+                        "max_env_tilt": layer_data.get("max_env_tilt")           # New field
                     }
                     filtered_overrides = {k: v for k, v in overrides.items() if v is not None}
 
@@ -255,8 +302,36 @@ def run_theatre(scene_path: str = "story/scene1.json"):
         screen.fill((200, 230, 255)) # Sky
         
         # Draw all the layers in order
-        for layer in scene_layers:
-            layer.draw(screen, scroll)
+        layers_to_draw = []
+        environment_y_data = {}
+        screen_w, screen_h = screen.get_size()
+
+        # Iterate through layers from back to front to determine environment_y for reacting layers
+        for i, layer in enumerate(scene_layers):
+            if layer.reacts_to_environment:
+                # Find the layer directly behind this reacting layer (its environment)
+                environment_layer_index = i - 1
+                while environment_layer_index >= 0 and scene_layers[environment_layer_index].is_background:
+                    environment_layer_index -= 1
+
+                if environment_layer_index >= 0:
+                    env_layer = scene_layers[environment_layer_index]
+                    # For simplicity, calculate environment_y at the center of the reacting sprite
+                    # This can be made more sophisticated to sample across the sprite's width
+                    sprite_center_x = (scroll * layer.scroll_speed) % (screen_w + layer.image.get_size()[0]) + layer.x_offset + layer.image.get_size()[0] / 2
+                    
+                    # Ensure x_coord is relative to the environment layer's scrolling
+                    env_x_coord = sprite_center_x - (scroll * env_layer.scroll_speed)
+
+                    environment_y_data[layer] = env_layer.get_y_at_x(screen_h, scroll, int(env_x_coord))
+                else:
+                    environment_y_data[layer] = None # No environment layer found
+            layers_to_draw.append(layer)
+
+        # Now draw all layers, passing environment_y where applicable
+        for layer in layers_to_draw:
+            env_y = environment_y_data.get(layer) # Will be None if not reacting or no env found
+            layer.draw(screen, scroll, environment_y=env_y)
 
         pygame.display.flip()
         clock.tick(60)

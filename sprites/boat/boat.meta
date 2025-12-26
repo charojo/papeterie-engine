@@ -3,5 +3,6 @@
     "target_height": 150,
     "bob_amplitude": 5,
     "bob_frequency": 0.05,
-    "scroll_speed": 0.5
+    "reacts_to_environment": true,
+    "max_env_tilt": 10.0
 }

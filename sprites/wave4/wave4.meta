@@ -3,7 +3,6 @@
     "target_height": 80,
     "bob_amplitude": 2.5,
     "bob_frequency": 0.03,
-    "scroll_speed": 0.2,
     "tile_horizontal": true,
     "fill_down": true,
     "vertical_anchor": "top"
