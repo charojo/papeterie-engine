@@ -1,0 +1,61 @@
+digraph SystemArchitecture {
+    rankdir=TB;
+    node [shape=box, style=filled, fontname="Verdana", fontsize=10];
+    edge [fontname="Verdana", fontsize=9];
+
+    subgraph cluster_Layer1 {
+        label = "1. Creative Direction 🎭";
+        style=filled; color=lightgrey;
+        UI [label="Voice/Text UI", shape=ellipse, fillcolor=white];
+        SceneLog [label="docs/SCENE_BACKLOG.md", fillcolor=lightgreen];
+    }
+
+    subgraph cluster_Layer2 {
+        label = "2. Asset Foundry 🎨";
+        style=filled; color=lightgrey;
+        IS [label="Image Segmenter"];
+        MC [label="Metadata Compiler"];
+        Assets [label="assets/sprites/", shape=folder];
+    }
+
+    subgraph cluster_Layer3 {
+        label = "3. Technical Strategy 🏛️";
+        style=filled; color=lightgrey;
+        Arch [label="Architect Agent"];
+        Backlog [label="docs/BACKLOG.md", fillcolor=lightyellow];
+
+        subgraph cluster_Layer3_1 {
+            label = "3.1 Implementation 💻";
+            style=dashed; color=black;
+            Setup [label="docs/SETUP.md", fillcolor=lightcyan];
+            Dev [label="Developer Agent"];
+            Test [label="Tester Agent"];
+            Results [label="logs/feature.log", fillcolor=lightpink];
+        }
+
+        subgraph cluster_Layer3_2 {
+            label = "3.2 Deployment 📽️";
+            style=dashed; color=black;
+            TE [label="Theatre Engine"];
+            PS [label="Physics/Parallax Sim"];
+        }
+    }
+
+    UI -> SceneLog [label="Creative Intent"];
+    SceneLog -> IS [label="Asset Extraction"];
+    IS -> Assets [label="Segments"];
+    Assets -> MC [label="Metadata"];
+    
+    SceneLog -> Arch [label="Creative Goals"];
+    MC -> Arch [label="Metadata"];
+    Arch -> Backlog [label="Technical Tasks"];
+    
+    Backlog -> Setup [label="Env Reqs"];
+    Setup -> Dev [label="Context Ready"];
+    Dev -> Test [label="Verify"];
+    Test -> Results [label="Sparse Logs"];
+    
+    Results -> TE [label="Performance"];
+    TE -> PS [label="Render"];
+    PS -> Backlog [label="Reconciliation"];
+}

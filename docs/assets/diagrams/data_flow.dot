@@ -1,0 +1,22 @@
+digraph DataFlow {
+    rankdir=LR;
+    node [shape=box, style=filled, fillcolor=lightblue, fontname="Verdana"];
+    edge [fontname="Verdana", fontsize=10];
+
+    Dev [label="Developer", fillcolor=lightyellow];
+    SC [label="SpriteCompiler"];
+    AI [label="Gemini API", fillcolor=lightpink];
+    FS [label="FileSystem", shape=folder];
+    TR [label="Theatre Runtime", fillcolor=lightgreen];
+
+    Dev -> SC [label="1. Provide PNG\n  + Description"];
+    SC -> AI [label="2. Request\n  Metadata"];
+    AI -> SC [label="3. Return JSON"];
+    SC -> SC [label="4. Validate\n  (Pydantic)"];
+    SC -> AI [label="5. (If Fail)\n  Fixup Request", style=dashed];
+    AI -> SC [label="6. Fixed JSON", style=dashed];
+    SC -> FS [label="7. Save JSON"];
+    Dev -> TR [label="8. Launch Scene"];
+    FS -> TR [label="9. Load Assets"];
+    TR -> TR [label="10. Physics Loop"];
+}
