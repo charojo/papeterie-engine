@@ -19,8 +19,11 @@ Each object within the `layers` array in `sceneX.json` represents a `SceneLayer`
 *   `vertical_percent` (float, default: `0.5`): The vertical anchor point of the sprite, as a percentage of screen height. `0.0` is the top, `1.0` is the bottom. This value determines the `base_y` before `y_offset` or bobbing.
     *   **Interaction with `vertical_anchor`**: The `vertical_anchor` (defined in `sprite_design.md`) influences *which part* of the sprite is anchored by `vertical_percent`.
 *   `scroll_speed` (float, default: `0.0`): The horizontal scroll speed of the layer relative to the global scroll. `0.0` means no horizontal movement relative to the screen. Higher values move faster.
-*   `reacts_to_environment` (boolean, default: `false`): If `true`, this sprite will dynamically tilt or react to the vertical motion of the sprite directly behind it (its environment layer).
-*   `max_env_tilt` (float, default: `0.0`): The maximum tilt angle in degrees (positive or negative) that the sprite can achieve when `reacts_to_environment` is `true`.
+*   `environmental_reaction` (object, optional): Defines how this sprite reacts to its environment (see `environmental_reaction_design.md` for details).
+    *   `reaction_type` (string): e.g., "pivot_on_crest".
+    *   `target_sprite_name` (string): The layer to react to.
+    *   `max_tilt_angle` (float): Maximum tilt in degrees.
+    *   `vertical_follow_factor` (float): Degree of vertical surface following (0.0 to 1.0).
 *   `target_height` (integer, optional): Overrides the sprite's scaled height. If set, the sprite's image will be scaled to this height while preserving its aspect ratio.
 *   `bob_amplitude` (float, optional): Overrides the sprite's vertical bobbing amplitude in pixels.
 *   `bob_frequency` (float, optional): Overrides the sprite's vertical bobbing frequency in Hz.
@@ -44,18 +47,23 @@ Each object within the `layers` array in `sceneX.json` represents a `SceneLayer`
         {
             "sprite_name": "wave1",
             "z_depth": 5,
-            "vertical_percent": 0.8,
-            "scroll_speed": 0.2,
-            "x_offset": 50,
-            "y_offset": -10
+            "vertical_percent": 0.55,
+            "bob_amplitude": 4,
+            "bob_frequency": 0.06,
+            "tile_horizontal": true,
+            "fill_down": true
         },
         {
             "sprite_name": "boat",
             "z_depth": 6,
-            "vertical_percent": 0.75,
-            "scroll_speed": 0.2,
-            "reacts_to_environment": true,
-            "max_env_tilt": 15.0
+            "vertical_percent": 0.7,
+            "scroll_speed": 0.3,
+            "environmental_reaction": {
+                "reaction_type": "pivot_on_crest",
+                "target_sprite_name": "wave1",
+                "max_tilt_angle": 30.0,
+                "vertical_follow_factor": 0.35
+            }
         }
     ]
 }

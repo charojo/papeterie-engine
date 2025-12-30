@@ -1,5 +1,6 @@
 import pygame
 import sys
+import os
 from pathlib import Path
 import math
 import json
@@ -114,6 +115,66 @@ class ParallaxLayer:
             y_offset=meta.get("y_offset", 0),
             environmental_reaction=EnvironmentalReaction(**meta["environmental_reaction"]) if meta.get("environmental_reaction") else None
         )
+
+    def _get_base_y(self, screen_h: int) -> float:
+        """Calculate the Y coordinate before bobbing, following, or offsets."""
+        img_h_for_blit = self.image.get_size()[1]
+        img_h_for_positioning = self.original_image_size[1] if self.fill_down else img_h_for_blit
+        base_y_from_top = screen_h * self.vertical_percent
+        
+        if self.vertical_anchor == "bottom":
+            return base_y_from_top - img_h_for_positioning
+        elif self.vertical_anchor == "top":
+            return base_y_from_top
+        else: # Default to "center"
+            return base_y_from_top - (img_h_for_positioning / 2)
+
+    def _get_bob_offset(self, scroll_x: float, x_coord: Optional[int] = None) -> float:
+        """Calculate the bobbing offset at a specific scroll and optional screen X."""
+        if self.bob_amplitude <= 0 or self.bob_frequency <= 0:
+            return 0
+        
+        if x_coord is not None and self.tile_horizontal:
+            # Spatial bobbing for environment layers
+            spatial_phase = (scroll_x * self.scroll_speed) + (x_coord * 0.01)
+            return math.sin(spatial_phase * self.bob_frequency) * self.bob_amplitude
+        
+        return math.sin(scroll_x * self.bob_frequency) * self.bob_amplitude
+
+    def get_current_y(self, screen_h: int, scroll_x: float, x_coord: Optional[int] = None) -> float:
+        """Calculate the final Y coordinate including base position, bobbing, and Y offset."""
+        base_y = self._get_base_y(screen_h)
+        bob_offset = self._get_bob_offset(scroll_x, x_coord)
+        return base_y + bob_offset + self.y_offset
+
+    def get_current_tilt(self, screen_h: int, scroll_x: float, draw_x: float, img_w: int, environment_layer_for_tilt: Optional['ParallaxLayer']) -> float:
+        """Calculate the tilt angle based on environment slope."""
+        if not self.environmental_reaction or not environment_layer_for_tilt:
+            return 0
+        
+        if self.environmental_reaction.reaction_type != EnvironmentalReactionType.PIVOT_ON_CREST:
+            return 0
+
+        # Calculate the reacting sprite's current horizontal center on the screen
+        reacting_sprite_current_x = draw_x + img_w / 2
+
+        # Sample the environment's Y at points slightly ahead and behind the sprite's center
+        sample_offset = 2.0 
+        
+        y_at_behind_point = environment_layer_for_tilt.get_y_at_x(screen_h, scroll_x, int(reacting_sprite_current_x - sample_offset))
+        y_at_ahead_point = environment_layer_for_tilt.get_y_at_x(screen_h, scroll_x, int(reacting_sprite_current_x + sample_offset))
+        
+        delta_y = y_at_behind_point - y_at_ahead_point
+        delta_x = 2 * sample_offset
+        raw_slope = delta_y / delta_x if delta_x != 0 else 0
+        
+        # Apply sensitivity factor and start-of-scene ramp-in
+        start_ramp = min(1.0, scroll_x / 300.0) if scroll_x > 0 else 0
+        tilt_angle_deg = math.degrees(math.atan(raw_slope)) * 50.0 * start_ramp
+        
+        return max(-self.environmental_reaction.max_tilt_angle, 
+                   min(self.environmental_reaction.max_tilt_angle, 
+                       tilt_angle_deg))
             
     def draw(self, screen, scroll_x, environment_y: Optional[float] = None, environment_layer_for_tilt: Optional['ParallaxLayer'] = None):
         screen_w, screen_h = screen.get_size()
@@ -145,57 +206,19 @@ class ParallaxLayer:
         img_h_for_positioning = self.original_image_size[1] if self.fill_down else img_h_for_blit
 
         parallax_scroll = scroll_x * self.scroll_speed
-        
-        base_y_from_top = screen_h * self.vertical_percent
-        if self.vertical_anchor == "bottom":
-            base_y = base_y_from_top - img_h_for_positioning
-        elif self.vertical_anchor == "top":
-            base_y = base_y_from_top
-        else: # Default to "center"
-            base_y = base_y_from_top - (img_h_for_positioning / 2)
-
-        bob_offset = 0
-        if self.bob_amplitude > 0 and self.bob_frequency > 0:
-            bob_offset = math.sin(scroll_x * self.bob_frequency) * self.bob_amplitude
-        y = base_y + bob_offset + self.y_offset
+        y = self.get_current_y(screen_h, scroll_x)
 
         # Calculate initial draw_x for horizontal wrapping/positioning
         wrap_width = screen_w + img_w_for_blit
         x = (parallax_scroll + self.x_offset) % wrap_width
         draw_x = x - img_w_for_blit
 
-        current_tilt = 0
         if self.environmental_reaction and environment_y is not None and self.environmental_reaction.reaction_type == EnvironmentalReactionType.PIVOT_ON_CREST:
             # Apply vertical following if configured, BEFORE calculating tilt
             if self.environmental_reaction.vertical_follow_factor > 0:
                 y = environment_y - (img_h_for_positioning * (1 - self.environmental_reaction.vertical_follow_factor))
 
-            # Now, calculate tilt based on wave slope
-            if environment_layer_for_tilt is not None:
-                # Calculate the reacting sprite's current horizontal center on the screen
-                reacting_sprite_current_x = draw_x + img_w_for_blit / 2
-
-                # Sample the environment's Y at points slightly ahead and behind the sprite's center
-                sample_offset = 2.0 
-                
-                y_at_behind_point = environment_layer_for_tilt.get_y_at_x(screen_h, scroll_x, int(reacting_sprite_current_x - sample_offset))
-                y_at_ahead_point = environment_layer_for_tilt.get_y_at_x(screen_h, scroll_x, int(reacting_sprite_current_x + sample_offset))
-                
-                # Slope calculation: (change in Y) / (change in X)
-                # Note: A higher Y value means lower on screen.
-                # y_at_behind_point - y_at_ahead_point will be positive when rising (bow up)
-                delta_y = y_at_behind_point - y_at_ahead_point
-                delta_x = 2 * sample_offset
-
-                raw_slope = delta_y / delta_x if delta_x != 0 else 0
-                # Apply extremely high sensitivity factor to make even subtle wave slopes result in near-max tilt
-                # Also apply a ramp-in factor based on scroll_x to ensure it "begins even" (0 tilt at start)
-                start_ramp = min(1.0, scroll_x / 300.0) if scroll_x > 0 else 0
-                tilt_angle_deg = math.degrees(math.atan(raw_slope)) * 50.0 * start_ramp
-                
-                current_tilt = max(-self.environmental_reaction.max_tilt_angle, 
-                                   min(self.environmental_reaction.max_tilt_angle, 
-                                       tilt_angle_deg))
+            current_tilt = self.get_current_tilt(screen_h, scroll_x, draw_x, img_w_for_blit, environment_layer_for_tilt)
             
             image_to_draw = pygame.transform.rotate(image_to_draw, current_tilt)
             # Use the already calculated draw_x for the center calculation
@@ -212,194 +235,155 @@ class ParallaxLayer:
         else:
             screen.blit(image_to_draw, (draw_x, y))
 
-    def get_y_at_x(self, screen_h: int, scroll_x: int, x_coord: int) -> float:
-        img_h_for_blit = self.image.get_size()[1]
-        img_h_for_positioning = self.original_image_size[1] if self.fill_down else img_h_for_blit
-
-        parallax_scroll = scroll_x * self.scroll_speed
-        
-        base_y_from_top = screen_h * self.vertical_percent
-        if self.vertical_anchor == "bottom":
-            base_y = base_y_from_top - img_h_for_positioning
-        elif self.vertical_anchor == "top":
-            base_y = base_y_from_top
-        else: # Default to "center"
-            base_y = base_y_from_top - (img_h_for_positioning / 2)
-
-        bob_offset = 0
-        if self.bob_amplitude > 0 and self.bob_frequency > 0:
-            if self.tile_horizontal:
-                spatial_phase = (scroll_x * self.scroll_speed) + (x_coord * 0.01)
-                bob_offset = math.sin(spatial_phase * self.bob_frequency) * self.bob_amplitude
-            else:
-                bob_offset = math.sin(scroll_x * self.bob_frequency) * self.bob_amplitude
-            
-        effective_y = base_y + bob_offset + self.y_offset
-        logging.debug(f"Environment: Layer '{self.asset_path.parent.name}' (z={self.z_depth}) at x_coord={x_coord}: effective_y={effective_y:.2f}") # Reverted to debug
+    def get_y_at_x(self, screen_h: int, scroll_x: float, x_coord: int) -> float:
+        effective_y = self.get_current_y(screen_h, scroll_x, x_coord)
+        logging.debug(f"Environment: Layer '{self.asset_path.parent.name}' (z={self.z_depth}) at x_coord={x_coord}: effective_y={effective_y:.2f}")
         return effective_y
 
-def run_theatre(scene_path: str = "assets/story/scene1.json"):
-    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', force=True)
-    
-    pygame.init()
-    screen = pygame.display.set_mode((1280, 720))
-    clock = pygame.time.Clock()
-    scroll = 0
-    
-    scene_file_path = Path(scene_path)
-    last_modified_time = 0
-    scene_config = {}
-    scene_layers = []
-    sprite_base_dir = Path("assets/sprites")
+class Theatre:
+    def __init__(self, scene_path: str = "assets/story/scene1.json", width: int = 1280, height: int = 720):
+        logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', force=True)
+        
+        if not pygame.get_init():
+            pygame.init()
+            
+        self.screen = pygame.display.set_mode((width, height))
+        self.clock = pygame.time.Clock()
+        self.scroll = 0
+        self.scene_path = Path(scene_path)
+        self.last_modified_time = 0
+        self.layers: list[ParallaxLayer] = []
+        self.sprite_base_dir = Path("assets/sprites")
 
-    # Initialize persistent state variables here
-    previous_env_y: Dict[str, float] = {}
-    env_y_direction: Dict[str, int] = {} # 1 for up, -1 for down, 0 for no change
-    max_positive_tilts: Dict[str, float] = {}
-    min_negative_tilts: Dict[str, float] = {}
+        # Persistent state for environmental reactions
+        self.previous_env_y: Dict[str, float] = {}
+        self.env_y_direction: Dict[str, int] = {} # 1 for up, -1 for down, 0 for no change
 
-    def load_scene():
-        # Use nonlocal to modify variables in the enclosing run_theatre scope
-        nonlocal scene_config, scene_layers, last_modified_time, previous_env_y, env_y_direction, max_positive_tilts, min_negative_tilts
+        self.load_scene()
+        logging.info(f"Theatre initialized. Main loop starting.")
+
+    def load_scene(self):
+        """Load or reload the scene from the JSON configuration."""
         try:
-            with open(scene_file_path, 'r') as f:
+            with open(self.scene_path, 'r') as f:
                 scene_config = json.load(f)
             
-            # Clear previous state for new scene
-            previous_env_y.clear()
-            env_y_direction.clear()
-            max_positive_tilts.clear()
-            min_negative_tilts.clear()
+            # Reset state for new scene
+            self.previous_env_y.clear()
+            self.env_y_direction.clear()
 
-            new_scene_layers = []
+            new_layers = []
             for layer_data in scene_config.get("layers", []):
                 sprite_name = layer_data.get("sprite_name")
-                if sprite_name:
-                    sprite_dir = sprite_base_dir / sprite_name
+                if not sprite_name:
+                    continue
                     
-                    overrides = {
-                        "z_depth": layer_data.get("z_depth"),
-                        "vertical_percent": layer_data.get("vertical_percent"),
-                        "target_height": layer_data.get("target_height"),
-                        "bob_amplitude": layer_data.get("bob_amplitude"),
-                        "bob_frequency": layer_data.get("bob_frequency"),
-                        "scroll_speed": layer_data.get("scroll_speed"),
-                        "tile_horizontal": layer_data.get("tile_horizontal"),
-                        "fill_down": layer_data.get("fill_down"),
-                        "vertical_anchor": layer_data.get("vertical_anchor"),
-                        "is_background": layer_data.get("is_background"),
-                        "x_offset": layer_data.get("x_offset"),
-                        "y_offset": layer_data.get("y_offset"),
-                        "environmental_reaction": layer_data.get("environmental_reaction")
-                    }
-                    filtered_overrides = {k: v for k, v in overrides.items() if v is not None}
+                overrides = {k: layer_data.get(k) for k in [
+                    "z_depth", "vertical_percent", "target_height", 
+                    "bob_amplitude", "bob_frequency", "scroll_speed", 
+                    "tile_horizontal", "fill_down", "vertical_anchor", 
+                    "is_background", "x_offset", "y_offset", "environmental_reaction"
+                ]}
+                filtered_overrides = {k: v for k, v in overrides.items() if v is not None}
 
-                    layer = ParallaxLayer.from_sprite_dir(str(sprite_dir), overrides=filtered_overrides)
-                    new_scene_layers.append(layer)
-                    
-            new_scene_layers.sort(key=lambda layer: layer.z_depth, reverse=False)
-            scene_layers = new_scene_layers
-            last_modified_time = os.path.getmtime(scene_file_path)
-            logging.info(f"Loaded {len(scene_layers)} layers. Scene reloaded due to file change.")
-
-            layers_by_name_debug = {layer.asset_path.parent.name: layer.z_depth for layer in scene_layers}
-            logging.info(f"DEBUG (load_scene): layers_by_name: {layers_by_name_debug}")
+                layer = ParallaxLayer.from_sprite_dir(str(self.sprite_base_dir / sprite_name), overrides=filtered_overrides)
+                new_layers.append(layer)
+                
+            new_layers.sort(key=lambda layer: layer.z_depth)
+            self.layers = new_layers
+            self.last_modified_time = os.path.getmtime(self.scene_path)
+            logging.info(f"Loaded {len(self.layers)} layers. Scene reloaded due to file change.")
 
         except Exception as e:
-            logging.error(f"Error reloading scene: {e}")
+            logging.error(f"Error loading scene: {e}")
 
-    logging.info(f"Theatre initialized. Loading scene: {scene_path}")
-    import os
-    load_scene()
+    def _detect_peaks_and_valleys(self, layer: ParallaxLayer, env_layer: ParallaxLayer, current_env_y: float):
+        """Analyze environmental Y changes to detect and log peaks/valleys."""
+        env_name = env_layer.asset_path.parent.name
+        prev_y = self.previous_env_y.get(env_name)
+        prev_dir = self.env_y_direction.get(env_name, 0)
 
-    logging.info(f"Loaded {len(scene_layers)} layers. Starting main theatre loop.")
-    while True:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT: return
-        
-        current_modified_time = os.path.getmtime(scene_file_path)
-        if current_modified_time != last_modified_time:
-            logging.info(f"Detected change in {scene_file_path}. Reloading scene...")
-            load_scene()
+        current_dir = 0
+        if prev_y is not None:
+            if current_env_y > prev_y:
+                current_dir = -1 # Falling (on screen Y increases)
+            elif current_env_y < prev_y:
+                current_dir = 1  # Rising (on screen Y decreases)
 
-        scroll += 3
-        screen.fill((200, 230, 255))
-        
-        layers_to_draw = []
-        environment_y_data = {}
-        screen_w, screen_h = screen.get_size()
-        
-        layers_by_name = {layer.asset_path.parent.name: layer for layer in scene_layers}
+        if prev_dir != 0 and current_dir != 0 and (prev_dir * current_dir < 0):
+            peak_or_valley = "Peak  " if current_dir == -1 else "Valley"
+            
+            # Synchronized tilt calculation for logging
+            img_w = layer.image.get_size()[0]
+            parallax_scroll = self.scroll * layer.scroll_speed
+            draw_x = (parallax_scroll + layer.x_offset) % (self.screen.get_width() + img_w) - img_w
+            
+            tilt = layer.get_current_tilt(self.screen.get_height(), self.scroll, draw_x, img_w, env_layer)
+            
+            logging.info(f"{peak_or_valley} Detected! Environment '{env_name}' (Env_y={current_env_y:.2f}) at scroll={self.scroll}. Reacting Sprite '{layer.asset_path.parent.name}': Tilt={tilt:.2f}")
 
-        for layer in scene_layers:
-            if layer.environmental_reaction:
-                target_sprite_name = layer.environmental_reaction.target_sprite_name
-                env_layer = layers_by_name.get(target_sprite_name)
+        self.previous_env_y[env_name] = current_env_y
+        self.env_y_direction[env_name] = current_dir
+
+    def run(self):
+        """The main theatre loop."""
+        while True:
+            # 1. Handle Events
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    return
+
+            # 2. Check for scene file changes
+            if os.path.getmtime(self.scene_path) != self.last_modified_time:
+                logging.info(f"Detected change in {self.scene_path}. Reloading...")
+                self.load_scene()
+
+            # 3. Update State
+            self.scroll += 3
+            screen_w, screen_h = self.screen.get_size()
+            
+            # 4. Render
+            self.screen.fill((200, 230, 255))
+            
+            # Map layers by name for reactive lookups
+            layers_by_name = {l.asset_path.parent.name: l for l in self.layers}
+            environment_y_data = {}
+
+            # Phase 1: Pre-calculate environmental data
+            for layer in self.layers:
+                if not layer.environmental_reaction:
+                    continue
+                    
+                target_name = layer.environmental_reaction.target_sprite_name
+                env_layer = layers_by_name.get(target_name)
                 
                 if env_layer:
-                    reacting_sprite_current_x = (scroll * layer.scroll_speed) + layer.x_offset + layer.image.get_size()[0] / 2
+                    # Determine reacting sprite center X for sampling
+                    img_w = layer.image.get_size()[0]
+                    parallax_scroll = self.scroll * layer.scroll_speed
+                    draw_x = (parallax_scroll + layer.x_offset) % (screen_w + img_w) - img_w
+                    center_x = draw_x + img_w / 2
                     
-                    current_env_y = env_layer.get_y_at_x(screen_h, scroll, int(reacting_sprite_current_x))
-                    environment_y_data[layer] = current_env_y
+                    env_y = env_layer.get_y_at_x(screen_h, self.scroll, int(center_x))
+                    environment_y_data[layer] = env_y
+                    
+                    self._detect_peaks_and_valleys(layer, env_layer, env_y)
 
-                    env_layer_name = env_layer.asset_path.parent.name
-                    prev_y = previous_env_y.get(env_layer_name) 
-                    prev_direction = env_y_direction.get(env_layer_name, 0)
+            # Phase 2: Draw all layers
+            for layer in self.layers:
+                env_y = environment_y_data.get(layer)
+                env_layer_for_tilt = None
+                if layer.environmental_reaction:
+                    env_layer_for_tilt = layers_by_name.get(layer.environmental_reaction.target_sprite_name)
+                
+                layer.draw(self.screen, self.scroll, env_y, env_layer_for_tilt)
 
-                    current_direction = 0
-                    if prev_y is not None:
-                        if current_env_y > prev_y:
-                            current_direction = -1
-                        elif current_env_y < prev_y:
-                            current_direction = 1
-                        
-                    if prev_direction != 0 and current_direction != 0 and (prev_direction * current_direction < 0):
-                        peak_or_valley = "Peak  " if current_direction == -1 else "Valley"
-                        
-                        img_h_for_positioning = layer.original_image_size[1] if layer.fill_down else layer.image.get_size()[1]
-                        
-                        base_y_from_top = screen_h * layer.vertical_percent
-                        if layer.vertical_anchor == "bottom":
-                            base_y = base_y_from_top - img_h_for_positioning
-                        elif layer.vertical_anchor == "top":
-                            base_y = base_y_from_top
-                        else:
-                            base_y = base_y_from_top - (img_h_for_positioning / 2)
+            pygame.display.flip()
+            self.clock.tick(60)
 
-                        bob_offset = 0
-                        if layer.bob_amplitude > 0 and layer.bob_frequency > 0:
-                            bob_offset = math.sin(scroll * layer.bob_frequency) * layer.bob_amplitude
-                        reacting_sprite_current_y = base_y + bob_offset + layer.y_offset
-
-                        # Calculate slope-based tilt for logging
-                        sample_offset = 2.0
-                        y_at_behind = env_layer.get_y_at_x(screen_h, scroll, int(reacting_sprite_current_x - sample_offset))
-                        y_at_ahead = env_layer.get_y_at_x(screen_h, scroll, int(reacting_sprite_current_x + sample_offset))
-                        delta_y = y_at_behind - y_at_ahead
-                        delta_x = 2 * sample_offset
-                        raw_slope = delta_y / delta_x if delta_x != 0 else 0
-                        start_ramp = min(1.0, scroll / 300.0) if scroll > 0 else 0
-                        tilt_angle_deg = math.degrees(math.atan(raw_slope)) * 50.0 * start_ramp
-                        current_tilt_for_log = max(-layer.environmental_reaction.max_tilt_angle, min(layer.environmental_reaction.max_tilt_angle, tilt_angle_deg))
-                        
-                        logging.info(f"{peak_or_valley} Detected! Environment '{env_layer_name}' (Env_y={current_env_y:.2f}) at x_coord={int(reacting_sprite_current_x)}. Reacting Sprite '{layer.asset_path.parent.name}': Tilt={current_tilt_for_log:.2f}")
-
-                    previous_env_y[env_layer_name] = current_env_y
-                    env_y_direction[env_layer_name] = current_direction
-                    prev_y_display = 'None' if prev_y is None else f'{prev_y:.2f}'
-                    logging.debug(f"DEBUG (Frame End - {env_layer_name}): current_env_y: {current_env_y:.2f}, prev_y: {prev_y_display}, current_direction: {current_direction}, prev_direction: {prev_direction}")
-
-                else:
-                    environment_y_data[layer] = None
-            layers_to_draw.append(layer)
-
-        for layer in layers_to_draw:
-            env_y = environment_y_data.get(layer)
-            env_layer_for_tilt = layers_by_name.get(layer.environmental_reaction.target_sprite_name) if layer.environmental_reaction else None
-            layer.draw(screen, scroll, environment_y=env_y, environment_layer_for_tilt=env_layer_for_tilt)
-
-        pygame.display.flip()
-        clock.tick(60)
+def run_theatre(scene_path: str = "assets/story/scene1.json"):
+    theatre = Theatre(scene_path)
+    theatre.run()
 
 if __name__ == "__main__":
     run_theatre()

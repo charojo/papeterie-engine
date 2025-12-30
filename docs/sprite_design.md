@@ -12,8 +12,8 @@ This document outlines the principles for designing individual sprites and their
 Each `.meta` file (e.g., `boat.meta`) is a JSON file defining the following properties:
 
 *   `name` (string, **inferred from directory name**): The logical name of the sprite, used to link `.png`, `.prompt`, and `.meta` files. Not explicitly in the `.meta` file itself.
-*   `frequency` (float, range: `0.1-2.0`, default: `0.5`): The oscillation speed of the sprite's bobbing motion in Hertz (cycles per second).
-*   `amplitude_y` (integer, range: `0-100`, default: `0`): The vertical amplitude of the sprite's bobbing motion in pixels.
+*   `bob_frequency` (float, range: `0.01-2.0`, default: `0.1`): The oscillation speed of the sprite's bobbing motion in Hertz (cycles per second).
+*   `bob_amplitude` (float, range: `0-100`, default: `0`): The vertical amplitude of the sprite's bobbing motion in pixels.
 *   `rotation_range` (tuple of floats, default: `(-5.0, 5.0)`): A tuple `[min_degrees, max_degrees]` defining the range of tilt (rotation) for the sprite. Used for subtle, inherent sprite movements.
 *   `opacity` (float, range: `0.0-1.0`, default: `1.0`): The transparency of the sprite, where `0.0` is fully transparent and `1.0` is fully opaque.
 *   `target_height` (integer, optional): The target height in pixels to which the sprite's image should be scaled. If specified, the image is scaled to this height while preserving its aspect ratio.
@@ -30,12 +30,15 @@ Each `.meta` file (e.g., `boat.meta`) is a JSON file defining the following prop
 
 ```json
 {
-    "frequency": 0.5,
-    "amplitude_y": 10,
-    "rotation_range": [-2.0, 2.0],
-    "opacity": 1.0,
+    "vertical_percent": 0.7,
     "target_height": 150,
-    "bob_frequency": 0.05,
-    "bob_amplitude": 5
+    "bob_amplitude": 1,
+    "bob_frequency": 0.005,
+    "environmental_reaction": {
+        "reaction_type": "pivot_on_crest",
+        "target_sprite_name": "wave1",
+        "max_tilt_angle": 30.0,
+        "vertical_follow_factor": 0.35
+    }
 }
 ```
