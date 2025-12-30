@@ -159,57 +159,49 @@ class ParallaxLayer:
             bob_offset = math.sin(scroll_x * self.bob_frequency) * self.bob_amplitude
         y = base_y + bob_offset + self.y_offset
 
+        # Calculate initial draw_x for horizontal wrapping/positioning
+        wrap_width = screen_w + img_w_for_blit
+        x = (parallax_scroll + self.x_offset) % wrap_width
+        draw_x = x - img_w_for_blit
+
         current_tilt = 0
         if self.environmental_reaction and environment_y is not None and self.environmental_reaction.reaction_type == EnvironmentalReactionType.PIVOT_ON_CREST:
             # Apply vertical following if configured, BEFORE calculating tilt
             if self.environmental_reaction.vertical_follow_factor > 0:
-                # Calculate the target y where the boat should be, ensuring it's 'vertical_follow_factor' into the wave
-                # This means the top of the boat will be at environment_y - (boat_height * (1 - factor))
                 y = environment_y - (img_h_for_positioning * (1 - self.environmental_reaction.vertical_follow_factor))
 
             # Now, calculate tilt based on wave slope
             if environment_layer_for_tilt is not None:
                 # Calculate the reacting sprite's current horizontal center on the screen
-                reacting_sprite_current_x = (parallax_scroll + self.x_offset + img_w_for_blit / 2)
+                reacting_sprite_current_x = draw_x + img_w_for_blit / 2
 
                 # Sample the environment's Y at points slightly ahead and behind the sprite's center
-                sample_offset = 5.0 # Smaller fixed offset for more sensitive slope detection
+                sample_offset = 2.0 
                 
                 y_at_behind_point = environment_layer_for_tilt.get_y_at_x(screen_h, scroll_x, int(reacting_sprite_current_x - sample_offset))
                 y_at_ahead_point = environment_layer_for_tilt.get_y_at_x(screen_h, scroll_x, int(reacting_sprite_current_x + sample_offset))
                 
                 # Slope calculation: (change in Y) / (change in X)
-                # A higher Y value means lower on the screen.
-                # If y_at_ahead_point is smaller (higher on screen) than y_at_behind_point, the wave is rising -> bow up (positive tilt)
-                # If y_at_ahead_point is larger (lower on screen) than y_at_behind_point, the wave is falling -> bow down (negative tilt)
-                
-                # The difference `y_at_behind_point - y_at_ahead_point` will be positive when rising (bow up)
-                # and negative when falling (bow down).
+                # Note: A higher Y value means lower on screen.
+                # y_at_behind_point - y_at_ahead_point will be positive when rising (bow up)
                 delta_y = y_at_behind_point - y_at_ahead_point
                 delta_x = 2 * sample_offset
 
-                raw_slope = 0.0
-                tilt_angle_deg = 0.0
-                if delta_x != 0:
-                    raw_slope = delta_y / delta_x
-                    tilt_angle_rad = math.atan(raw_slope)
-                    tilt_angle_deg = math.degrees(tilt_angle_rad) * 50.0  # Apply a scaling factor
-                    
+                raw_slope = delta_y / delta_x if delta_x != 0 else 0
+                # Apply extremely high sensitivity factor to make even subtle wave slopes result in near-max tilt
+                # Also apply a ramp-in factor based on scroll_x to ensure it "begins even" (0 tilt at start)
+                start_ramp = min(1.0, scroll_x / 300.0) if scroll_x > 0 else 0
+                tilt_angle_deg = math.degrees(math.atan(raw_slope)) * 50.0 * start_ramp
+                
                 current_tilt = max(-self.environmental_reaction.max_tilt_angle, 
                                    min(self.environmental_reaction.max_tilt_angle, 
-                                       tilt_angle_deg)) 
-
-                logging.debug(f"DEBUG (Tilt Calc): Sprite '{self.asset_path.parent.name}': Y_behind={y_at_behind_point:.2f}, Y_ahead={y_at_ahead_point:.2f}, Delta_Y={delta_y:.2f}, Raw_Slope={raw_slope:.4f}, Tilt_Deg={tilt_angle_deg:.2f}, Final_Tilt={current_tilt:.2f}")
-
-            # Else (if no environment_layer_for_tilt), current_tilt remains 0
+                                       tilt_angle_deg))
             
             image_to_draw = pygame.transform.rotate(image_to_draw, current_tilt)
-            rotated_rect = image_to_draw.get_rect(center=(parallax_scroll + self.x_offset + img_w_for_blit / 2, y + img_h_for_blit / 2))
+            # Use the already calculated draw_x for the center calculation
+            rotated_rect = image_to_draw.get_rect(center=(draw_x + img_w_for_blit / 2, y + img_h_for_blit / 2))
             draw_x = rotated_rect.x
             y = rotated_rect.y
-
-        else:
-            draw_x = (parallax_scroll + self.x_offset) % (screen_w + img_w_for_blit) - img_w_for_blit
 
         if self.tile_horizontal:
             start_x = (parallax_scroll + self.x_offset) % img_w_for_blit
@@ -218,9 +210,6 @@ class ParallaxLayer:
                 screen.blit(image_to_draw, (current_x, y))
                 current_x += img_w_for_blit
         else:
-            wrap_width = screen_w + img_w_for_blit
-            x = (parallax_scroll + self.x_offset) % wrap_width
-            draw_x = x - img_w_for_blit # Corrected this line
             screen.blit(image_to_draw, (draw_x, y))
 
     def get_y_at_x(self, screen_h: int, scroll_x: int, x_coord: int) -> float:
@@ -382,9 +371,16 @@ def run_theatre(scene_path: str = "assets/story/scene1.json"):
                             bob_offset = math.sin(scroll * layer.bob_frequency) * layer.bob_amplitude
                         reacting_sprite_current_y = base_y + bob_offset + layer.y_offset
 
-                        reacting_sprite_bottom_y = reacting_sprite_current_y + img_h_for_positioning
-                        y_diff_for_log = (reacting_sprite_bottom_y - current_env_y) / (img_h_for_positioning / 2)
-                        current_tilt_for_log = max(-layer.environmental_reaction.max_tilt_angle, min(layer.environmental_reaction.max_tilt_angle, y_diff_for_log * layer.environmental_reaction.max_tilt_angle))
+                        # Calculate slope-based tilt for logging
+                        sample_offset = 2.0
+                        y_at_behind = env_layer.get_y_at_x(screen_h, scroll, int(reacting_sprite_current_x - sample_offset))
+                        y_at_ahead = env_layer.get_y_at_x(screen_h, scroll, int(reacting_sprite_current_x + sample_offset))
+                        delta_y = y_at_behind - y_at_ahead
+                        delta_x = 2 * sample_offset
+                        raw_slope = delta_y / delta_x if delta_x != 0 else 0
+                        start_ramp = min(1.0, scroll / 300.0) if scroll > 0 else 0
+                        tilt_angle_deg = math.degrees(math.atan(raw_slope)) * 50.0 * start_ramp
+                        current_tilt_for_log = max(-layer.environmental_reaction.max_tilt_angle, min(layer.environmental_reaction.max_tilt_angle, tilt_angle_deg))
                         
                         logging.info(f"{peak_or_valley} Detected! Environment '{env_layer_name}' (Env_y={current_env_y:.2f}) at x_coord={int(reacting_sprite_current_x)}. Reacting Sprite '{layer.asset_path.parent.name}': Tilt={current_tilt_for_log:.2f}")
 

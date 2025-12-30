@@ -54,7 +54,7 @@ def test_scaling_logic():
             os.remove(test_path)
 
 def test_environmental_reaction_pivot_on_crest(mocker):
-    """Verify a sprite correctly pivots on a wave crest based on environmental reaction."""
+    """Verify a sprite correctly pivots on a wave crest based on environmental reaction (slope-based)."""
     mocker.patch('pygame.transform.rotate', return_value=MagicMock(spec=pygame.Surface, get_size=lambda: (100, 50), get_rect=lambda **kwargs: pygame.Rect(0,0,100,50)))
     mocker.patch('pygame.image.load', return_value=MagicMock(spec=pygame.Surface, convert_alpha=lambda: MagicMock(spec=pygame.Surface, get_size=lambda: (100, 50))))
     mocker.patch('pygame.Surface', return_value=MagicMock(spec=pygame.Surface, get_at=lambda *args: (0,0,0,255), get_size=lambda: (100, 50)))
@@ -63,7 +63,6 @@ def test_environmental_reaction_pivot_on_crest(mocker):
     mock_screen = MagicMock(spec=pygame.Surface, get_size=lambda: (800, 600), blit=MagicMock())
 
     # 1. Create a mock wave layer (environment)
-    # We'll control its get_y_at_x directly in the test scenarios
     wave_layer = ParallaxLayer("assets/sprites/wave1/waves1.png", z_depth=2, vertical_percent=0.7, scroll_speed=0.5)
     wave_layer.get_y_at_x = MagicMock(return_value=400) # Default to a flat surface for now
 
@@ -75,72 +74,50 @@ def test_environmental_reaction_pivot_on_crest(mocker):
     )
     boat_layer = ParallaxLayer("assets/sprites/boat/boat.png", z_depth=3, vertical_percent=0.6, scroll_speed=0.5, environmental_reaction=boat_reaction)
     
-    # Simulate the boat's approximate y position if it were resting on the wave
-    boat_approx_y = wave_layer.get_y_at_x(mock_screen.get_size()[1], 0, 0) - boat_layer.original_image_size[1] # Adjust for sprite height
-
-    # Scenario 1: Boat is slightly above the wave crest (should tilt down)
-    boat_layer.draw(mock_screen, scroll_x=0, environment_y=boat_approx_y - 10) # Wave is 10px below boat's bottom
-    # Expected y_diff: (boat_bottom_y - environment_y) / (img_h_for_positioning / 2)
-    # boat_bottom_y is boat_approx_y + boat_h, environment_y is boat_approx_y - 10
-    # y_diff = (boat_h + 10) / (boat_h / 2) = 2 + 20/boat_h
-    # Since mocks make image_size=(100,50), boat_h = 50. y_diff = (50+10)/(50/2) = 60/25 = 2.4
-    # Tilt: min(max_tilt, y_diff * max_tilt) = min(30, 2.4 * 30) = 30.0 (clamped)
-    # However, environment_y is the *surface*. If boat_bottom_y is above environment_y, y_diff is negative (tilt up).
-    # If boat_bottom_y = 400 + 50 = 450. environment_y = 400 - 10 = 390. This means the boat is *above* the wave.
-    # reacting_sprite_bottom_y = y + img_h_for_positioning
-    # current y = base_y + bob_offset + y_offset. Let's assume y is fixed for simplicity in this test.
-    # Let's simplify: environment_y is the effective y of the wave surface at the boat's x.
-    # boat_y is the top of the boat. So boat_bottom_y = boat_y + boat_height.
-    # If boat is on wave: boat_bottom_y should be close to environment_y
-    # If boat is above wave: boat_bottom_y < environment_y (y_diff negative, tilt up)
-    # If boat is below wave: boat_bottom_y > environment_y (y_diff positive, tilt down)
-
-    # Redoing scenario: let's directly control the 'y' and 'environment_y' for clarity
-    # Assume boat.y is 300, boat_h is 50. boat_bottom_y = 350.
-    # If environment_y is 340 (wave crest, boat above), y_diff = (350 - 340) / (50/2) = 10 / 25 = 0.4
-    # Tilt should be positive (tilting down into the wave). Max tilt is 30.
-    # We need to simulate the state that results in `environment_y` being passed.
-
-    # Test 1: Boat is exactly on the wave surface (no tilt)
-    # To achieve this, reacting_sprite_bottom_y should be equal to environment_y
-    # The default mock image size is 100x50, so img_h_for_positioning = 50
-    # The base y of the boat will be vertical_percent * screen_h - (img_h_for_positioning / 2)
-    # 0.6 * 600 - (50 / 2) = 360 - 25 = 335. Let's assume boat.y is 335
-    # boat_bottom_y = 335 + 50 = 385
-    # If environment_y = 385, then y_diff = 0. So tilt = 0
-    boat_layer.y = 335 # Directly set for testing
-    boat_layer.draw(mock_screen, scroll_x=0, environment_y=385)
-    pygame.transform.rotate.assert_called_with(mocker.ANY, 0.0) # No tilt
+    # Test 1: Flat surface (no tilt)
+    boat_layer.draw(mock_screen, scroll_x=0, environment_y=400, environment_layer_for_tilt=wave_layer)
+    pygame.transform.rotate.assert_called_with(mocker.ANY, 0.0)
     pygame.transform.rotate.reset_mock()
 
-    # Test 2: Boat is above the wave surface (should tilt down/forward)
-    # environment_y is lower than boat_bottom_y
-    # boat_bottom_y = 385. environment_y = 375 (wave is lower)
-    # y_diff = (385 - 375) / (50 / 2) = 10 / 25 = 0.4
-    # current_tilt = max(-30, min(30, 0.4 * 30)) = 12.0
-    boat_layer.draw(mock_screen, scroll_x=0, environment_y=375)
-    pygame.transform.rotate.assert_called_with(mocker.ANY, 12.0) 
+    # Test 2: Rising wave (bow up / positive tilt)
+    # At scroll_x=300, boat_layer.scroll_speed=0.5, x_offset=0, img_w=100
+    # draw_x = (150 + 0) % 900 - 100 = 50. Center = 50 + 50 = 100.
+    def side_effect_rising(screen_h, scroll_x, x_coord):
+        return 400.0 - (x_coord - 100) * 0.005
+    # Behind (98): 400.01. Ahead (102): 399.99. Delta Y = 0.02. Delta X = 4. Slope = 0.005.
+    # atan(0.005) = 0.286 deg. 0.286 * 50 * 1.0 (ramp) = 14.3
+    wave_layer.get_y_at_x = MagicMock(side_effect=side_effect_rising)
+    boat_layer.draw(mock_screen, scroll_x=300, environment_y=400, environment_layer_for_tilt=wave_layer)
+    pygame.transform.rotate.assert_called_with(mocker.ANY, pytest.approx(14.3, abs=0.1)) 
     pygame.transform.rotate.reset_mock()
 
-    # Test 3: Boat is below the wave surface (should tilt up/backward)
-    # environment_y is higher than boat_bottom_y
-    # boat_bottom_y = 385. environment_y = 395 (wave is higher)
-    # y_diff = (385 - 395) / (50 / 2) = -10 / 25 = -0.4
-    # current_tilt = max(-30, min(30, -0.4 * 30)) = -12.0
-    boat_layer.draw(mock_screen, scroll_x=0, environment_y=395)
-    pygame.transform.rotate.assert_called_with(mocker.ANY, -12.0)
+    # Test 3: Gentle falling wave (negative tilt)
+    def side_effect_gentle(screen_h, scroll_x, x_coord):
+        return 400.0 + (x_coord - 100) * 0.0005
+    # Behind (98): 399.999. Ahead (102): 400.001. Delta Y = -0.002. Slope = -0.0005.
+    # atan(-0.0005) = -0.0286 deg. -0.0286 * 50 * 1.0 = -1.43 deg
+    wave_layer.get_y_at_x = MagicMock(side_effect=side_effect_gentle)
+    boat_layer.draw(mock_screen, scroll_x=300, environment_y=400, environment_layer_for_tilt=wave_layer)
+    pygame.transform.rotate.assert_called_with(mocker.ANY, pytest.approx(-1.43, abs=0.1))
     pygame.transform.rotate.reset_mock()
 
-    # Test 4: Extreme tilt down (clamped by max_tilt_angle)
-    # y_diff = (385 - 300) / 25 = 85 / 25 = 3.4
-    # current_tilt = max(-30, min(30, 3.4 * 30)) = 30.0
-    boat_layer.draw(mock_screen, scroll_x=0, environment_y=300)
-    pygame.transform.rotate.assert_called_with(mocker.ANY, 30.0)
+    # Test 4: Ramp-in check (scroll_x = 150 -> 0.5 ramp)
+    # At scroll_x=150, center = 75 + 50 = 125.
+    def side_effect_gentle_150(screen_h, scroll_x, x_coord):
+        return 400.0 + (x_coord - 125) * 0.0005
+    wave_layer.get_y_at_x = MagicMock(side_effect=side_effect_gentle_150)
+    # -0.0286 * 50 * 0.5 = -0.715 deg
+    boat_layer.draw(mock_screen, scroll_x=150, environment_y=400, environment_layer_for_tilt=wave_layer)
+    args, kwargs = pygame.transform.rotate.call_args
+    assert args[1] == pytest.approx(-0.715, abs=0.1)
     pygame.transform.rotate.reset_mock()
-
-    # Test 5: Extreme tilt up (clamped by max_tilt_angle)
-    # y_diff = (385 - 450) / 25 = -65 / 25 = -2.6
-    # current_tilt = max(-30, min(30, -2.6 * 30)) = -30.0
-    boat_layer.draw(mock_screen, scroll_x=0, environment_y=450)
-    pygame.transform.rotate.assert_called_with(mocker.ANY, -30.0)
-    pygame.transform.rotate.reset_mock()
+    
+    # Test 5: Very gentle wave with ramp
+    # delta_y = -0.0002. raw_slope = -0.00005
+    # atan(-0.00005) = -0.00286 deg. -0.00286 * 50 * 0.5 = -0.0715 deg
+    def side_effect_vgentle(screen_h, scroll_x, x_coord):
+        return 400.0 + (x_coord - 125) * 0.00005
+    wave_layer.get_y_at_x = MagicMock(side_effect=side_effect_vgentle)
+    boat_layer.draw(mock_screen, scroll_x=150, environment_y=400, environment_layer_for_tilt=wave_layer)
+    args, kwargs = pygame.transform.rotate.call_args
+    assert args[1] == pytest.approx(-0.0715, abs=0.01)
