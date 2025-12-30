@@ -1,7 +1,9 @@
 # 🎭 Papeterie Engine (2025)
 **An Agentic "Toy Theatre" Animation System**
 
-Papeterie is a metadata-driven 2D animation engine that uses Gemini 3 to translate natural language creative prompts into physics-based animation parameters. It specializes in the "Paper Theatre" aesthetic—layered 2D assets with procedural oscillatory motion.
+Papeterie is a metadata-driven 2D animation engine that uses Gemini to translate natural language creative prompts into physics-based animation parameters. It specializes in the "Paper Theatre" aesthetic—layered 2D assets with procedural oscillatory motion and environmental physics.
+
+![The engine in action: A paper boat riding procedural waves with slope-based tilting.](docs/assets/media/sailing.mp4)
 
 ---
 
