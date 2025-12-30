@@ -1,0 +1,23 @@
+# Papeterie Engine: LLM Context
+
+This file provides high-level context for LLMs and AI Agents working on the Papeterie project.
+
+## Project Essence
+Papeterie is a "Toy Theatre" animation system. It blends **Hand-Drawn 2D Art** with **Physics-based Movement** driven by **AI Metadata**.
+
+## Key Concepts
+- **Paper Theatre Aesthetic**: Flat, layered sprites that "bob" and "tilt" as if suspended by wires or riding waves.
+- **Compiler/Renderer Split**: Metadata is generated once by Gemini (Compiler) and executed in real-time by Pygame (Renderer).
+- **Environmental Awareness**: Sprites are not static; they "react" to the layers around them (e.g., a boat riding a wave).
+
+## Core Logic Reference
+- **Tilt**: Slope-based rotation using `atan2` or `atan`.
+- **Z-Depth**: Higher numbers are closer. Parallax speed decreases with Z-depth.
+- **Metadata**: Strict Pydantic validation for all LLM outputs.
+
+## Governance
+- **Workflow**: Feature Branch -> Pytest -> Pull Request.
+- **Secrets**: NEVER commit API keys. Use `.env`.
+- **Logs**: Monitor `logs/token_ledger.csv` for cost control.
+
+For detailed architecture, see [docs/high_level_design.md](docs/high_level_design.md).
