@@ -5,6 +5,7 @@ This file lists features, improvements, and bugs to be addressed in the Papeteri
 ## Done (Accepted for now)
 
 *   **Sprite Environmental Reaction:** Implemented feature where a sprite reacts to its environment by detecting the first non-transparent area in the next parallax layer, enabling interactions like a boat bobbing on waves. Includes a bug where full tilt range and consistent peak/valley detection require further refinement, and an enhancement for predictive tilting is proposed.
+*   **Token Usage Ledger:** Implemented a persistent CSV-based tracking system in `src/compiler/token_logger.py` that records Gemini API usage (prompt/candidate/total tokens) for every metadata generation event.
 
 ## Unprioritized / Ideas
 

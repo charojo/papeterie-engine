@@ -1,6 +1,7 @@
 import os
 from google import genai
 from dotenv import load_dotenv
+from .token_logger import log_token_usage
 
 load_dotenv()
 
@@ -28,5 +29,16 @@ class GeminiCompilerClient:
         
         if not response.text:
             raise ValueError("Gemini returned an empty response. Check API usage limits.")
+
+        # Log usage to ledger
+        if hasattr(response, 'usage_metadata') and response.usage_metadata:
+            usage = response.usage_metadata
+            log_token_usage(
+                model_name=self.model_name,
+                prompt_tokens=usage.prompt_token_count,
+                candidate_tokens=usage.candidates_token_count,
+                total_tokens=usage.total_token_count,
+                task_name="compiler_metadata_generation"
+            )
             
         return response.text

@@ -1,0 +1,3 @@
+timestamp,task_name,model,prompt_tokens,candidate_tokens,total_tokens
+2025-12-30T17:15:09.370335,test-task,test-model,100,50,150
+2025-12-30T17:15:09.370431,test-task-2,test-model-2,200,100,300
