@@ -241,7 +241,7 @@ class ParallaxLayer:
         return effective_y
 
 class Theatre:
-    def __init__(self, scene_path: str = "assets/story/scene1.json", width: int = 1280, height: int = 720):
+    def __init__(self, scene_path: str = "assets/story/scene_sailboat.json", width: int = 1280, height: int = 720):
         logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', force=True)
         
         if not pygame.get_init():
@@ -381,7 +381,7 @@ class Theatre:
             pygame.display.flip()
             self.clock.tick(60)
 
-def run_theatre(scene_path: str = "assets/story/scene1.json"):
+def run_theatre(scene_path: str = "assets/story/scene_sailboat.json"):
     theatre = Theatre(scene_path)
     theatre.run()
 

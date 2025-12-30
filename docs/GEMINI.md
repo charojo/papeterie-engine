@@ -32,7 +32,7 @@ The system follows a clear **Compiler-Renderer** separation:
 ## Directory Structure Highlights
 
 *   `/assets/sprites`: Contains `.png` sprite assets. Each `<name>.png` is expected to have a corresponding `<name>.prompt` and, after compilation, a `<name>.prompt.json` metadata file.
-*   `/assets/story`: Contains scene configuration files (e.g., `scene1.json`) that define the composition of layers for an animation.
+*   `/assets/story`: Contains scene configuration files (e.g., `scene_sailboat.json`) that define the composition of layers for an animation.
 *   `/assets/prompts`: Stores system instructions for the AI, such as `MetaPrompt.prompt` (for initial metadata generation) and `MetaFixupPrompt.prompt` (for correcting malformed output).
 *   `/src`: The main Python source code, organized into sub-packages:
     *   `/src/compiler`: Contains the `SpriteCompiler` logic (`engine.py`), Gemini client integration (`gemini_client.py`), and Pydantic data models (`models.py`).
@@ -56,11 +56,11 @@ The project uses `uv` for dependency management.
     ```
     Tests are located in the `/tests` directory and leverage `pytest-asyncio` for asynchronous tests.
 *   **Running the Theatre**:
-    The main rendering loop can be initiated via `src/renderer/theatre.py`. For example, to run `scene1.json`:
+    The main rendering loop can be initiated via `src/renderer/theatre.py`. For example, to run `scene_sailboat.json`:
     ```bash
     python src/renderer/theatre.py
     ```
-    (This will execute `run_theatre()` with default `scene1.json`).
+    (This will execute `run_theatre()` with default `scene_sailboat.json`).
 
 ## Development Conventions and Governance
 

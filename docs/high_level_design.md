@@ -97,7 +97,7 @@ The following diagram illustrates how the `SpriteCompiler` acts as the bridge be
 #### **C. Configuration & Scene Management**
 
 * **Scene Overrides**: While `SpriteMetadata` defines the default physics of a paper asset, `SceneLayer` allows for scene-specific overrides (like changing the `scroll_speed` or `opacity` for a specific sequence).
-* **Dynamic Reloading**: The `run_theatre` loop monitors the `scene1.json` file’s modification time, enabling "live-coding" where changes to the JSON are reflected instantly in the Pygame window.
+* **Dynamic Reloading**: The `run_theatre` loop monitors the `scene_sailboat.json` file’s modification time, enabling "live-coding" where changes to the JSON are reflected instantly in the Pygame window.
 
 Would you like me to expand the **EnvironmentalReaction** model to include more complex behaviors, such as "buoyancy" or "wind resistance"?
 

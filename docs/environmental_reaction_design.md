@@ -59,7 +59,7 @@ The renderer uses a **slope-based** tilt mechanism for the `PIVOT_ON_CREST` reac
 5.  **Clamping**: The final tilt is clamped to the `max_tilt_angle` configuration.
 6.  **Vertical Following**: If `vertical_follow_factor` is $> 0$, the sprite's $Y$ position is adjusted to ride the wave surface before the tilt is applied.
 
-## 6. Example Configuration (`assets/story/scene1.json` excerpt)
+## 6. Example Configuration (`assets/story/scene_sailboat.json` excerpt)
 
 To make a `boat` sprite pivot on a `wave1` sprite:
 
