@@ -20,8 +20,8 @@ The engine follows a strict **Compiler-Renderer** separation:
 
 
 ## �� Directory Structure
-- `/sprites`: Source `.png` files and their generated `.prompt.json` sidecars.
-- `/prompts`: System instructions (MetaPrompts) for the AI.
+- `/assets/sprites`: Source `.png` files and their generated `.prompt.json` sidecars.
+- `/assets/prompts`: System instructions (MetaPrompts) for the AI.
 - `/src`: Modular Python package (Compiler, Renderer, Validator).
 - `/tests`: Pytest suite for behavioral validation.
 

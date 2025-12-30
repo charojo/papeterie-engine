@@ -1,0 +1,11 @@
+on: [push]
+jobs:
+  ai-remediation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Tests
+        run: uv run pytest || echo "FAILED" > test_status.txt
+      - name: Gemini Fix
+        if: steps.run_tests.outcome == 'failure'
+        run: # Script here to send failure log to Gemini API

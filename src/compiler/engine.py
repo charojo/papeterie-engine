@@ -1,57 +1,60 @@
+import logging
 import json
-import os
 from pathlib import Path
-from typing import Dict, Any
-from .models import SpriteMetadata
+from typing import Optional
+from pydantic import ValidationError
 
-# In a real setup, you'd use the Google Generative AI SDK here
-# For now, we'll build the orchestration logic
+# Assuming these are defined in your models.py
+from .models import SpriteMetadata
+from .gemini_client import GeminiCompilerClient
+
+# Set up logging for the engine
+logger = logging.getLogger("papeterie.engine")
 
 class SpriteCompiler:
-    def __init__(self, sprite_dir: str = "sprites", prompt_dir: str = "prompts"):
+    def __init__(self, sprite_dir: str = "assets/sprites", prompt_dir: str = "assets/prompts"):
+        self.client = GeminiCompilerClient()
         self.sprite_dir = Path(sprite_dir)
         self.prompt_dir = Path(prompt_dir)
-        
-    def load_meta_prompt(self, name: str) -> str:
-        """Loads the system instruction templates."""
-        path = self.prompt_dir / f"{name}.prompt"
-        return path.read_text()
+        self.max_fixup_attempts = 2
 
-from .gemini_client import GeminiCompilerClient
-from .models import SpriteMetadata
-from pydantic import ValidationError
-import json
-
-class SpriteCompiler:
-    def __init__(self):
-        self.client = GeminiCompilerClient()
-        self.prompt_path = Path("prompts")
-        self.sprite_dir = Path("sprites")
+    def _get_prompt_template(self, template_name: str) -> str:
+        """Helper to fetch prompt templates."""
+        return (self.prompt_dir / f"{template_name}.prompt").read_text()
 
     def compile_sprite(self, sprite_name: str, user_description: str) -> SpriteMetadata:
-        # 1. Load instructions
-        system_meta = (self.prompt_path / "MetaPrompt.prompt").read_text()
+        """Orchestrates the LLM generation and validation of sprite metadata."""
+        system_meta = self._get_prompt_template("MetaPrompt")
         
-        # 2. Get LLM response
-        raw_json_str = self.client.generate_metadata(system_meta, user_description)
+        raw_response = self.client.generate_metadata(system_meta, user_description)
         
+        return self._validate_and_fix(sprite_name, raw_response)
+
+    def _validate_and_fix(self, name: str, raw_json: str, attempt: int = 0) -> SpriteMetadata:
+        """Recursive validation layer with automated fixup."""
         try:
-            # 3. Validate against our Pydantic model
-            data = json.loads(raw_json_str)
-            # Add the name to the data before validation
-            data["name"] = sprite_name
+            data = json.loads(raw_json)
+            data["name"] = name
             return SpriteMetadata(**data)
             
         except (ValidationError, json.JSONDecodeError) as e:
-            print(f"Fixup required for {sprite_name}: {e}")
-            # This is where we will call MetaFixupPrompt in the next iteration!
-            raise e
+            if attempt < self.max_fixup_attempts:
+                logger.warning(f"Validation failed for {name} (Attempt {attempt + 1}). Triggering fixup. Error: {e}")
+                
+                fixup_prompt = self._get_prompt_template("MetaFixupPrompt")
+                error_context = f"Original JSON: {raw_json}\nValidation Error: {str(e)}"
+                
+                fixed_response = self.client.generate_metadata(fixup_prompt, error_context)
+                return self._validate_and_fix(name, fixed_response, attempt + 1)
+            
+            logger.error(f"Max fixup attempts reached for {name}. Engine halt.")
+            raise
 
-    def save_metadata(self, sprite_name: str, metadata: SpriteMetadata):
-        """Saves the compiled JSON next to the PNG."""
-        output_path = self.sprite_dir / sprite_name / f"{sprite_name}.prompt.json"
+    def save_metadata(self, metadata: SpriteMetadata):
+        """Saves compiled JSON using the pathing rules defined in AGENTS.md."""
+        output_path = self.sprite_dir / metadata.name / f"{metadata.name}.prompt.json"
         output_path.parent.mkdir(parents=True, exist_ok=True)
         
         with open(output_path, "w") as f:
             f.write(metadata.model_dump_json(indent=2))
-        print(f"SUCCESS: Saved metadata to {output_path}")
+        logger.info(f"Metadata persisted to {output_path}")

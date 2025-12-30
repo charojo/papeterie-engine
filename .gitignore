@@ -17,3 +17,5 @@ wheels/
 # IDE and OS
 .vscode/
 .DS_Store
+.aider*
+*.orig

@@ -1,0 +1,9 @@
+{
+    "vertical_percent": 0.65,
+    "target_height": 80,
+    "bob_amplitude": 3,
+    "bob_frequency": 0.04,
+    "tile_horizontal": true,
+    "fill_down": true,
+    "vertical_anchor": "top"
+}

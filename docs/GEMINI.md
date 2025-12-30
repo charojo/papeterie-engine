@@ -1,0 +1,84 @@
+# Papeterie Engine - Project Overview for Gemini
+
+This document provides a comprehensive overview of the Papeterie Engine project, intended to serve as persistent context for LLM collaborators.
+
+## Project Purpose
+
+The Papeterie Engine is a metadata-driven 2D animation system designed to create "Toy Theatre" or "Paper Theatre" style animations. It leverages Google Gemini models to translate natural language descriptions of sprites into structured, physics-based animation parameters. The engine specializes in creating layered 2D animations with procedural oscillatory motion.
+
+## Core Architecture
+
+The system follows a clear **Compiler-Renderer** separation:
+
+1.  **The Compiler (`src/compiler`)**:
+    *   **Input**: Consumes `.png` sprite assets and corresponding `.prompt` text files (natural language descriptions).
+    *   **LLM Integration**: Uses Gemini models (specifically Gemini 2.5-Flash for initial compilation and Gemini 3 Pro for fixup) to generate structured `.prompt.json` metadata from the prompts.
+    *   **Validation**: Employs Pydantic models (`src/compiler/models.py`) to validate the generated JSON metadata against predefined physics constraints (e.g., rotation ranges, oscillation speeds).
+    *   **Fixup Loop**: Automatically attempts to repair malformed or unrealistic LLM outputs by feeding them back to Gemini 3 Pro with a `MetaFixupPrompt.prompt`.
+
+2.  **The Renderer (`src/renderer`)**:
+    *   **Animation**: Responsible for procedurally animating the 2D layers based on the compiled `.prompt.json` metadata.
+    *   **Technologies**: Utilizes `pygame-ce` for drawing and display, and `MoviePy 2.0+` (as mentioned in `README.md`) for video rendering of the animated scenes.
+
+## Key Technologies and Dependencies
+
+*   **Language**: Python 3.10+
+*   **Environment Management**: `uv` (for dependency management and task execution)
+*   **LLM Interaction**: `google-genai>=1.56.0`
+*   **Data Validation**: `pydantic>=2.0.0`
+*   **Animation/Rendering**: `pygame-ce>=2.5.6`, `moviepy>=2.0.0`
+*   **Testing**: `pytest>=9.0.2`, `pytest-asyncio>=1.3.0`, `pytest-mock>=3.10.0`
+
+## Directory Structure Highlights
+
+*   `/assets/sprites`: Contains `.png` sprite assets. Each `<name>.png` is expected to have a corresponding `<name>.prompt` and, after compilation, a `<name>.prompt.json` metadata file.
+*   `/assets/story`: Contains scene configuration files (e.g., `scene1.json`) that define the composition of layers for an animation.
+*   `/assets/prompts`: Stores system instructions for the AI, such as `MetaPrompt.prompt` (for initial metadata generation) and `MetaFixupPrompt.prompt` (for correcting malformed output).
+*   `/src`: The main Python source code, organized into sub-packages:
+    *   `/src/compiler`: Contains the `SpriteCompiler` logic (`engine.py`), Gemini client integration (`gemini_client.py`), and Pydantic data models (`models.py`).
+    *   `/src/renderer`: Contains the `ParallaxLayer` and `run_theatre` logic (`theatre.py`) for scene rendering.
+*   `/tests`: Houses the Pytest test suite, ensuring behavioral validation of the engine components.
+*   `pyproject.toml`: Defines project metadata and dependencies.
+*   `uv.lock`: Lock file for `uv` managed dependencies.
+*   `main.py`: A simple entry point for the application.
+
+## Building, Running, and Testing
+
+The project uses `uv` for dependency management.
+
+*   **Install Dependencies**:
+    ```bash
+    uv sync
+    ```
+*   **Run Tests**:
+    ```bash
+    uv run pytest
+    ```
+    Tests are located in the `/tests` directory and leverage `pytest-asyncio` for asynchronous tests.
+*   **Running the Theatre**:
+    The main rendering loop can be initiated via `src/renderer/theatre.py`. For example, to run `scene1.json`:
+    ```bash
+    python src/renderer/theatre.py
+    ```
+    (This will execute `run_theatre()` with default `scene1.json`).
+
+## Development Conventions and Governance
+
+*   **Pydantic for Data**: All sprite and scene metadata schemas are defined using Pydantic models for strict data validation.
+*   **Behavior-Driven Development (BDD)**: Tests in `/tests` are written *before* implementation logic.
+*   **Asset Integrity**: Image processing strictly maintains alpha transparency (RGBA).
+*   **Error Handling**: The system includes automatic error handling for malformed LLM output via the Fixup prompt.
+*   **Git Workflow**:
+    *   The `master` branch is protected; direct pushes are prohibited.
+    *   All changes must be made on branches prefixed with `feature/` or `fix/`.
+    *   Merges to `master` occur only via GitHub Pull Requests, and `uv run pytest` must pass for integration.
+
+## Project Backlog
+
+Future features, improvements, and bugs are tracked in `BACKLOG.md`. This file serves as a reference for unprioritized tasks and ideas that Gemini can consult for potential future work. When presenting new ideas or tasks for later implementation, please add them to `BACKLOG.md`.
+
+## Design Documentation
+
+Detailed design principles for scenes and sprites can be found in the `/docs` directory:
+*   `docs/scene_design.md`: Guidelines for structuring `sceneX.json` files and defining layer behavior.
+*   `docs/sprite_design.md`: Principles for creating and configuring individual sprite assets via their `.meta` files.
