@@ -81,7 +81,7 @@ Future features, improvements, and bugs are tracked in `BACKLOG.md`. This file s
 
 Detailed design principles for scenes and sprites can be found in the `/docs` directory:
 *   `docs/scene_design.md`: Guidelines for structuring `sceneX.json` files and defining layer behavior.
-*   `docs/sprite_design.md`: Principles for creating and configuring individual sprite assets via their `.meta` files.
+*   `docs/sprite_design.md`: Principles for creating and configuring individual sprite assets via their `.prompt.json` files.
 
 ## Diagrams & Visuals
 *   **Source of Truth**: The `.dot` files in `docs/assets/diagrams/` are the authoritative source for system architecture visuals. Always read the `.dot` file to understand the system structure.

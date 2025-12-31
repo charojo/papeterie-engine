@@ -23,7 +23,7 @@ python scripts/process_assets.py --src <path/to/raw/image.png> --dest <asset_nam
 ### Backend (Python)
 - **Framework**: `FastAPI` (lightweight, async, auto-docs).
 - **Responsibilities**:
-    - **API Layer**: Endpoints to read/write `scene.json` and `.meta` files.
+    - **API Layer**: Endpoints to read/write `scene.json` and `.prompt.json` files.
     - **Orchestrator**: Subprocess calls to `Theatre` (preview) and `process_assets.py`.
     - **Gemini Client**: Integration for the LLM compiler.
 

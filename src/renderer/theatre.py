@@ -100,10 +100,8 @@ class ParallaxLayer:
         sprite_dir = Path(sprite_dir_path)
         sprite_name = sprite_dir.name
         
-        # Look for .meta first, then .prompt.json
-        meta_path = sprite_dir / f"{sprite_name}.meta"
-        if not meta_path.exists():
-            meta_path = sprite_dir / f"{sprite_name}.prompt.json"
+        # Look for .prompt.json
+        meta_path = sprite_dir / f"{sprite_name}.prompt.json"
         
         png_files = list(sprite_dir.glob("*.png"))
         if not png_files:
@@ -375,7 +373,18 @@ class Theatre:
         self.screen = pygame.display.set_mode((width, height))
         self.clock = pygame.time.Clock()
         self.scroll = 0
-        self.scene_path = Path(scene_path)
+        
+        # Legacy path support
+        path_obj = Path(scene_path)
+        if not path_obj.exists() and "assets/story" in scene_path:
+            # Try to map assets/story/scene_NAME.json -> assets/scenes/NAME/scene.json
+            name_part = path_obj.stem.replace("scene_", "")
+            new_path = Path("assets/scenes") / name_part / "scene.json"
+            if new_path.exists():
+                logging.warning(f"Legacy path detected '{scene_path}'. Redirecting to '{new_path}'")
+                path_obj = new_path
+                
+        self.scene_path = path_obj
         self.last_modified_time = 0
         self.layers: list[ParallaxLayer] = []
         self.sprite_base_dir = Path("assets/sprites")
@@ -512,10 +521,10 @@ class Theatre:
 
             pygame.display.flip()
 
-def run_theatre(scene_path: str = "assets/story/scene_sailboat.json"):
+def run_theatre(scene_path: str = "assets/scenes/sailboat/scene.json"):
     theatre = Theatre(scene_path)
     theatre.run()
 
 if __name__ == "__main__":
-    scene = sys.argv[1] if len(sys.argv) > 1 else "assets/story/scene_sailboat.json"
+    scene = sys.argv[1] if len(sys.argv) > 1 else "assets/scenes/sailboat/scene.json"
     run_theatre(scene)
