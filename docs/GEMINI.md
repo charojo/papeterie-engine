@@ -20,10 +20,14 @@ The system follows a clear **Compiler-Renderer** separation:
     *   **Animation**: Responsible for procedurally animating the 2D layers based on the compiled `.prompt.json` metadata.
     *   **Technologies**: Utilizes `pygame-ce` for drawing and display, and `MoviePy 2.0+` (as mentioned in `README.md`) for video rendering of the animated scenes.
 
+3.  **The Web Dashboard (`src/web`)**:
+    *   **Purpose**: A modern web interface for managing sprites, creating new assets, and visualizing the project state.
+    *   **Technologies**: Built with React, Vite, and TailwindCSS. Interact with the backend via a FastAPI server (`src/server`).
+
 ## Key Technologies and Dependencies
 
-*   **Language**: Python 3.10+
-*   **Environment Management**: `uv` (for dependency management and task execution)
+*   **Language**: Python 3.10+, Node.js (for Web Dashboard)
+*   **Environment Management**: `uv` (Python), `npm` (Node.js)
 *   **LLM Interaction**: `google-genai>=1.56.0`
 *   **Data Validation**: `pydantic>=2.0.0`
 *   **Animation/Rendering**: `pygame-ce>=2.5.6`, `moviepy>=2.0.0`
@@ -37,6 +41,8 @@ The system follows a clear **Compiler-Renderer** separation:
 *   `/src`: The main Python source code, organized into sub-packages:
     *   `/src/compiler`: Contains the `SpriteCompiler` logic (`engine.py`), Gemini client integration (`gemini_client.py`), and Pydantic data models (`models.py`).
     *   `/src/renderer`: Contains the `ParallaxLayer` and `run_theatre` logic (`theatre.py`) for scene rendering.
+    *   `/src/server`: Contains the FastAPI backend for the web dashboard.
+    *   `/src/web`: Contains the React/Vite frontend application.
 *   `/tests`: Houses the Pytest test suite, ensuring behavioral validation of the engine components.
 *   `pyproject.toml`: Defines project metadata and dependencies.
 *   `uv.lock`: Lock file for `uv` managed dependencies.

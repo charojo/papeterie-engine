@@ -6,7 +6,9 @@ This document contains the complete set of instructions for a human or an AI age
 
 * **WSL2** (Ubuntu 22.04 or 24.04).
 * **Python 3.10+** (Current project uses 3.10.12).
+* **Node.js 20+** (for Web Dashboard).
 * **uv**: The primary package manager for Python.
+* **npm**: Node Package Manager.
 
 ## 2. Environment Initialization
 
@@ -19,6 +21,8 @@ uv sync
 # 2. Install the project in editable mode (Essential for internal imports)
 uv pip install -e .
 
+# 3. Install Web Dashboard dependencies
+cd src/web && npm install && cd ../..
 ```
 
 ## 3. Configuration & Secrets (`.env`)
@@ -47,6 +51,8 @@ GEMINI_API_KEY=your_google_ai_studio_api_key
 | **Run All Tests** | `uv run pytest -v` |
 | **Check AI Model Access** | `uv run python scripts/check_models.py` |
 | **Process New Sprites** | `uv run python main.py` |
+| **Run Web Backend** | `uv run python -m src.server.main` |
+| **Run Web Frontend** | `cd src/web && npm run dev` |
 | **Add New Library** | `uv add [package_name]` |
 
 ## 6. AI Agent Initialization

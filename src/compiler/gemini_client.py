@@ -46,52 +46,6 @@ class GeminiCompilerClient:
             
         return response.text
 
-    def _log_usage(self, model_name: str, operation: str, usage):
-        """Logs token usage and estimated cost to CSV."""
-        if not usage:
-            return
-            
-        try:
-            # Pricing (USD per 1M tokens) - Placeholder/Estimated for Preview
-            # Gemini 2.0 Flash is approx $0.10 / $0.40
-            pricing = {
-                "input": 0.10, 
-                "output": 0.40
-            }
-            
-            in_tokens = usage.prompt_token_count or 0
-            out_tokens = usage.candidates_token_count or 0
-            
-            cost = (in_tokens / 1_000_000 * pricing["input"]) + (out_tokens / 1_000_000 * pricing["output"])
-            
-            # Find project root (where logs/ folder is)
-            from pathlib import Path
-            import csv
-            import datetime
-            
-            # Simple heuristic for project root: assume we are in src/compiler/
-            # and logs is in root/logs
-            ledger_file = Path(__file__).resolve().parent.parent.parent / "logs" / "token_ledger.csv"
-            ledger_file.parent.mkdir(exist_ok=True)
-            
-            file_exists = ledger_file.exists()
-            
-            with open(ledger_file, "a", newline="") as f:
-                writer = csv.writer(f)
-                if not file_exists:
-                    writer.writerow(["Timestamp", "Model", "Operation", "InputTokens", "OutputTokens", "EstCost($)"])
-                
-                writer.writerow([
-                    datetime.datetime.now().isoformat(),
-                    model_name,
-                    operation,
-                    in_tokens,
-                    out_tokens,
-                    f"{cost:.6f}"
-                ])
-                
-        except Exception as e:
-            print(f"Failed to log usage: {e}")
 
     def edit_image(self, input_image_path: str, prompt: str, system_instruction: str = None) -> bytes:
         """
@@ -123,8 +77,15 @@ class GeminiCompilerClient:
             )
             
             # Log usage
-            if hasattr(response, 'usage_metadata'):
-                self._log_usage(model_name, "edit_image", response.usage_metadata)
+            if hasattr(response, 'usage_metadata') and response.usage_metadata:
+                usage = response.usage_metadata
+                log_token_usage(
+                    model_name=model_name,
+                    prompt_tokens=usage.prompt_token_count,
+                    candidate_tokens=usage.candidates_token_count,
+                    total_tokens=usage.total_token_count,
+                    task_name="edit_image"
+                )
             
             # Extract Image from response
             if not response.candidates:
