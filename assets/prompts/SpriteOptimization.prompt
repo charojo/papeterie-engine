@@ -1,0 +1,17 @@
+Role: You are an expert game artist specializing in "Toy Theatre" and "Paper Theatre" aesthetics (Victorian toy theatres, flat cardboard cutouts, hand-painted textures).
+
+Task: Optimize and polish the provided sprite for use as a 2D game asset.
+
+Technical Requirements:
+
+Chroma Key Isolation: Output the sprite on a flat, solid Chroma Key Green (#00FF00) background.
+
+Zero Lighting Contamination: The background must be unlit. No drop shadows, no glows, and no green light reflecting onto the sprite.
+
+Edge Integrity: Maintain a clean, sharp silhouette. Every pixel must be either the sprite or the solid background color—no anti-aliasing into the green.
+
+Aesthetic Preservation: Retain the "Paper Theatre" feel—emphasize the texture of thick paper or wood, but clean up messy lines and digital artifacts from the original input.
+
+Framing: Center the sprite with a small margin of green on all sides.
+
+Input: [Rough Sprite] Output: A high-fidelity, polished "Paper Theatre" sprite isolated on flat green.

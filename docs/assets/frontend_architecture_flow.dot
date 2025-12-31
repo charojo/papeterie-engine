@@ -1,0 +1,19 @@
+digraph CommunicationFlow {
+    rankdir=LR;
+    node [shape=box, style=filled, fillcolor=white];
+    
+    User [shape=ellipse, fillcolor=lightblue];
+    EditorUI [label="Editor UI\n(React)"];
+    BackendAPI [label="Backend API\n(FastAPI)"];
+    Script [label="process_assets.py"];
+    FileSystem [label="File System"];
+
+    User -> EditorUI [label="Uploads 'lantern.png'"];
+    EditorUI -> BackendAPI [label="POST /assets/upload"];
+    BackendAPI -> Script [label="Executes"];
+    Script -> FileSystem [label="Writes Processed PNG\n(assets/sprites/)"];
+    BackendAPI -> EditorUI [label="Returns Asset Path"];
+    User -> EditorUI [label="Adds 'lantern' to Scene"];
+    EditorUI -> BackendAPI [label="POST /scenes/update"];
+    BackendAPI -> FileSystem [label="Updates scene.json"];
+}

@@ -1,0 +1,12 @@
+{
+    "scene_name": "Drift Test",
+    "duration_sec": 10,
+    "layers": [
+        {
+            "sprite_name": "boat",
+            "z_depth": 5,
+            "vertical_percent": 0.5,
+            "vertical_drift": -50.0
+        }
+    ]
+}

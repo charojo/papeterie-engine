@@ -1,17 +1,17 @@
-# Sprite Design Principles (`.meta` files)
+# Sprite Design Principles (`.prompt.json` files)
 
-This document outlines the principles for designing individual sprites and their associated metadata (`.meta` files). Sprite metadata describes inherent visual and animation characteristics of a sprite asset.
+This document outlines the principles for designing individual sprites and their associated metadata (`.prompt.json` files). Sprite metadata describes inherent visual and animation characteristics of a sprite asset.
 
 ## Core Concepts
 
-*   **Intrinsic Properties**: `.meta` files should define properties that are intrinsic to the sprite asset itself, regardless of the scene it appears in. These are default values that can be overridden by `sceneX.json`.
+*   **Intrinsic Properties**: `.prompt.json` files should define properties that are intrinsic to the sprite asset itself, regardless of the scene it appears in. These are default values that can be overridden by `sceneX.json`.
 *   **Visual Integrity**: Ensure sprite assets maintain alpha transparency (RGBA) where intended.
 
 ## Sprite Metadata Properties
 
-Each `.meta` file (e.g., `boat.meta`) is a JSON file defining the following properties:
+Each `.prompt.json` file (e.g., `boat.prompt.json`) is a JSON file defining the following properties:
 
-*   `name` (string, **inferred from directory name**): The logical name of the sprite, used to link `.png`, `.prompt`, and `.meta` files. Not explicitly in the `.meta` file itself.
+*   `name` (string, **inferred from directory name**): The logical name of the sprite, used to link `.png`, `.prompt`, and `.prompt.json` files. Not explicitly in the `.prompt.json` file itself.
 *   `bob_frequency` (float, range: `0.01-2.0`, default: `0.1`): The oscillation speed of the sprite's bobbing motion in Hertz (cycles per second).
 *   `bob_amplitude` (float, range: `0-100`, default: `0`): The vertical amplitude of the sprite's bobbing motion in pixels.
 *   `rotation_range` (tuple of floats, default: `(-5.0, 5.0)`): A tuple `[min_degrees, max_degrees]` defining the range of tilt (rotation) for the sprite. Used for subtle, inherent sprite movements.
@@ -26,7 +26,7 @@ Each `.meta` file (e.g., `boat.meta`) is a JSON file defining the following prop
     *   `"center"`: The vertical center of the sprite is aligned with `vertical_percent`.
     *   `"bottom"`: The bottom edge of the sprite is aligned with `vertical_percent`.
 
-## Example (`assets/sprites/boat/boat.meta`)
+## Example (`assets/sprites/boat/boat.prompt.json`)
 
 ```json
 {

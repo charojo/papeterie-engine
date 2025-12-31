@@ -20,10 +20,14 @@ The system follows a clear **Compiler-Renderer** separation:
     *   **Animation**: Responsible for procedurally animating the 2D layers based on the compiled `.prompt.json` metadata.
     *   **Technologies**: Utilizes `pygame-ce` for drawing and display, and `MoviePy 2.0+` (as mentioned in `README.md`) for video rendering of the animated scenes.
 
+3.  **The Web Dashboard (`src/web`)**:
+    *   **Purpose**: A modern web interface for managing sprites, creating new assets, and visualizing the project state.
+    *   **Technologies**: Built with React, Vite, and TailwindCSS. Interact with the backend via a FastAPI server (`src/server`).
+
 ## Key Technologies and Dependencies
 
-*   **Language**: Python 3.10+
-*   **Environment Management**: `uv` (for dependency management and task execution)
+*   **Language**: Python 3.10+, Node.js (for Web Dashboard)
+*   **Environment Management**: `uv` (Python), `npm` (Node.js)
 *   **LLM Interaction**: `google-genai>=1.56.0`
 *   **Data Validation**: `pydantic>=2.0.0`
 *   **Animation/Rendering**: `pygame-ce>=2.5.6`, `moviepy>=2.0.0`
@@ -32,11 +36,13 @@ The system follows a clear **Compiler-Renderer** separation:
 ## Directory Structure Highlights
 
 *   `/assets/sprites`: Contains `.png` sprite assets. Each `<name>.png` is expected to have a corresponding `<name>.prompt` and, after compilation, a `<name>.prompt.json` metadata file.
-*   `/assets/story`: Contains scene configuration files (e.g., `scene1.json`) that define the composition of layers for an animation.
+*   `/assets/story`: Contains scene configuration files (e.g., `scene_sailboat.json`) that define the composition of layers for an animation.
 *   `/assets/prompts`: Stores system instructions for the AI, such as `MetaPrompt.prompt` (for initial metadata generation) and `MetaFixupPrompt.prompt` (for correcting malformed output).
 *   `/src`: The main Python source code, organized into sub-packages:
     *   `/src/compiler`: Contains the `SpriteCompiler` logic (`engine.py`), Gemini client integration (`gemini_client.py`), and Pydantic data models (`models.py`).
     *   `/src/renderer`: Contains the `ParallaxLayer` and `run_theatre` logic (`theatre.py`) for scene rendering.
+    *   `/src/server`: Contains the FastAPI backend for the web dashboard.
+    *   `/src/web`: Contains the React/Vite frontend application.
 *   `/tests`: Houses the Pytest test suite, ensuring behavioral validation of the engine components.
 *   `pyproject.toml`: Defines project metadata and dependencies.
 *   `uv.lock`: Lock file for `uv` managed dependencies.
@@ -56,11 +62,11 @@ The project uses `uv` for dependency management.
     ```
     Tests are located in the `/tests` directory and leverage `pytest-asyncio` for asynchronous tests.
 *   **Running the Theatre**:
-    The main rendering loop can be initiated via `src/renderer/theatre.py`. For example, to run `scene1.json`:
+    The main rendering loop can be initiated via `src/renderer/theatre.py`. For example, to run `scene_sailboat.json`:
     ```bash
     python src/renderer/theatre.py
     ```
-    (This will execute `run_theatre()` with default `scene1.json`).
+    (This will execute `run_theatre()` with default `scene_sailboat.json`).
 
 ## Development Conventions and Governance
 
@@ -81,4 +87,8 @@ Future features, improvements, and bugs are tracked in `BACKLOG.md`. This file s
 
 Detailed design principles for scenes and sprites can be found in the `/docs` directory:
 *   `docs/scene_design.md`: Guidelines for structuring `sceneX.json` files and defining layer behavior.
-*   `docs/sprite_design.md`: Principles for creating and configuring individual sprite assets via their `.meta` files.
+*   `docs/sprite_design.md`: Principles for creating and configuring individual sprite assets via their `.prompt.json` files.
+
+## Diagrams & Visuals
+*   **Source of Truth**: The `.dot` files in `docs/assets/diagrams/` are the authoritative source for system architecture visuals. Always read the `.dot` file to understand the system structure.
+*   **Generation**: After modifying any `.dot` file, you MUST run `python scripts/generate_diagrams.py` to update the corresponding `.png` images.

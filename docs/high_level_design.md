@@ -56,6 +56,16 @@ As defined in the governance instructions:
 
 ---
 
+### 5. Token Usage & Cost Tracking
+
+The engine includes a built-in **Token Usage Ledger** to monitor the operational costs of AI-driven compilation.
+
+*   **Persistence**: All token counts (prompt, candidate, and total) are recorded in `logs/token_ledger.csv`.
+*   **Transparency**: Each entry includes a timestamp, the task name, and the specific model used (e.g., `gemini-2.5-flash`).
+*   **Optimization**: This data allows developers to analyze which prompts are most expensive and optimize for token efficiency.
+
+---
+
 ### **Papeterie Engine: Technical Architecture Design**
 
 This document details the class relationships and system interactions for the Papeterie Engine. The architecture is designed to bridge the gap between creative "vibe coding" (using LLM-generated metadata) and rigid physics-based rendering.
@@ -87,7 +97,7 @@ The following diagram illustrates how the `SpriteCompiler` acts as the bridge be
 #### **C. Configuration & Scene Management**
 
 * **Scene Overrides**: While `SpriteMetadata` defines the default physics of a paper asset, `SceneLayer` allows for scene-specific overrides (like changing the `scroll_speed` or `opacity` for a specific sequence).
-* **Dynamic Reloading**: The `run_theatre` loop monitors the `scene1.json` file’s modification time, enabling "live-coding" where changes to the JSON are reflected instantly in the Pygame window.
+* **Dynamic Reloading**: The `run_theatre` loop monitors the `scene_sailboat.json` file’s modification time, enabling "live-coding" where changes to the JSON are reflected instantly in the Pygame window.
 
 Would you like me to expand the **EnvironmentalReaction** model to include more complex behaviors, such as "buoyancy" or "wind resistance"?
 
@@ -111,7 +121,7 @@ The concept of tracking feature work in **tokens** is a particularly insightful 
 
 1. **State Persistence**: Between the "Asset MCP" and the "Runtime MCP," you need a **Source of Truth**. Your `SpriteMetadata` and `SceneConfig` models currently act as this bridge, but they need a versioned database or registry.
 2. **The "Vibe" Translation Layer**: Voice and text inputs are high-level. You need a specialized **Compiler** (which you've started in `engine.py`) to translate "make it feel like a stormy night" into specific `amplitude_y` and `frequency` values.
-3. **Token Budgeting Layer**: If features are tracked in tokens, the stack needs a middleware that estimates and "quotes" the token cost before an agent begins a complex debugging or refactoring task.
+3. **Predictive Cost Estimation**: While token tracking is now implemented via the CSV ledger, the stack still needs a mechanism to estimate and "quote" the token cost *before* an agent begins a complex task to prevent budget overruns.
 
 ---
 

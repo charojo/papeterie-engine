@@ -1,0 +1,11 @@
+{
+    "name": "starbuild_villager_sitting",
+    "frequency": 0.2,
+    "amplitude_y": 0,
+    "rotation_range": [-0.5, 0.5],
+    "z_depth": 11,
+    "opacity": 1.0,
+    "vertical_drift": 0.0,
+    "target_height": 200,
+    "vertical_anchor": "bottom"
+}
