@@ -31,3 +31,7 @@ You are a Senior Python Architect building a "Toy Theatre" (Papeterie) animation
 - **Master Protection**: The `master` branch is locked. Direct pushes will fail.
 - **Workflow**: All changes must occur on branches prefixed with `feature/` or `fix/`.
 - **Integration**: Merges to `master` only happen via GitHub Pull Requests after `uv run pytest` passes.
+
+## Diagrams & Visuals
+- **Source of Truth**: The `.dot` files in `docs/assets/diagrams/` are the authoritative source for system architecture visuals. Always read the `.dot` file to understand the system structure.
+- **Generation**: After modifying any `.dot` file, you MUST run `python scripts/generate_diagrams.py` to update the corresponding `.png` images.

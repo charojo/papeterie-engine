@@ -20,6 +20,14 @@ class SpriteMetadata(BaseModel):
     rotation_range: Tuple[float, float] = Field((-5.0, 5.0), description="Tilt range in degrees")
     z_depth: int = Field(..., ge=1, le=10, description="Layer depth: 1 (back) to 10 (front)")
     opacity: float = Field(1.0, ge=0.0, le=1.0)
+    vertical_drift: float = Field(0.0, description="Constant vertical movement in pixels per second (positive is down, negative is up)")
+    scale_drift: float = Field(0.0, description="Constant change in scale factor per second (e.g., 0.01 for 1% growth per second).")
+    scale_drift_multiplier_after_cap: float = Field(3.0, description="Multiplier for scale drift once drift_cap_y is reached.")
+    horizontal_drift: float = Field(0.0, description="Constant horizontal movement in pixels per second.")
+    drift_cap_y: Optional[float] = Field(None, description="The screen Y coordinate (0-720) where vertical drift stops.")
+    twinkle_amplitude: float = Field(0.0, description="Amplitude of opacity pulsing (0.0 to 1.0).")
+    twinkle_frequency: float = Field(0.0, description="Frequency of opacity pulsing.")
+    twinkle_min_scale: float = Field(0.035, description="Twinkling only starts when scale is below this value (default 0.035).")
     environmental_reaction: Optional[EnvironmentalReaction] = Field(None, description="Defines how this sprite reacts to its environment.")
 
 class SceneLayer(BaseModel):
@@ -38,7 +46,15 @@ class SceneLayer(BaseModel):
     tile_horizontal: Optional[bool] = None
     fill_down: Optional[bool] = None
     vertical_anchor: Optional[str] = None
-    environmental_reaction: Optional[EnvironmentalReaction] = Field(None, description="Defines how this sprite reacts to its environment (scene override).")
+    vertical_drift: Optional[float] = None
+    scale_drift: Optional[float] = None
+    scale_drift_multiplier_after_cap: Optional[float] = None
+    horizontal_drift: Optional[float] = None
+    drift_cap_y: Optional[float] = None
+    twinkle_amplitude: Optional[float] = None
+    twinkle_frequency: Optional[float] = None
+    twinkle_min_scale: Optional[float] = None
+    environmental_reaction: Optional[EnvironmentalReaction] = None
 
 class SceneConfig(BaseModel):
     """The master 'Stage Script' for a complete animation."""

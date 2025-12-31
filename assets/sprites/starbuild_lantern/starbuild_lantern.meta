@@ -1,0 +1,12 @@
+{
+    "name": "starbuild_lantern",
+    "frequency": 1.2,
+    "amplitude_y": 15,
+    "rotation_range": [
+        -10.0,
+        10.0
+    ],
+    "z_depth": 5,
+    "opacity": 1.0,
+    "vertical_drift": -30.0
+}

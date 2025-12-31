@@ -1,0 +1,11 @@
+{
+    "name": "starbuild_villager_watching",
+    "frequency": 0.3,
+    "amplitude_y": 2,
+    "rotation_range": [-1.0, 1.0],
+    "z_depth": 10,
+    "opacity": 1.0,
+    "vertical_drift": 0.0,
+    "target_height": 300,
+    "vertical_anchor": "bottom"
+}

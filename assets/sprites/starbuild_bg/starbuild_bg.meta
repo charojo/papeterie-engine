@@ -1,0 +1,12 @@
+{
+    "name": "starbuild_bg",
+    "frequency": 0.1,
+    "amplitude_y": 0,
+    "rotation_range": [
+        0.0,
+        0.0
+    ],
+    "z_depth": 1,
+    "opacity": 1.0,
+    "vertical_drift": 0.0
+}
