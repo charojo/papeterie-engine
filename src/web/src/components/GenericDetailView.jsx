@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { AssetDetailLayout } from './AssetDetailLayout';
 import { ImageViewer } from './ImageViewer';
 import { Icon } from './Icon';
+import { TheatreStage } from './TheatreStage';
 
 const API_BASE = "http://localhost:8000/api";
 
@@ -26,6 +27,8 @@ export function GenericDetailView({ type, asset, refresh, isExpanded, toggleExpa
         configData
     } = useAssetController(type, asset, refresh);
 
+    const [isPlaying, setIsPlaying] = useState(false);
+
     return (
         <AssetDetailLayout
             title={asset.name}
@@ -35,6 +38,16 @@ export function GenericDetailView({ type, asset, refresh, isExpanded, toggleExpa
             actions={
                 <>
                     <button className="btn" title="Refresh" onClick={refresh}><Icon name="revert" size={16} /></button>
+                    {type === 'scene' && (
+                        <button
+                            className={`btn ${isPlaying ? 'btn-primary' : ''}`}
+                            title={isPlaying ? "Stop Scene" : "Play Scene"}
+                            onClick={() => setIsPlaying(!isPlaying)}
+                        >
+                            <Icon name={isPlaying ? "delete" : "generate"} size={16} /> {/* Using icons available for now */}
+                            {isPlaying ? " Stop" : " Play"}
+                        </button>
+                    )}
                     <button className="btn" title="Delete" onClick={handleDelete} style={{ color: '#ef4444', borderColor: 'rgba(239,68,68,0.3)' }}>
                         <Icon name="delete" size={16} />
                     </button>
@@ -88,6 +101,23 @@ export function GenericDetailView({ type, asset, refresh, isExpanded, toggleExpa
                             )
                         }
                     />
+
+                    {/* Theatre Stage Overlay/Replacement */}
+                    {isPlaying && type === 'scene' && (
+                        <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 10, background: 'black' }}>
+                            <TheatreStage
+                                scene={asset.config}
+                                style={{ width: '100%', height: '100%' }}
+                            />
+                            <button
+                                className="btn"
+                                style={{ position: 'absolute', top: '10px', right: '10px', zIndex: 20 }}
+                                onClick={() => setIsPlaying(false)}
+                            >
+                                <Icon name="delete" size={16} /> Close
+                            </button>
+                        </div>
+                    )}
 
                     {/* Unified Prompt Box & Actions for Visuals */}
 
