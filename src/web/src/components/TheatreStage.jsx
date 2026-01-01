@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Theatre } from '../engine/Theatre';
 
-export function TheatreStage({ scene, assetBaseUrl = "http://localhost:8000/assets", style }) {
+export function TheatreStage({ scene, sceneName, assetBaseUrl = "http://localhost:8000/assets", style }) {
     const canvasRef = useRef(null);
     const theatreRef = useRef(null);
     const containerRef = useRef(null);
@@ -14,22 +14,27 @@ export function TheatreStage({ scene, assetBaseUrl = "http://localhost:8000/asse
             theatreRef.current.stop();
         }
 
-        const theatre = new Theatre(canvasRef.current, scene, scene.name, assetBaseUrl);
+        const theatre = new Theatre(canvasRef.current, scene, sceneName, assetBaseUrl);
         theatreRef.current = theatre;
+
+        let isMounted = true;
 
         const init = async () => {
             await theatre.initialize();
-            theatre.start();
+            if (isMounted) {
+                theatre.start();
+            }
         };
 
         init();
 
         return () => {
+            isMounted = false;
             if (theatreRef.current) {
                 theatreRef.current.stop();
             }
         };
-    }, [scene, assetBaseUrl]);
+    }, [scene, sceneName, assetBaseUrl]);
 
     // Handle Resizing
     useEffect(() => {

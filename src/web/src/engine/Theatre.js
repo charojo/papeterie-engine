@@ -42,16 +42,20 @@ export class Theatre {
             const globalUrl = `${this.assetBaseUrl}/sprites/${spriteName}/${spriteName}.png`;
 
             let image = null;
+
+            // Priority 1: Try Global (Common Case)
+            // /assets/sprites/{spriteName}/{spriteName}.png
             try {
-                image = await this._loadImage(localUrl);
-                console.log(`Loaded local sprite: ${spriteName}`);
+                image = await this._loadImage(globalUrl);
+                // console.log(`Loaded global sprite: ${spriteName}`);
             } catch (e) {
-                // Try global
+                // Priority 2: Try Scene Local
+                // /assets/scenes/{sceneName}/sprites/{spriteName}/{spriteName}.png
                 try {
-                    image = await this._loadImage(globalUrl);
-                    console.log(`Loaded global sprite: ${spriteName}`);
+                    image = await this._loadImage(localUrl);
+                    console.log(`Loaded local sprite: ${spriteName}`);
                 } catch (e2) {
-                    console.warn(`Failed to load sprite '${spriteName}' from both local and global paths.`);
+                    console.warn(`Failed to load sprite '${spriteName}' from both global and local paths.`);
                     return null;
                 }
             }
@@ -88,6 +92,17 @@ export class Theatre {
 
         // Sort by z_depth
         this.layers.sort((a, b) => a.z_depth - b.z_depth);
+
+        // OPTIMIZATION: Index layers by name once, avoids map creation every frame
+        this.layersByName = new Map();
+        for (const layer of this.layers) {
+            if (layer.config.sprite_name) {
+                this.layersByName.set(layer.config.sprite_name, layer);
+            }
+        }
+
+        // OPTIMIZATION: Reuse Map for environment data
+        this.envYData = new Map();
 
         console.log(`Theatre initialized with ${this.layers.length} layers.`);
     }
@@ -140,26 +155,16 @@ export class Theatre {
         this.ctx.fillStyle = "rgb(200, 230, 255)"; // Default sky color
         this.ctx.fillRect(0, 0, width, height);
 
-        // Calculate Environmental Ys
-        const envYData = new Map();
-        const layersByName = new Map();
-
-        // We assume sprite_name is unique enough or we use parent dir name. 
-        // Layer config has sprite_name.
-        // But what if multiple layers use same sprite? 
-        // Python used `layer.asset_path.parent.name`.
-        // We'll map by sprite_name for now.
-        for (const layer of this.layers) {
-            if (layer.config.sprite_name) {
-                layersByName.set(layer.config.sprite_name, layer);
-            }
-        }
+        // OPTIMIZATION: Clear simplified reuse Map instead of reallocation
+        if (!this.envYData) this.envYData = new Map();
+        this.envYData.clear();
 
         for (const layer of this.layers) {
             if (!layer.environmental_reaction) continue;
 
             const targetName = layer.environmental_reaction.target_sprite_name;
-            const envLayer = layersByName.get(targetName);
+            // OPTIMIZATION: Use pre-computed map
+            const envLayer = this.layersByName ? this.layersByName.get(targetName) : null;
 
             if (envLayer) {
                 const imgW = layer.processedImage.width; // Base width
@@ -187,7 +192,7 @@ export class Theatre {
                 const centerX = drawX + scaledW / 2;
 
                 const envY = envLayer.getYAtX(height, this.scroll, centerX, this.elapsedTime);
-                envYData.set(layer, envY);
+                this.envYData.set(layer, envY);
 
                 // Peak Detection (omitted for MVP unless critical for gameplay events)
             }
@@ -195,12 +200,13 @@ export class Theatre {
 
         // Draw Layers
         for (const layer of this.layers) {
-            const envY = envYData.get(layer) ?? null;
+            const envY = this.envYData.get(layer) ?? null;
             let envLayerForTilt = null;
 
             if (layer.environmental_reaction) {
                 const targetName = layer.environmental_reaction.target_sprite_name;
-                envLayerForTilt = layersByName.get(targetName);
+                // OPTIMIZATION: Use pre-computed map
+                envLayerForTilt = this.layersByName ? this.layersByName.get(targetName) : null;
             }
 
             layer.draw(

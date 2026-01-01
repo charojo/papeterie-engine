@@ -29,6 +29,10 @@ export function GenericDetailView({ type, asset, refresh, isExpanded, toggleExpa
 
     const [isPlaying, setIsPlaying] = useState(false);
 
+    useEffect(() => {
+        setIsPlaying(false);
+    }, [asset.name]);
+
     return (
         <AssetDetailLayout
             title={asset.name}
@@ -107,6 +111,7 @@ export function GenericDetailView({ type, asset, refresh, isExpanded, toggleExpa
                         <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 10, background: 'black' }}>
                             <TheatreStage
                                 scene={asset.config}
+                                sceneName={asset.name}
                                 style={{ width: '100%', height: '100%' }}
                             />
                             <button
