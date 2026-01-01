@@ -272,3 +272,42 @@ def compile_sprite(request: CompileRequest):
     except Exception as e:
         logger.error(f"Compilation failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Compilation failed. Check server logs.")
+
+
+@router.delete("/sprites/{name}")
+def delete_sprite(name: str, mode: str = "delete"):
+    """
+    Delete a sprite.
+    - delete: Completely remove.
+    - reset: Remove generated files, keep original.
+    """
+    logger.info(f"Deleting sprite {name} with mode {mode}")
+    sprite_dir = SPRITES_DIR / name
+
+    if not sprite_dir.exists():
+        raise HTTPException(status_code=404, detail="Sprite not found")
+
+    try:
+        if mode == "delete":
+            shutil.rmtree(sprite_dir)
+        elif mode == "reset":
+            import os
+
+            for item in sprite_dir.iterdir():
+                if not item.name.endswith(".original.png"):
+                    if item.is_dir():
+                        shutil.rmtree(item)
+                    else:
+                        os.remove(item)
+        else:
+            raise HTTPException(status_code=400, detail=f"Unknown mode: {mode}")
+
+        asset_logger.log_action("sprites", name, "DELETE", f"Sprite processed (mode={mode})", "")
+        return {"name": name, "message": f"Sprite processed (mode={mode})"}
+
+    except Exception as e:
+        logger.error(f"Delete failed for {name}: {e}", exc_info=True)
+        if isinstance(e, HTTPException):
+            raise e
+        raise HTTPException(status_code=500, detail=f"Delete failed: {e}")
+

@@ -40,7 +40,7 @@ class SpriteMetadata(BaseModel):
     frequency: float = Field(..., ge=0.1, le=2.0, description="Oscillation speed in Hz")
     amplitude_y: int = Field(..., ge=0, le=100, description="Vertical heave in pixels")
     rotation_range: Tuple[float, float] = Field((-5.0, 5.0), description="Tilt range in degrees")
-    z_depth: int = Field(..., ge=1, le=10, description="Layer depth: 1 (back) to 10 (front)")
+    z_depth: int = Field(..., ge=1, le=100, description="Layer depth: 1 (back) to 100 (front)")
     opacity: float = Field(1.0, ge=0.0, le=1.0)
     vertical_drift: float = Field(
         0.0,
@@ -84,7 +84,7 @@ class SceneLayer(BaseModel):
 
     # Optional overrides from SpriteMetadata
     z_depth: Optional[int] = Field(
-        None, ge=1, le=10, description="Layer depth: 1 (back) to 10 (front)"
+        None, ge=1, le=100, description="Layer depth: 1 (back) to 100 (front)"
     )
     vertical_percent: Optional[float] = None
     target_height: Optional[int] = None

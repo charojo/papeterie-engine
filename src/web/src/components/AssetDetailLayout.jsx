@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { StatusStepper } from './StatusStepper';
 import { Icon } from './Icon';
 
@@ -14,6 +14,14 @@ export const AssetDetailLayout = ({
 }) => {
 
     const [copyFeedback, setCopyFeedback] = useState(false);
+    const logRef = useRef(null);
+
+    // Auto-scroll logs
+    useEffect(() => {
+        if (logRef.current) {
+            logRef.current.scrollTop = logRef.current.scrollHeight;
+        }
+    }, [logs]);
 
     return (
         <div style={{
@@ -97,7 +105,7 @@ export const AssetDetailLayout = ({
                             {copyFeedback ? "Copied!" : "Copy Log"}
                         </button>
                     </div>
-                    <pre style={{
+                    <pre ref={logRef} style={{
                         flex: 1, margin: 0, fontSize: '0.75rem', overflowY: 'auto',
                         fontFamily: 'monospace', color: '#94a3b8', whiteSpace: 'pre-wrap'
                     }}>

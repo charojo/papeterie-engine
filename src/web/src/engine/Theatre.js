@@ -32,32 +32,16 @@ export class Theatre {
             const spriteName = layerData.sprite_name;
             if (!spriteName) return null;
 
-            // Attempt to load image. 
-            // Try Scene Local: /assets/scenes/{sceneName}/sprites/{spriteName}/{spriteName}.png
-            // Try Global: /assets/sprites/{spriteName}/{spriteName}.png
-            // Note: We need to find the PNG. We assume standard naming convention: spriteName.png
-            // However, the assets might be just spriteName.png inside the folder.
-
-            const localUrl = `${this.assetBaseUrl}/scenes/${this.sceneName}/sprites/${spriteName}/${spriteName}.png`;
+            // Load from Global: /assets/sprites/{spriteName}/{spriteName}.png
             const globalUrl = `${this.assetBaseUrl}/sprites/${spriteName}/${spriteName}.png`;
-
             let image = null;
 
-            // Priority 1: Try Global (Common Case)
-            // /assets/sprites/{spriteName}/{spriteName}.png
             try {
                 image = await this._loadImage(globalUrl);
                 // console.log(`Loaded global sprite: ${spriteName}`);
             } catch (e) {
-                // Priority 2: Try Scene Local
-                // /assets/scenes/{sceneName}/sprites/{spriteName}/{spriteName}.png
-                try {
-                    image = await this._loadImage(localUrl);
-                    console.log(`Loaded local sprite: ${spriteName}`);
-                } catch (e2) {
-                    console.warn(`Failed to load sprite '${spriteName}' from both global and local paths.`);
-                    return null;
-                }
+                console.warn(`Failed to load sprite '${spriteName}' from ${globalUrl}`);
+                return null;
             }
 
             // Note: We are using the config from sceneData directly. 

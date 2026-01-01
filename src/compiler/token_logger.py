@@ -17,21 +17,26 @@ PRICING = {
 }
 
 
-def calculate_cost(model_name: str, prompt_tokens: int, candidate_tokens: int) -> float:
+def calculate_cost(
+    model_name: str, prompt_tokens: int | None, candidate_tokens: int | None
+) -> float:
     """Calculates estimated cost in USD based on model pricing."""
     rates = PRICING.get(model_name, PRICING["default"])
 
-    input_cost = (prompt_tokens / 1_000_000) * rates["input"]
-    output_cost = (candidate_tokens / 1_000_000) * rates["output"]
+    p_tokens = prompt_tokens or 0
+    c_tokens = candidate_tokens or 0
+
+    input_cost = (p_tokens / 1_000_000) * rates["input"]
+    output_cost = (c_tokens / 1_000_000) * rates["output"]
 
     return input_cost + output_cost
 
 
 def log_token_usage(
     model_name: str,
-    prompt_tokens: int,
-    candidate_tokens: int,
-    total_tokens: int,
+    prompt_tokens: int | None,
+    candidate_tokens: int | None,
+    total_tokens: int | None,
     task_name: str = "compiler",
 ):
     """
@@ -42,7 +47,12 @@ def log_token_usage(
 
     file_exists = os.path.isfile(LOG_FILE)
 
-    estimated_cost = calculate_cost(model_name, prompt_tokens, candidate_tokens)
+    # Sanitize inputs (handle None from API)
+    p_tokens = prompt_tokens or 0
+    c_tokens = candidate_tokens or 0
+    t_tokens = total_tokens or (p_tokens + c_tokens)
+
+    estimated_cost = calculate_cost(model_name, p_tokens, c_tokens)
 
     with open(LOG_FILE, mode="a", newline="") as csvfile:
         fieldnames = [
@@ -61,7 +71,6 @@ def log_token_usage(
 
         # Note: If file exists but header is missing 'estimated_cost', DictWriter handles
         # it gracefully by just writing the value (CSV doesn't enforce schema on append).
-        # by just writing the value (CSV doesn't enforce schema on append).
         # However, for consistency, we might ideally migrate. For now, we append.
 
         writer.writerow(
@@ -69,9 +78,9 @@ def log_token_usage(
                 "timestamp": datetime.now().isoformat(),
                 "task_name": task_name,
                 "model": model_name,
-                "prompt_tokens": prompt_tokens,
-                "candidate_tokens": candidate_tokens,
-                "total_tokens": total_tokens,
+                "prompt_tokens": p_tokens,
+                "candidate_tokens": c_tokens,
+                "total_tokens": t_tokens,
                 "estimated_cost": f"{estimated_cost:.6f}",
             }
         )

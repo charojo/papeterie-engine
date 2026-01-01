@@ -421,3 +421,104 @@ def optimize_scene(name: str, request: OptimizeRequest = OptimizeRequest()):
         raise HTTPException(
             status_code=500, detail=f"Optimization failed: {error_detail}. Hint: {hint}"
         )
+
+
+@router.delete("/scenes/{name}")
+def delete_scene(name: str, mode: str = "delete_scene"):
+    """
+    Delete a scene with various modes:
+    - delete_scene: Deletes the scene folder only.
+    - delete_all: Deletes scene folder AND sprites (if not shared).
+    - reset: Deletes generated files, keeps original.
+    """
+    logger.info(f"Deleting scene {name} with mode {mode}")
+    scene_dir = SCENES_DIR / name
+
+    if not scene_dir.exists():
+        raise HTTPException(status_code=404, detail="Scene not found")
+
+    kept_sprites = []
+    deleted_sprites = []
+
+    try:
+        if mode == "delete_all":
+            # 1. Identify candidates
+            candidates = []
+            config_path = scene_dir / "scene.json"
+            if config_path.exists():
+                try:
+                    with open(config_path, "r") as f:
+                        config = json.load(f)
+                    if config and "layers" in config:
+                        for layer in config["layers"]:
+                            if "sprite_name" in layer:
+                                candidates.append(layer["sprite_name"])
+                    candidates = list(set(candidates))
+                except Exception:
+                    logger.warning(f"Could not read config for {name} during delete identification")
+
+            # 2. Check usage in OTHER scenes
+            usage_map = set()
+            for item in SCENES_DIR.iterdir():
+                if item.is_dir() and item.name != name:
+                    c_path = item / "scene.json"
+                    if c_path.exists():
+                        try:
+                            with open(c_path, "r") as f:
+                                c = json.load(f)
+                            if c and "layers" in c:
+                                for l in c["layers"]:
+                                    if "sprite_name" in l:
+                                        usage_map.add(l["sprite_name"])
+                        except Exception:
+                            pass
+
+            # 3. Delete safe sprites
+            for s_name in candidates:
+                if s_name in usage_map:
+                    kept_sprites.append(s_name)
+                    logger.info(f"Preserving sprite {s_name} (used in other scenes)")
+                else:
+                    s_dir = SPRITES_DIR / s_name
+                    if s_dir.exists():
+                        shutil.rmtree(s_dir)
+                        deleted_sprites.append(s_name)
+                        logger.info(f"Deleted sprite {s_name}")
+
+            # 4. Delete scene dir
+            shutil.rmtree(scene_dir)
+
+        elif mode == "delete_scene":
+            shutil.rmtree(scene_dir)
+
+        elif mode == "reset":
+            # Delete everything except original files
+            for item in scene_dir.iterdir():
+                if not item.name.endswith(".original.png") and not item.name.endswith(
+                    ".original.jpg"
+                ):
+                    if item.is_dir():
+                        shutil.rmtree(item)
+                    else:
+                        os.remove(item)
+
+        else:
+            raise HTTPException(status_code=400, detail=f"Unknown mode: {mode}")
+
+        asset_logger.log_action(
+            "scenes", name, "DELETE", f"Scene deleted (mode={mode})", f"Kept: {kept_sprites}"
+        )
+
+        return {
+            "name": name,
+            "message": f"Scene processed (mode={mode})",
+            "kept_sprites": kept_sprites,
+            "deleted_sprites": deleted_sprites,
+        }
+
+    except Exception as e:
+        logger.error(f"Delete failed for {name}: {e}", exc_info=True)
+        if isinstance(e, HTTPException):
+            raise e
+        raise HTTPException(status_code=500, detail=f"Delete failed: {e}")
+
