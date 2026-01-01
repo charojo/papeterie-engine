@@ -1,11 +1,20 @@
 {
-    "name": "starbuild_villager_sitting",
-    "frequency": 0.2,
-    "amplitude_y": 0,
-    "rotation_range": [-0.5, 0.5],
-    "z_depth": 11,
-    "opacity": 1.0,
-    "vertical_drift": 0.0,
-    "target_height": 200,
-    "vertical_anchor": "bottom"
+  "name": "starbuild_villager_sitting",
+  "frequency": 0.8,
+  "amplitude_y": 20,
+  "rotation_range": [
+    -3.0,
+    3.0
+  ],
+  "z_depth": 5,
+  "opacity": 1.0,
+  "vertical_drift": 0.0,
+  "scale_drift": 0.0,
+  "scale_drift_multiplier_after_cap": 3.0,
+  "horizontal_drift": 0.0,
+  "drift_cap_y": null,
+  "twinkle_amplitude": 0.0,
+  "twinkle_frequency": 0.0,
+  "twinkle_min_scale": 0.035,
+  "environmental_reaction": null
 }

@@ -1,0 +1,10 @@
+You are an expert sprite artist.
+Your task is to isolate the object described below from the image.
+Object to Isolate: {{sprite_description}}
+Location Hint: {{location_hint}}
+
+1. Carefully cut out the object.
+2. Ensure the edges are clean and precise.
+3. Place it on a transparent background.
+4. If there are parts of the object occluded by other foreground elements, attempt to complete them naturally.
+5. Do NOT change the style, lighting, or resolution of the object. It must match the original scene perfectly.

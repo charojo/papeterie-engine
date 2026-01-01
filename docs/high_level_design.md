@@ -37,12 +37,15 @@ The runtime engine translates static metadata into dynamic movement.
 
 * **Parallax Logic**: Layers are sorted by `z_depth`. Scrolling speeds are calculated based on these depths to create an illusion of 3D space.
 * **Pivot-on-Crest Algorithm**: This physics routine samples the Y-position of a target "environment" layer (like a wave) at two points (ahead and behind the sprite). It calculates the slope () to determine the appropriate rotation (tilt) for the sprite.
+*   **Parallax Logic**: Layers are sorted by `z_depth`. Scrolling speeds are calculated based on these depths to create an illusion of 3D space.
+*   **Pivot-on-Crest Algorithm**: This physics routine samples the Y-position of a target "environment" layer (like a wave) at two points (ahead and behind the sprite). It calculates the slope () to determine the appropriate rotation (tilt) for the sprite.
 
 ---
 
 ### 3. Data Flow
 
 ![Data Flow](assets/diagrams/data_flow.png)
+> [Source (DOT)](assets/diagrams/data_flow.dot)
 
 ---
 
@@ -50,9 +53,9 @@ The runtime engine translates static metadata into dynamic movement.
 
 As defined in the governance instructions:
 
-* **Asset Integrity**: All image processing must maintain **RGBA alpha transparency** to preserve the hand-drawn "paper-cut" aesthetic.
-* **Scaling**: Rendering supports both fixed `target_height` and relative `height_scale` to adapt to different screen resolutions.
-* **Environment**: Built for **Python 3.10+** using `uv` for dependency management and `MoviePy` for eventual video export.
+*   **Asset Integrity**: All image processing must maintain **RGBA alpha transparency** to preserve the hand-drawn "paper-cut" aesthetic.
+*   **Scaling**: Rendering supports both fixed `target_height` and relative `height_scale` to adapt to different screen resolutions.
+*   **Environment**: Built for **Python 3.10+** using `uv` for dependency management and `MoviePy` for eventual video export.
 
 ---
 

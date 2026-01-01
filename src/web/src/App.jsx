@@ -1,98 +1,233 @@
 import { useState, useEffect } from 'react'
+import { Toaster, toast } from 'sonner'
+import { GenericDetailView } from './components/GenericDetailView';
+import { Icon } from './components/Icon';
 
 const API_BASE = "http://localhost:8000/api";
 
 function App() {
   const [sprites, setSprites] = useState([]);
-  const [selectedSprite, setSelectedSprite] = useState(null);
-  const [view, setView] = useState('list'); // 'list', 'new', 'detail'
+  const [scenes, setScenes] = useState([]);
+  const [selectedItem, setSelectedItem] = useState(null); // Can be a sprite or a scene
+  const [view, setView] = useState('list'); // 'list', 'create', 'sprite-detail', 'scene-detail'
+  const [isExpanded, setIsExpanded] = useState(false);
 
   useEffect(() => {
-    fetchSprites();
+    fetchData();
   }, []);
 
-  const fetchSprites = async () => {
+  const fetchData = async () => {
     try {
-      const res = await fetch(`${API_BASE}/sprites`);
-      const data = await res.json();
-      setSprites(data);
+      const [spriteRes, sceneRes] = await Promise.all([
+        fetch(`${API_BASE}/sprites`),
+        fetch(`${API_BASE}/scenes`)
+      ]);
+
+      const spriteData = await spriteRes.json();
+      const sceneData = await sceneRes.json();
+
+      // Alphabetize
+      spriteData.sort((a, b) => a.name.localeCompare(b.name));
+      sceneData.sort((a, b) => a.name.localeCompare(b.name));
+
+      setSprites(spriteData);
+      setScenes(sceneData);
+
+      // Refresh selected item from new data if it exists
+      if (selectedItem) {
+        const typeList = view === 'sprite-detail' ? spriteData : sceneData;
+        const freshItem = typeList.find(i => i.name === selectedItem.name);
+        if (freshItem) setSelectedItem(freshItem);
+      }
+
     } catch (e) {
-      console.error("Failed to fetch sprites", e);
+      console.error("Failed to fetch data", e);
+      toast.error("Failed to fetch data", { description: e.message });
     }
   };
 
   return (
     <div className="app-container">
       <aside className="sidebar glass">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h3>Papeterie File</h3>
-          <button className="btn btn-primary" style={{ padding: '4px 8px' }} onClick={() => setView('new')}>+</button>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <h3>Papeterie</h3>
+          <button className="btn btn-primary" style={{ padding: '4px 8px' }} onClick={() => setView('create')}>
+            <Icon name="add" size={16} />
+          </button>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflowY: 'auto' }}>
-          {sprites.map(sprite => (
-            <div
-              key={sprite.name}
-              className={`btn ${selectedSprite?.name === sprite.name ? 'btn-primary' : ''}`}
-              style={{ textAlign: 'left', border: 'none', background: selectedSprite?.name === sprite.name ? 'var(--color-primary)' : 'transparent' }}
-              onClick={() => { setSelectedSprite(sprite); setView('detail'); }}
-            >
-              {sprite.name}
-              {sprite.has_metadata && <span style={{ float: 'right', fontSize: '10px', opacity: 0.7 }}>✨</span>}
-            </div>
-          ))}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflowY: 'auto', flex: 1, minHeight: 0 }}>
+
+          <CollapsibleSection title="Scenes" defaultOpen={true} icon="scenes">
+            {scenes.map(scene => (
+              <div
+                key={scene.name}
+                className={`btn ${selectedItem?.name === scene.name && view === 'scene-detail' ? 'btn-primary' : ''}`}
+                style={{ textAlign: 'left', border: 'none', background: selectedItem?.name === scene.name && view === 'scene-detail' ? 'var(--color-primary)' : 'transparent', paddingLeft: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}
+                onClick={() => { setSelectedItem(scene); setView('scene-detail'); }}
+              >
+                <Icon name="scenes" size={14} /> {scene.name}
+              </div>
+            ))}
+            {scenes.length === 0 && <div style={{ opacity: 0.5, paddingLeft: '16px', fontSize: '0.9em' }}>No scenes found</div>}
+          </CollapsibleSection>
+
+          <CollapsibleSection title="Sprites" defaultOpen={true} icon="sprites">
+            {sprites.map(sprite => (
+              <div
+                key={sprite.name}
+                className={`btn ${selectedItem?.name === sprite.name && view === 'sprite-detail' ? 'btn-primary' : ''}`}
+                style={{ textAlign: 'left', border: 'none', background: selectedItem?.name === sprite.name && view === 'sprite-detail' ? 'var(--color-primary)' : 'transparent', paddingLeft: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}
+                onClick={() => { setSelectedItem(sprite); setView('sprite-detail'); }}
+              >
+                <span title={sprite.name} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                  <Icon name="sprites" size={14} style={{ marginRight: '8px', verticalAlign: 'middle' }} />{sprite.name}
+                </span>
+                {sprite.has_metadata && <span style={{ fontSize: '10px', opacity: 0.7 }}>✨</span>}
+              </div>
+            ))}
+          </CollapsibleSection>
+
         </div>
       </aside>
 
       <main className="main-content">
-        {view === 'new' && <NewSpriteView onCreated={async (name) => {
-          console.log("[App] onCreated called with name:", name);
+        {view === 'create' && (
+          <CreateView
+            onCreated={async (type, name) => {
+              await fetchData();
+              // Fetch fresh data to force selection of new item
+              const endpoint = type === 'sprite' ? 'sprites' : 'scenes';
+              const res = await fetch(`${API_BASE}/${endpoint}`);
+              const data = await res.json();
+              const newItem = data.find(s => s.name === name);
 
-          // Force a fetch to ensuring we have the latest
-          try {
-            console.log("[App] Fetching refreshing list...");
-            const res = await fetch(`${API_BASE}/sprites`);
-            const data = await res.json();
-            console.log("[App] Fresh sprites list:", data);
+              if (newItem) {
+                setSelectedItem(newItem);
+                setView(type === 'sprite' ? 'sprite-detail' : 'scene-detail');
+              }
+            }}
+          />
+        )}
 
-            setSprites(data);
+        {view === 'sprite-detail' && selectedItem && (
+          <GenericDetailView
+            type="sprite"
+            asset={selectedItem}
+            refresh={fetchData}
+            isExpanded={isExpanded}
+            toggleExpand={() => setIsExpanded(!isExpanded)}
+          />
+        )}
 
-            const newSprite = data.find(s => s.name === name);
-            if (newSprite) {
-              console.log("[App] Found new sprite, switching view to:", newSprite);
-              setSelectedSprite(newSprite);
-              setView('detail');
-            } else {
-              console.warn("[App] Could not find created sprite in list. Name searched:", name);
-              setView('list');
-            }
-          } catch (e) {
-            console.error("[App] Error in onCreated flow:", e);
-            setView('list');
-          }
-        }} />}
-        {view === 'detail' && selectedSprite && <SpriteDetailView sprite={selectedSprite} refresh={fetchSprites} />}
+        {view === 'scene-detail' && selectedItem && (
+          <GenericDetailView
+            type="scene"
+            asset={selectedItem}
+            refresh={fetchData}
+            isExpanded={isExpanded}
+            toggleExpand={() => setIsExpanded(!isExpanded)}
+            onOpenSprite={(spriteName) => {
+              const sprite = sprites.find(s => s.name === spriteName);
+              if (sprite) {
+                setSelectedItem(sprite);
+                setView('sprite-detail');
+              } else {
+                console.warn("Could not find sprite:", spriteName);
+                toast.warning(`Sprite '${spriteName}' not found`);
+              }
+            }}
+          />
+        )}
+
         {view === 'list' && (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', opacity: 0.5 }}>
-            <h2>Select a Sprite or Create New</h2>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', height: '100%', opacity: 0.5, flexDirection: 'column', gap: '16px', paddingTop: '100px' }}>
+            <Icon name="logs" size={48} opacity={0.5} />
+            <h2>Select a Scene or Sprite</h2>
           </div>
         )}
       </main>
+      <Toaster theme="dark" position="bottom-right" />
     </div>
   )
 }
 
-function NewSpriteView({ onCreated }) {
+function CreateView({ onCreated }) {
+  const [selectedType, setSelectedType] = useState('sprite'); // 'sprite' | 'scene-upload' | 'scene-gen'
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '32px', padding: '24px', height: '100%', overflowY: 'auto' }}>
+
+      {/* Selection Tiles */}
+      <div style={{ display: 'flex', gap: '24px', justifyContent: 'flex-start' }}>
+        <SelectionTile
+          icon="sprites"
+          title="New Sprite"
+          selected={selectedType === 'sprite'}
+          onClick={() => setSelectedType('sprite')}
+        />
+        <SelectionTile
+          icon="scenes" // Using upload icon conceptually
+          title="Upload Scene"
+          selected={selectedType === 'scene-upload'}
+          onClick={() => setSelectedType('scene-upload')}
+        />
+        <SelectionTile
+          icon="generate"
+          title="Generate Scene"
+          selected={selectedType === 'scene-gen'}
+          onClick={() => setSelectedType('scene-gen')}
+        />
+      </div>
+
+      {/* Description & Form Area */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', maxWidth: '800px' }}>
+        <div className="card glass" style={{ padding: '24px' }}>
+          {selectedType === 'sprite' && <NewSpriteForm onSuccess={(name) => onCreated('sprite', name)} />}
+          {selectedType === 'scene-upload' && <NewSceneForm onSuccess={(name) => onCreated('scene', name)} />}
+          {selectedType === 'scene-gen' && <GenerateSceneForm onSuccess={(name) => onCreated('scene', name)} />}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function SelectionTile({ icon, title, selected, onClick }) {
+  return (
+    <div className="card glass"
+      onClick={onClick}
+      style={{
+        width: '200px',
+        height: '180px',
+        cursor: 'pointer',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        textAlign: 'center',
+        gap: '12px',
+        border: selected ? '2px solid var(--color-primary)' : '1px solid rgba(255,255,255,0.1)',
+        background: selected ? 'rgba(var(--color-primary-rgb), 0.1)' : 'transparent',
+        transition: 'all 0.2s'
+      }}
+    >
+      <Icon name={icon} size={48} />
+      <h3 style={{ margin: 0 }}>{title}</h3>
+    </div>
+  )
+}
+
+/* --- Forms with Toast Integration --- */
+
+function NewSpriteForm({ onSuccess }) {
   const [name, setName] = useState('');
   const [file, setFile] = useState(null);
-  const [removeBg, setRemoveBg] = useState(false);
-  const [optimize, setOptimize] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!file || !name) {
-      alert("Please provide both a name and an image.");
+      toast.error("Missing Information", { description: "Please provide both a name and an image." });
       return;
     }
 
@@ -100,394 +235,196 @@ function NewSpriteView({ onCreated }) {
     const formData = new FormData();
     formData.append('name', name);
     formData.append('file', file);
-    formData.append('remove_background', removeBg);
-    formData.append('optimize', optimize);
 
-    console.log("[NewSpriteView] Submitting form...", { name, file, removeBg, optimize });
-
-    try {
-      const res = await fetch(`${API_BASE}/upload`, {
-        method: 'POST',
-        body: formData,
+    const promise = fetch(`${API_BASE}/upload`, { method: 'POST', body: formData })
+      .then(async res => {
+        if (!res.ok) throw new Error(await res.text());
+        return res.json();
+      })
+      .then(async data => {
+        await new Promise(r => setTimeout(r, 500));
+        onSuccess(data.name);
+        return data.name;
       });
 
-      console.log("[NewSpriteView] Response status:", res.status);
+    toast.promise(promise, {
+      loading: 'Creating sprite...',
+      success: (name) => `Sprite '${name}' created successfully`,
+      error: (err) => `Failed to create sprite: ${err.message}`
+    });
 
-
-      if (!res.ok) {
-        const errText = await res.text();
-        throw new Error(`Server responded with ${res.status}: ${errText}`);
-      }
-
-      const data = await res.json();
-
-      // Simulate a small delay so user sees "Uploading..." state
-      await new Promise(r => setTimeout(r, 500));
-
-      onCreated(data.name);
-    } catch (e) {
-      console.error("Upload failed", e);
-      alert(`Upload failed: ${e.message}`);
-    } finally {
-      setLoading(false);
-    }
+    promise.finally(() => setLoading(false));
   };
 
   return (
-    <div className="card glass" style={{ maxWidth: '600px', margin: '0 auto' }}>
-      <h2>Create New Sprite</h2>
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-        <div>
-          <label style={{ display: 'block', marginBottom: '8px', color: 'var(--color-text-muted)' }}>Sprite Name</label>
-          <input className="input" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. mythical_dragon" />
-        </div>
-        <div>
-          <label style={{ display: 'block', marginBottom: '8px', color: 'var(--color-text-muted)' }}>Source Image (PNG)</label>
-          <input type="file" onChange={e => setFile(e.target.files[0])} accept="image/png" className="input" />
-        </div>
-
-        <div style={{ display: 'flex', gap: '16px' }}>
-          <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: '8px' }}>
-            <input type="checkbox" checked={removeBg} onChange={e => setRemoveBg(e.target.checked)} />
-            Remove Green Screen
-          </label>
-          <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: '8px' }}>
-            <input type="checkbox" checked={optimize} onChange={e => setOptimize(e.target.checked)} />
-            Optimize Image
-          </label>
-        </div>
-
-        <button type="submit" className="btn btn-primary" disabled={loading}>
-          {loading ? 'Processing & Uploading...' : 'Create Sprite'}
-        </button>
-      </form>
-    </div>
+    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <div>
+        <label style={{ display: 'block', marginBottom: '8px', color: 'var(--color-text-muted)' }}>Sprite Name</label>
+        <input className="input" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. mythical_dragon" autoFocus />
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <label style={{ display: 'block', color: 'var(--color-text-muted)' }}>Source Image (PNG)</label>
+        <input type="file" onChange={e => {
+          const file = e.target.files[0];
+          setFile(file);
+          if (file && !name) {
+            const nameWithoutExt = file.name.replace(/\.[^/.]+$/, "");
+            setName(nameWithoutExt);
+          }
+        }} accept="image/png" className="input" />
+      </div>
+      <button type="submit" className="btn btn-primary" disabled={loading} style={{ alignSelf: 'flex-start' }}>
+        {loading ? <Icon name="image" className="animate-spin" /> : 'Create Sprite'}
+      </button>
+    </form>
   )
 }
 
-function SpriteDetailView({ sprite, refresh }) {
-  const [prompt, setPrompt] = useState(sprite.prompt_text || '');
-  const [compiling, setCompiling] = useState(false);
-  const [logs, setLogs] = useState('');
-  const [copyFeedback, setCopyFeedback] = useState(false);
+function NewSceneForm({ onSuccess }) {
+  const [name, setName] = useState('');
+  const [file, setFile] = useState(null);
+  const [loading, setLoading] = useState(false);
 
-  // Update local state when sprite prop changes
-  useEffect(() => {
-    setPrompt(sprite.prompt_text || '');
-    setLogs('');
-    setCopyFeedback(false);
-  }, [sprite]);
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!file || !name) {
+      toast.error("Missing Information", { description: "Please provide both a name and an image." });
+      return;
+    }
 
-  const imageUrl = `${API_BASE.replace('/api', '')}/assets/sprites/${sprite.name}/${sprite.name}.png`; // Hacky static serve simulation?
+    setLoading(true);
+    const formData = new FormData();
+    formData.append('name', name);
+    formData.append('file', file);
 
-  // Actually, I haven't implemented static serving for generic assets yet in backend.
-  // I should add `StaticFiles` to backend main.py to serve `assets`.
-  // For now let's assume I will add it.
-
-  const handleCompile = async () => {
-    setCompiling(true);
-    setLogs("Starting compilation with Gemini...\n");
-    try {
-      const res = await fetch(`${API_BASE}/compile`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: sprite.name, prompt: prompt || "Animate this naturally" })
+    const promise = fetch(`${API_BASE}/scenes/upload`, { method: 'POST', body: formData })
+      .then(async res => {
+        if (!res.ok) throw new Error(await res.text());
+        return res.json();
+      })
+      .then(async data => {
+        await new Promise(r => setTimeout(r, 500));
+        onSuccess(data.name);
       });
 
-      if (!res.ok) throw new Error("Compilation failed");
+    toast.promise(promise, {
+      loading: 'Uploading scene...',
+      success: 'Scene uploaded successfully',
+      error: (e) => `Upload failed: ${e.message}`
+    });
 
-      const data = await res.json();
-      setLogs(prev => prev + "Compilation success!\n" + JSON.stringify(data, null, 2));
-      refresh();
-    } catch (e) {
-      setLogs(prev => prev + "Error: " + e.message);
-    } finally {
-      setCompiling(false);
-    }
+    promise.finally(() => setLoading(false));
   };
 
   return (
-    <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '16px',
-      height: 'calc(100vh - 60px)',
-      overflow: 'hidden'
-    }}>
-
-      {/* Top Section: Split View (Visuals | Metadata) */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: '350px 1fr',
-        gap: '24px',
-        flex: 1,
-        overflow: 'hidden',
-        minHeight: 0
-      }}>
-
-        {/* Left Column: Visuals & Controls */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', overflowY: 'auto', paddingRight: '8px' }}>
-          <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h1 style={{ fontSize: '1.5rem', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{sprite.name}</h1>
-            <div style={{ fontSize: '12px', padding: '4px 8px', borderRadius: '12px', background: sprite.has_metadata ? 'rgba(74, 222, 128, 0.2)' : 'rgba(244, 63, 94, 0.2)', color: sprite.has_metadata ? '#4ade80' : '#f43f5e' }}>
-              {sprite.has_metadata ? 'Compiled' : 'Raw'}
-            </div>
-          </header>
-
-          <div className="card glass" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-
-            {/* Header Toolbar */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ fontSize: '1rem', margin: 0 }}>Visuals</h3>
-              <div style={{ display: 'flex', gap: '8px' }}>
-
-                {/* Optimize Button */}
-                <button className="btn"
-                  title="✨ AI Optimize Sprite"
-                  style={{ color: '#d8b4fe', borderColor: 'rgba(216, 180, 254, 0.3)' }}
-                  onClick={async () => {
-                    try {
-                      setLogs(prev => prev + "Starting AI Optimization...\n");
-                      const res = await fetch(`${API_BASE}/sprites/${sprite.name}/process`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ optimize: true, remove_background: false })
-                      });
-
-                      if (!res.ok) throw new Error(await res.text());
-
-                      const data = await res.json();
-                      if (data.method && data.method.startsWith('fallback')) {
-                        setLogs(prev => prev + `⚠️ Optimization completed via FALLBACK (Manual Green Screen).\n   AI Error: ${data.error_details || 'Unknown'}\n`);
-                      } else {
-                        setLogs(prev => prev + "✨ AI Optimization successful!\n");
-                      }
-
-                      refresh();
-                    } catch (e) {
-                      setLogs(prev => prev + "Error processing: " + e.message + "\n");
-                    }
-                  }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
-                </button>
-
-
-
-                {/* Copy Prompt Button */}
-                <button className="btn"
-                  title="🧠 Copy Optimization Prompt"
-                  style={{ color: '#60a5fa', borderColor: 'rgba(96, 165, 250, 0.3)' }}
-                  onClick={async () => {
-                    try {
-                      const res = await fetch(`${API_BASE}/system-prompt`);
-                      const data = await res.json();
-                      const fullPrompt = `${data.content}\n\nUser Request: ${prompt || "Optimize this sprite..."}`;
-                      navigator.clipboard.writeText(fullPrompt);
-                      setLogs(prev => prev + "Copied optimization prompt + request to clipboard!\n");
-                    } catch (e) {
-                      setLogs(prev => prev + "Failed to fetch prompt: " + e.message + "\n");
-                    }
-                  }}
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-                </button>
-
-                {/* Revert Button */}
-                {sprite.has_original && (
-                  <button className="btn"
-                    title="↩️ Revert to Original"
-                    style={{ color: '#f43f5e', borderColor: 'rgba(244, 63, 94, 0.3)' }}
-                    onClick={async () => {
-                      if (!confirm("Revert to original image?")) return;
-                      try {
-                        setLogs(prev => prev + "Reverting...\n");
-                        const res = await fetch(`${API_BASE}/sprites/${sprite.name}/revert`, { method: 'POST' });
-                        if (!res.ok) throw new Error(await res.text());
-                        setLogs(prev => prev + "Revert complete!\n");
-                        refresh();
-                      } catch (e) {
-                        setLogs(prev => prev + "Error reverting: " + e.message + "\n");
-                      }
-                    }}
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Original (if exists) */}
-            {sprite.has_original && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <div style={{ fontSize: '0.8em', opacity: 0.7 }}>Original Source</div>
-                <div style={{
-                  height: '100px',
-                  background: '#0a0a0a',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  borderRadius: '8px',
-                  overflow: 'hidden',
-                  border: '1px solid #333',
-                  opacity: 0.6
-                }}>
-                  <img
-                    src={`${API_BASE.replace('/api', '')}/assets/sprites/${sprite.name}/${sprite.name}.original.png?t=${Date.now()}`}
-                    alt="Original"
-                    style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Current / Optimized */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <div style={{ fontSize: '0.8em', opacity: 0.7 }}>{sprite.has_original ? "Optimized / Current" : "Current Image"}</div>
-              <div style={{
-                aspectRatio: '1',
-                background: '#0a0a0a',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderRadius: '8px',
-                overflow: 'hidden',
-                border: '1px solid #333'
-              }}>
-                {sprite.has_image ? (
-                  <img
-                    src={`${API_BASE.replace('/api', '')}/assets/sprites/${sprite.name}/${sprite.name}.png?t=${Date.now()}`}
-                    alt={sprite.name}
-                    style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                  />
-                ) : (
-                  <span style={{ color: '#666' }}>No Image</span>
-                )}
-              </div>
-            </div>
-
-          </div>
-        </div>
-
-        {/* Right Column: Prompt & Metadata */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', overflow: 'hidden' }}>
-
-          {/* Compiler Prompt */}
-          <div className="card glass" style={{ display: 'flex', flexDirection: 'column', padding: '16px', flexShrink: 0 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-              <h3 style={{ fontSize: '1rem', margin: 0 }}>Animation Prompt</h3>
-              <button className="btn"
-                title="⚡ Compile Metadata"
-                style={{ color: '#4ade80', borderColor: 'rgba(74, 222, 128, 0.3)', padding: '4px' }}
-                onClick={handleCompile} disabled={compiling}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
-              </button>
-            </div>
-
-            <textarea
-              className="input"
-              style={{ width: '100%', resize: 'none', height: '80px', fontFamily: 'monospace', fontSize: '0.9em' }}
-              placeholder="Describe how this sprite should move..."
-              value={prompt}
-              onChange={e => setPrompt(e.target.value)}
-            />
-          </div>
-
-          {/* Metadata Panel */}
-          <div className="card glass" style={{ display: 'flex', flexDirection: 'column', padding: '16px', flex: 1, minHeight: 0, overflow: 'hidden' }}>
-            <h3 style={{ fontSize: '1rem', marginTop: 0, marginBottom: '8px' }}>Metadata (JSON)</h3>
-            <pre style={{
-              flex: 1,
-              background: 'rgba(0,0,0,0.3)',
-              padding: '12px',
-              borderRadius: '6px',
-              overflowY: 'auto',
-              margin: 0,
-              fontSize: '0.85em',
-              color: '#a5b4fc',
-              whiteSpace: 'pre-wrap'
-            }}>
-              {sprite.metadata ? JSON.stringify(sprite.metadata, null, 2) : <span style={{ opacity: 0.5 }}>No compiled metadata</span>}
-            </pre>
-          </div>
-
-        </div>
+    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <div>
+        <label style={{ display: 'block', marginBottom: '8px', color: 'var(--color-text-muted)' }}>Scene Name</label>
+        <input className="input" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. spooky_forest" autoFocus />
       </div>
+      <div>
+        <label style={{ display: 'block', marginBottom: '8px', color: 'var(--color-text-muted)' }}>Original Reference Image</label>
+        <input type="file" onChange={e => {
+          const file = e.target.files[0];
+          setFile(file);
+          if (file && !name) {
+            const nameWithoutExt = file.name.replace(/\.[^/.]+$/, "");
+            setName(nameWithoutExt);
+          }
+        }} accept="image/*" className="input" />
+      </div>
+      <button type="submit" className="btn btn-primary" disabled={loading} style={{ alignSelf: 'flex-start' }}>
+        {loading ? <Icon name="image" className="animate-spin" /> : 'Create Scene'}
+      </button>
+    </form>
+  )
+}
 
-      {/* Bottom Section: Logs (Full Width) */}
-      <div className="card glass" style={{
-        height: '150px',
-        display: 'flex',
-        flexDirection: 'column',
-        padding: '12px',
-        flexShrink: 0,
-        position: 'relative'
-      }}>
-        {/* Controls (Absolute Top Right) - Scaled Down & Subtle */}
-        <div style={{
-          position: 'absolute',
-          top: '1px',
-          right: '16px',
+function GenerateSceneForm({ onSuccess }) {
+  const [name, setName] = useState('');
+  const [prompt, setPrompt] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!name || !prompt) {
+      toast.error("Missing Information", { description: "Please provide name and prompt" });
+      return;
+    }
+
+    setLoading(true);
+
+    const promise = fetch(`${API_BASE}/scenes/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, prompt })
+    })
+      .then(async res => {
+        if (!res.ok) throw new Error(await res.text());
+        return res.json();
+      })
+      .then(async data => {
+        await new Promise(r => setTimeout(r, 1000));
+        onSuccess(data.name);
+      });
+
+    toast.promise(promise, {
+      loading: 'Generating scene with AI (this may take a minute)...',
+      success: 'Scene generated!',
+      error: (e) => `Generation failed: ${e.message}`
+    });
+
+    promise.finally(() => setLoading(false));
+  };
+
+  return (
+    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <div>
+        <label style={{ display: 'block', marginBottom: '8px', color: 'var(--color-text-muted)' }}>Scene Name</label>
+        <input className="input" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. magical_forest" />
+      </div>
+      <div>
+        <label style={{ display: 'block', marginBottom: '8px', color: 'var(--color-text-muted)' }}>Description Prompt</label>
+        <textarea className="input" style={{ width: '100%', height: '100px', resize: 'vertical' }}
+          value={prompt} onChange={e => setPrompt(e.target.value)}
+          placeholder="Describe the scene you want to generate" />
+      </div>
+      <button type="submit" className="btn btn-primary" disabled={loading} style={{ alignSelf: 'flex-start' }}>
+        {loading ? <Icon name="generate" className="animate-spin" /> : 'Generate Scene'}
+      </button>
+    </form>
+  )
+}
+
+
+function CollapsibleSection({ title, children, defaultOpen = false, icon }) {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+  return (
+    <div>
+      <div
+        onClick={() => setIsOpen(!isOpen)}
+        style={{
+          cursor: 'pointer',
+          fontWeight: 'bold',
+          marginBottom: '4px',
           display: 'flex',
-          gap: '2px',
-          zIndex: 10,
-          opacity: 0.5,
-          transform: 'scale(0.56)',
-          transformOrigin: 'top right'
-        }}>
-          <button
-            className="btn"
-            style={{ padding: 0, lineHeight: 0, color: copyFeedback ? '#4ade80' : '#9ca3af', background: 'transparent', border: 'none' }}
-            title={copyFeedback ? "Copied!" : "Copy logs to clipboard"}
-            onClick={() => {
-              navigator.clipboard.writeText(logs || "");
-              setCopyFeedback(true);
-              setTimeout(() => setCopyFeedback(false), 2000);
-            }}
-          >
-            {copyFeedback ? (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="20 6 9 17 4 12"></polyline>
-              </svg>
-            ) : (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-              </svg>
-            )}
-          </button>
-          <button
-            className="btn"
-            style={{ padding: 0, lineHeight: 0, color: '#9ca3af', background: 'transparent', border: 'none' }}
-            title="Clear logs"
-            onClick={() => setLogs('')}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="3 6 5 6 21 6"></polyline>
-              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-            </svg>
-          </button>
-        </div>
-
-        {/* Logs Pre */}
-        <pre style={{
-          flex: 1,
-          background: 'rgba(0,0,0,0.3)',
-          padding: '12px',
-          borderRadius: '6px',
-          overflowY: 'auto',
-          margin: 0,
-          fontSize: '0.85em',
-          fontFamily: 'monospace',
-          whiteSpace: 'pre-wrap'
-        }}>
-          {logs || <span style={{ opacity: 0.5, fontStyle: 'italic' }}>Processing logs show here...</span>}
-        </pre>
+          alignItems: 'center',
+          opacity: 0.8,
+          fontSize: '0.9em',
+          gap: '4px',
+          userSelect: 'none'
+        }}
+      >
+        <Icon name={isOpen ? 'chevronDown' : 'chevronRight'} size={16} />
+        {title} {icon && <span style={{ opacity: 0.5, display: 'flex', alignItems: 'center', gap: '2px', fontSize: '0.85em', marginLeft: '4px' }}>(<Icon name={icon} size={12} />)</span>}
       </div>
-
+      {isOpen && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          {children}
+        </div>
+      )}
     </div>
   )
 }
 
 export default App
-

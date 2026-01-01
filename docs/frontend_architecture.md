@@ -32,16 +32,14 @@ python scripts/process_assets.py --src <path/to/raw/image.png> --dest <asset_nam
 - **Styling**: Vanilla CSS (per user preference for "Rich Aesthetics" / "Premium").
 - **State Management**: React Query (for syncing with backend JSON).
 - **Components**:
-    - **Scene Graph**: Tree view of layers.
-    - **Property Inspector**: Form to edit physics parameters (bob, drift, twinkle).
-    - **Asset Library**: Grid view of available sprites.
-    - **Preview Window**:
-         *Option A (Simple)*: Backend renders a frame/GIF and sends it to FE.
-         *Option B (Advanced)*: Backend streams specific state data, FE mimics simple rendering.
-         *Current Choice*: Backend streams an MJPEG view of the running `pygame` surface (using `pygame.image.tostring`).
+    - **AssetDetailLayout**: Shared UI shell for Scene and Sprite details, ensuring consistent UX (Header, Stepper, Logs).
+    - **Controllers**: `SpriteDetailView` and `SceneDetailView` process data and render into the shared layout.
+    - **Shared UI**: `Icon` (Lucide), `StatusStepper` (Lifecycle visualization).
+    - **Logging**: `LogPanel` integrates real-time server logs via `/api/logs` endpoints.
 
 ## 3. Communication Flow
-[Communication Flow Diagram (PNG)](assets/frontend_architecture_flow.png) | [Source (DOT)](assets/frontend_architecture_flow.dot)
+![Communication Flow Diagram](assets/diagrams/frontend_architecture_flow.png)
+> [Source (DOT)](assets/diagrams/frontend_architecture_flow.dot)
 
 ## 4. Next Steps
 1.  **Refactor**: Make `process_assets.py` generic.

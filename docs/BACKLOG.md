@@ -17,3 +17,14 @@ This file lists features, improvements, and bugs to be addressed in the Papeteri
 *   **Export Scene to Movie File:** Add functionality to export a specified number of seconds of the current animation scene as a movie file (e.g., MP4, GIF) for easy sharing.
 *   **Agent Self-Reflection Loop:** Enhance the `SpriteCompiler` to allow the agent to generate its own unit tests for the metadata it produces, ensuring "physics-correctness" before human review.
 *   **Token Optimization Analyzer:** Create a script that analyzes `logs/token_ledger.csv` and suggests prompt compression or model switching to reduce operational costs.
+*   **Sprite Remixing**: Allow users to "remix" existing sprites by editing their prompts.
+*   **Scene Templates**: Provide pre-configured scene templates (e.g., "Forest Theater", "Space Stage").
+
+## Verification & Quality Assurance
+
+*   **Improve Verification Coverage**: See `docs/verification.md` for the detailed backlog of testing improvements (E2E, Visual Regression, etc.).
+*   **Add Linting to Validate Script**: Incorporate `eslint` and `ruff` checks into `scripts/validate.sh`.
+
+## Technical Debt
+
+*   **Refactor `main.py`**: The entry point is currently too large and logic should be distributed.

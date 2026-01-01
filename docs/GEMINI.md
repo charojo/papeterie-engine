@@ -60,7 +60,21 @@ The project uses `uv` for dependency management.
     ```bash
     uv run pytest
     ```
+    uv run pytest
+    ```
     Tests are located in the `/tests` directory and leverage `pytest-asyncio` for asynchronous tests.
+
+*   **Frontend Testing**:
+    Frontend tests are located in `src/web` and use `vitest`.
+    ```bash
+    cd src/web && npm run test
+    ```
+
+*   **Full System Validation**:
+    To run all tests (backend and frontend):
+    ```bash
+    ./scripts/validate.sh
+    ```
 *   **Running the Theatre**:
     The main rendering loop can be initiated via `src/renderer/theatre.py`. For example, to run `scene_sailboat.json`:
     ```bash
@@ -81,7 +95,7 @@ The project uses `uv` for dependency management.
 
 ## Project Backlog
 
-Future features, improvements, and bugs are tracked in `BACKLOG.md`. This file serves as a reference for unprioritized tasks and ideas that Gemini can consult for potential future work. When presenting new ideas or tasks for later implementation, please add them to `BACKLOG.md`.
+Future features, improvements, and bugs are tracked in `docs/BACKLOG.md`. This file serves as a reference for unprioritized tasks and ideas that Gemini can consult for potential future work. When presenting new ideas or tasks for later implementation, please add them to `docs/BACKLOG.md`.
 
 ## Design Documentation
 
@@ -90,5 +104,7 @@ Detailed design principles for scenes and sprites can be found in the `/docs` di
 *   `docs/sprite_design.md`: Principles for creating and configuring individual sprite assets via their `.prompt.json` files.
 
 ## Diagrams & Visuals
-*   **Source of Truth**: The `.dot` files in `docs/assets/diagrams/` are the authoritative source for system architecture visuals. Always read the `.dot` file to understand the system structure.
+*   **Location**: All `.dot` (source) and generated `.png` diagram files MUST be placed in `docs/assets/diagrams/`. Do not place them in the root of `docs/assets/`.
+*   **Documentation**: Documentation must embed the generated `.png` image and provide a link to the source `.dot` file.
+*   **Source of Truth**: The `.dot` files are the authoritative source for system architecture visuals. Always read the `.dot` file to understand the system structure.
 *   **Generation**: After modifying any `.dot` file, you MUST run `python scripts/generate_diagrams.py` to update the corresponding `.png` images.

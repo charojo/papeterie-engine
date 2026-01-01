@@ -47,9 +47,58 @@ class GeminiCompilerClient:
         return response.text
 
 
-    def edit_image(self, input_image_path: str, prompt: str, system_instruction: str = None) -> bytes:
+    def generate_image(self, prompt: str) -> bytes:
+        """
+        Generates an image from a text prompt using Gemini 3 Pro.
+        """
+        model_name = "gemini-3-pro-image-preview" # Or imagen-3.0-generate-001 if available/preferred, but 3-pro is unified
+        
+        try:
+            print(f"DEBUG: calling generate_content with model={model_name} for image generation")
+            
+            response = self.client.models.generate_content(
+                model=model_name,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    response_modalities=['IMAGE'],
+                    image_config=types.ImageConfig(aspect_ratio="16:9") # Scene appropriate
+                )
+            )
+
+            # Log usage
+            if hasattr(response, 'usage_metadata') and response.usage_metadata:
+                usage = response.usage_metadata
+                log_token_usage(
+                    model_name=model_name,
+                    prompt_tokens=usage.prompt_token_count,
+                    candidate_tokens=usage.candidates_token_count,
+                    total_tokens=usage.total_token_count,
+                    task_name="generate_image"
+                )
+
+            if not response.candidates:
+                 raise ValueError(f"No candidates returned. Text: {response.text}")
+                 
+            candidate = response.candidates[0]
+            
+            if not candidate.content or not candidate.content.parts:
+                raise ValueError(f"Gemini returned candidate but no content/parts.")
+
+            for part in candidate.content.parts:
+                if part.inline_data:
+                    return part.inline_data.data
+            
+            raise ValueError("No inline_data found in response parts.")
+            
+        except Exception as e:
+            print(f"Gemini Image Gen Error: {e}")
+            raise
+
+
+    def edit_image(self, input_image_path: str, prompt: str, system_instruction: str = None, aspect_ratio: str = "1:1") -> bytes:
         """
         Refines a sprite using Gemini 3 Pro Image (Preview).
+        aspect_ratio: "1:1" for sprites (default), "16:9" for scenes.
         """
         try:
             from PIL import Image
@@ -65,14 +114,14 @@ class GeminiCompilerClient:
             # Contents: [Text, Image]
             contents = [final_prompt, img]
             
-            print(f"DEBUG: calling generate_content with model={model_name} and response_modalities=['TEXT', 'IMAGE']")
+            print(f"DEBUG: calling generate_content with model={model_name}, aspect={aspect_ratio}")
             
             response = self.client.models.generate_content(
                 model=model_name,
                 contents=contents,
                 config=types.GenerateContentConfig(
                     response_modalities=['TEXT', 'IMAGE'],
-                    image_config=types.ImageConfig(aspect_ratio="1:1")
+                    image_config=types.ImageConfig(aspect_ratio=aspect_ratio)
                 )
             )
             
@@ -120,4 +169,42 @@ class GeminiCompilerClient:
             print(f"Image generation failed: {e}")
             import traceback
             traceback.print_exc()
-            raise e
+            raise
+
+    def decompose_scene(self, scene_image_path: str, system_instruction: str) -> str:
+        """
+        Analyzes a scene image to identify sprites and background (JSON output).
+        Uses Gemini 2.5 Flash (multimodal) or Gemini 3 Pro (if preferred).
+        """
+        try:
+            from PIL import Image
+            img = Image.open(scene_image_path)
+            
+            # Use the standard model_name configured in __init__ (gemini-2.5-flash by default)
+            # as it supports multimodal input and JSON mode well.
+            
+            response = self.client.models.generate_content(
+                model=self.model_name,
+                contents=["Analyze this scene.", img],
+                config={
+                    "system_instruction": system_instruction,
+                    "response_mime_type": "application/json"
+                }
+            )
+            
+            if hasattr(response, 'usage_metadata') and response.usage_metadata:
+                 usage = response.usage_metadata
+                 log_token_usage(self.model_name, usage.prompt_token_count, usage.candidates_token_count, usage.total_token_count, "decompose_scene")
+
+            return response.text
+        except Exception as e:
+            print(f"Decomposition Error: {e}")
+            raise
+
+    def extract_element_image(self, scene_image_path: str, prompt: str, system_instruction: str, aspect_ratio: str = "16:9") -> bytes:
+        """
+        Extracts a specific element (background or sprite) using Gemini 3 Pro Image.
+        Reuse edit_image logic but with specific prompts.
+        Default to 16:9 for scene extraction.
+        """
+        return self.edit_image(scene_image_path, prompt, system_instruction, aspect_ratio=aspect_ratio)

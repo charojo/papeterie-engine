@@ -24,6 +24,8 @@ class SpriteMetadata(BaseModel):
     scale_drift: float = Field(0.0, description="Constant change in scale factor per second (e.g., 0.01 for 1% growth per second).")
     scale_drift_multiplier_after_cap: float = Field(3.0, description="Multiplier for scale drift once drift_cap_y is reached.")
     horizontal_drift: float = Field(0.0, description="Constant horizontal movement in pixels per second.")
+    target_height: Optional[int] = Field(None, description="Target height in pixels for rendering.")
+    tile_horizontal: bool = Field(False, description="Whether to tile the sprite horizontally.")
     drift_cap_y: Optional[float] = Field(None, description="The screen Y coordinate (0-720) where vertical drift stops.")
     twinkle_amplitude: float = Field(0.0, description="Amplitude of opacity pulsing (0.0 to 1.0).")
     twinkle_frequency: float = Field(0.0, description="Frequency of opacity pulsing.")
@@ -58,6 +60,15 @@ class SceneLayer(BaseModel):
 
 class SceneConfig(BaseModel):
     """The master 'Stage Script' for a complete animation."""
-    scene_name: str
+    name: str
     duration_sec: int = 10
     layers: List[SceneLayer]
+
+class DecomposedSprite(BaseModel):
+    name: str = Field(..., description="Unique snake_case name for the sprite")
+    description: str = Field(..., description="Visual description for extraction")
+    location_hint: str = Field(..., description="Approximate location in the image")
+
+class SceneDecomposition(BaseModel):
+    background_description: str
+    sprites: List[DecomposedSprite]
