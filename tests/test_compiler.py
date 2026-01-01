@@ -1,9 +1,12 @@
-import pytest
-import os
 import json
+import os
+from unittest.mock import patch
+
+import pytest
+
 from src.compiler.engine import SpriteCompiler
 from src.compiler.models import SpriteMetadata
-from unittest.mock import patch
+
 
 def test_compiler_initialization():
     compiler = SpriteCompiler()
@@ -15,7 +18,7 @@ def test_compiler_initialization():
 @pytest.mark.live
 def test_real_compilation():
     compiler = SpriteCompiler()
-    
+
     # Check for API Key or a specific toggle variable
     if not os.getenv("GEMINI_API_KEY") or os.getenv("SKIP_LIVE_TESTS"):
         pytest.skip("CAUTION: Skipping live test to preserve quota or API key missing.")
@@ -30,7 +33,8 @@ def test_real_compilation():
             pytest.skip(f"CAUTION: Could not test real compilation. Quota exhausted: {e}")
         raise e
 
-@patch('src.compiler.gemini_client.GeminiCompilerClient.generate_metadata')
+
+@patch("src.compiler.gemini_client.GeminiCompilerClient.generate_metadata")
 def test_fixup_mechanism(mock_generate_metadata):
     """
     This test is 'efficient' because it uses mocks.

@@ -1,8 +1,9 @@
+import argparse
 import os
 import shutil
-import argparse
-import sys
+
 from PIL import Image
+
 
 def remove_green_screen(image_path, output_path, threshold=50):
     """
@@ -27,6 +28,7 @@ def remove_green_screen(image_path, output_path, threshold=50):
     except Exception as e:
         print(f"Error processing {image_path}: {e}")
 
+
 def process_single_asset(src, dest, mode="transparent", threshold=40):
     """
     Process a single asset based on arguments.
@@ -47,24 +49,28 @@ def process_single_asset(src, dest, mode="transparent", threshold=40):
     else:
         print(f"Unknown mode: {mode}")
 
+
 def process_batch_assets():
     """
     Legacy batch processing for existing project assets.
     """
     base_dir = "assets/sprites"
-    
+
     # --- Starbuilders (Original) ---
-    vibe_img = "/home/chacker/.gemini/antigravity/brain/31af0f52-6884-42c5-bd76-329b3559cd0d/starbuilders_enhanced_vibe_1767135852882.png"
-    villagers_gs = "/home/chacker/.gemini/antigravity/brain/31af0f52-6884-42c5-bd76-329b3559cd0d/starbuilders_villagers_sprite_1767135874753.png"
-    lantern_gs = "/home/chacker/.gemini/antigravity/brain/31af0f52-6884-42c5-bd76-329b3559cd0d/starbuilders_lantern_sprite_1767135892759.png"
-    background_img = "/home/chacker/.gemini/antigravity/brain/31af0f52-6884-42c5-bd76-329b3559cd0d/starbuilders_background_lake_sky_1767135912592.png"
+    base_path = "/home/chacker/.gemini/antigravity/brain/31af0f52-6884-42c5-bd76-329b3559cd0d"
+    vibe_img = f"{base_path}/starbuilders_enhanced_vibe_1767135852882.png"
+    villagers_gs = f"{base_path}/starbuilders_villagers_sprite_1767135874753.png"
+    lantern_gs = f"{base_path}/starbuilders_lantern_sprite_1767135892759.png"
+    background_img = f"{base_path}/starbuilders_background_lake_sky_1767135912592.png"
 
     # --- Starbuilders (Charcoal) ---
-    bg_charcoal = "/home/chacker/.gemini/antigravity/brain/31af0f52-6884-42c5-bd76-329b3559cd0d/starbuild_bg_charcoal_sketch_1767139596099.png"
-    lantern_charcoal = "/home/chacker/.gemini/antigravity/brain/31af0f52-6884-42c5-bd76-329b3559cd0d/starbuild_lantern_charcoal_sketch_1767139608283.png"
-    watching_charcoal = "/home/chacker/.gemini/antigravity/brain/31af0f52-6884-42c5-bd76-329b3559cd0d/starbuild_villager_watching_charcoal_sketch_1767139621513.png"
-    sitting_charcoal = "/home/chacker/.gemini/antigravity/brain/31af0f52-6884-42c5-bd76-329b3559cd0d/starbuild_villager_sitting_charcoal_sketch_1767139637257.png"
-    releasing_charcoal = "/home/chacker/.gemini/antigravity/brain/31af0f52-6884-42c5-bd76-329b3559cd0d/starbuild_villager_releasing_charcoal_sketch_1767139668225.png"
+    bg_charcoal = f"{base_path}/starbuild_bg_charcoal_sketch_1767139596099.png"
+    lantern_charcoal = f"{base_path}/starbuild_lantern_charcoal_sketch_1767139608283.png"
+    watching_charcoal = f"{base_path}/starbuild_villager_watching_charcoal_sketch_1767139621513.png"
+    sitting_charcoal = f"{base_path}/starbuild_villager_sitting_charcoal_sketch_1767139637257.png"
+    releasing_charcoal = (
+        f"{base_path}/starbuild_villager_releasing_charcoal_sketch_1767139668225.png"
+    )
 
     asset_operations = [
         ("starbuild_villagers", villagers_gs, "transparent"),
@@ -93,11 +99,14 @@ def process_batch_assets():
 
     print("Batch asset processing complete.")
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process game assets (green screen removal/copy).")
     parser.add_argument("--src", help="Source image path")
     parser.add_argument("--dest", help="Destination image path")
-    parser.add_argument("--mode", choices=["transparent", "copy"], default="transparent", help="Processing mode")
+    parser.add_argument(
+        "--mode", choices=["transparent", "copy"], default="transparent", help="Processing mode"
+    )
     parser.add_argument("--threshold", type=int, default=40, help="Green screen threshold")
     parser.add_argument("--batch", action="store_true", help="Run legacy batch processing")
 

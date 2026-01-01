@@ -1,7 +1,9 @@
 import logging
+
 from PIL import Image
 
 logger = logging.getLogger("papeterie.image_processing")
+
 
 def remove_green_screen(image: Image.Image, threshold: int = 50) -> Image.Image:
     """
@@ -11,7 +13,7 @@ def remove_green_screen(image: Image.Image, threshold: int = 50) -> Image.Image:
     try:
         if image.mode != "RGBA":
             image = image.convert("RGBA")
-            
+
         datas = image.getdata()
 
         newData = []
@@ -26,7 +28,7 @@ def remove_green_screen(image: Image.Image, threshold: int = 50) -> Image.Image:
             # Green screen logic: Check if green is dominant
             # This is a naive implementation but matches the user's existing script logic
             if g > r + threshold and g > b + threshold:
-                newData.append((255, 255, 255, 0)) # Transparent
+                newData.append((255, 255, 255, 0))  # Transparent
             else:
                 newData.append((r, g, b, a))
 
@@ -34,9 +36,10 @@ def remove_green_screen(image: Image.Image, threshold: int = 50) -> Image.Image:
         return image
     except Exception as e:
         logger.error(f"Error removing green screen: {e}")
-        # Return original on error to not break flow, or raise? 
+        # Return original on error to not break flow, or raise?
         # For now, let's log and re-raise so the caller knows something went wrong.
         raise e
+
 
 def optimize_image(image: Image.Image, max_size: int = 2048) -> Image.Image:
     """
