@@ -256,6 +256,30 @@ async def revert_sprite(name: str):
         raise HTTPException(status_code=500, detail="Revert failed. Check server logs.")
 
 
+@router.put("/sprites/{name}/config")
+async def update_sprite_config(name: str, config: dict):
+    from src.compiler.models import SpriteMetadata
+
+    sprite_dir = SPRITES_DIR / name
+    if not sprite_dir.exists():
+        raise HTTPException(status_code=404, detail="Sprite not found")
+
+    metadata_path = sprite_dir / f"{name}.prompt.json"
+
+    try:
+        # Validate with Pydantic
+        metadata = SpriteMetadata(**config)
+
+        with open(metadata_path, "w") as f:
+            f.write(metadata.model_dump_json(indent=2))
+
+        asset_logger.log_action("sprites", name, "UPDATE_CONFIG", "Sprite metadata updated", "")
+        return {"name": name, "message": "Metadata updated successfully", "metadata": config}
+    except Exception as e:
+        logger.error(f"Failed to update metadata for {name}: {e}")
+        raise HTTPException(status_code=400, detail=f"Invalid metadata: {str(e)}")
+
+
 @router.post("/compile")
 def compile_sprite(request: CompileRequest):
     try:
@@ -310,4 +334,3 @@ def delete_sprite(name: str, mode: str = "delete"):
         if isinstance(e, HTTPException):
             raise e
         raise HTTPException(status_code=500, detail=f"Delete failed: {e}")
-

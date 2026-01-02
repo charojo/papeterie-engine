@@ -15,9 +15,25 @@ export class Theatre {
         this.animationFrameId = null;
         this.lastTime = 0;
 
+        // Optimization: Index layers by name
+        this.layersByName = new Map();
+        this.envYData = new Map();
+
         // Telemetry for environmental reactions
         this.previousEnvY = {};
         this.envYDirection = {};
+
+        // Interaction state
+        this.selectedSprite = null;
+        this.isDragging = false;
+        this.dragStartX = 0;
+        this.dragStartY = 0;
+        this.dragOffsetX = 0;
+        this.dragOffsetY = 0;
+
+        // Event callbacks
+        this.onSpriteSelected = null;
+        this.onSpritePositionChanged = null;
 
         // Bind for loop
         this.loop = this.loop.bind(this);
@@ -139,57 +155,14 @@ export class Theatre {
         this.ctx.fillStyle = "rgb(200, 230, 255)"; // Default sky color
         this.ctx.fillRect(0, 0, width, height);
 
-        // OPTIMIZATION: Clear simplified reuse Map instead of reallocation
-        if (!this.envYData) this.envYData = new Map();
-        this.envYData.clear();
-
-        for (const layer of this.layers) {
-            if (!layer.environmental_reaction) continue;
-
-            const targetName = layer.environmental_reaction.target_sprite_name;
-            // OPTIMIZATION: Use pre-computed map
-            const envLayer = this.layersByName ? this.layersByName.get(targetName) : null;
-
-            if (envLayer) {
-                const imgW = layer.processedImage.width; // Base width
-                // Note: layer.draw() handles scaling, but here we need center X for sampling.
-                // We should technically predict the scale/position here or move this logic inside Layer or share it.
-                // For MVP, we use base width/position logic similar to python
-                // Python: draw_x calc is duplicated in run() and draw().
-
-                const parallaxScroll = this.scroll * layer.scroll_speed;
-                // Simplified wrap width calc (assuming screen width + img width)
-                // This might DESYNC if Layer.draw has different logic.
-                const wrapWidth = width + imgW;
-                // Wait, if scale changes, wrapWidth changes. 
-                // Python logic: `wrap_width = screen_w + img_w_for_blit` where `img_w_for_blit` is scaled.
-                // So environmental reaction depends on CURRENT scale.
-
-                const currentScale = layer.current_scale_calculated || 1.0;
-                const scaledW = imgW * currentScale;
-                const scaledWrapW = width + scaledW;
-
-                const hDrift = layer.horizontal_drift * this.elapsedTime;
-
-                const x = (parallaxScroll + layer.x_offset + hDrift) % scaledWrapW;
-                const drawX = x - scaledW;
-                const centerX = drawX + scaledW / 2;
-
-                const envY = envLayer.getYAtX(height, this.scroll, centerX, this.elapsedTime);
-                this.envYData.set(layer, envY);
-
-                // Peak Detection (omitted for MVP unless critical for gameplay events)
-            }
-        }
+        const telemetry = [];
 
         // Draw Layers
         for (const layer of this.layers) {
-            const envY = this.envYData.get(layer) ?? null;
             let envLayerForTilt = null;
 
             if (layer.environmental_reaction) {
                 const targetName = layer.environmental_reaction.target_sprite_name;
-                // OPTIMIZATION: Use pre-computed map
                 envLayerForTilt = this.layersByName ? this.layersByName.get(targetName) : null;
             }
 
@@ -199,9 +172,157 @@ export class Theatre {
                 height,
                 this.scroll,
                 this.elapsedTime,
-                envY,
+                dt,
                 envLayerForTilt
             );
+
+            // Collect telemetry
+            const currentY = layer._currentYPhys !== undefined ? layer._currentYPhys : (layer._getBaseY(height) + layer.y_offset);
+            const currentX = layer._currentXPhys !== undefined ? layer._currentXPhys : (layer.x_offset); // Approximation, need exact render X?
+            // Actually Layer.js getTransform returns 'x' offset. 
+            // In draw(), finalX = tf.x. And parallaxX = (scrollX * speed) + x_offset.
+            // Let's get the visual X (screen X not including scroll?). 
+            // Telemetry usually wants "World" or "Screen" coords? 
+            // Y is screen Y. X should be Screen X. 
+            // But Layer.js 'draw' calculates positions on the fly. 
+            // We can capture the last drawn X in Layer.js or recalculate here.
+            // Simple approach: just report the transform x for now, as that's what 'Location' behavior affects.
+
+            telemetry.push({
+                name: layer.config.sprite_name,
+                x: layer.lastDrawnX || 0, // We need to capture this in Layer.js draw()
+                y: currentY,
+                tilt: layer.currentTilt || 0,
+                z_depth: layer.z_depth,
+                visible: layer.visible
+            });
         }
+
+        if (this.onTelemetry) {
+            this.onTelemetry(telemetry);
+        }
+
+        // --- Visual Debug Overlay ---
+        if (this.debugMode) {
+            this._drawDebugOverlay(width, height);
+        }
+    }
+
+    setMousePosition(x, y) {
+        this.mouseX = x;
+        this.mouseY = y;
+    }
+
+    setLayerVisibility(name, visible) {
+        if (!this.layersByName) return;
+        const layer = this.layersByName.get(name);
+        if (layer) {
+            layer.visible = visible;
+        }
+    }
+
+    // --- Sprite Selection and Interaction ---
+
+    selectSprite(name) {
+        const layer = this.layersByName.get(name);
+        if (layer) {
+            // Deselect previous
+            if (this.selectedSprite) {
+                const prevLayer = this.layersByName.get(this.selectedSprite);
+                if (prevLayer) prevLayer.isSelected = false;
+            }
+            // Select new
+            this.selectedSprite = name;
+            layer.isSelected = true;
+            if (this.onSpriteSelected) {
+                this.onSpriteSelected(name);
+            }
+        }
+    }
+
+    getSelectedSprite() {
+        return this.selectedSprite;
+    }
+
+    handleCanvasClick(x, y) {
+        // Find sprite under cursor (reverse order for top-most first)
+        for (let i = this.layers.length - 1; i >= 0; i--) {
+            const layer = this.layers[i];
+            if (!layer.visible) continue;
+
+            if (layer.containsPoint(x, y, this.canvas.width, this.canvas.height, this.scroll)) {
+                this.selectSprite(layer.config.sprite_name);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    handleDragStart(x, y) {
+        if (!this.selectedSprite) return false;
+
+        const layer = this.layersByName.get(this.selectedSprite);
+        if (!layer) return false;
+
+        if (layer.containsPoint(x, y, this.canvas.width, this.canvas.height, this.scroll)) {
+            this.isDragging = true;
+            this.dragStartX = x;
+            this.dragStartY = y;
+
+            // Store initial offsets
+            this.dragOffsetX = layer.x_offset;
+            this.dragOffsetY = layer.y_offset;
+            return true;
+        }
+        return false;
+    }
+
+    handleDragMove(x, y) {
+        if (!this.isDragging || !this.selectedSprite) return;
+
+        const layer = this.layersByName.get(this.selectedSprite);
+        if (!layer) return;
+
+        const dx = x - this.dragStartX;
+        const dy = y - this.dragStartY;
+
+        layer.setPosition(this.dragOffsetX + dx, this.dragOffsetY + dy);
+    }
+
+    handleDragEnd() {
+        if (!this.isDragging || !this.selectedSprite) return;
+
+        const layer = this.layersByName.get(this.selectedSprite);
+        if (layer && this.onSpritePositionChanged) {
+            this.onSpritePositionChanged(
+                this.selectedSprite,
+                layer.x_offset,
+                layer.y_offset,
+                this.elapsedTime
+            );
+        }
+
+        this.isDragging = false;
+    }
+
+    _drawDebugOverlay(width, height) {
+        this.ctx.fillStyle = "rgba(255, 0, 255, 0.5)";
+        this.ctx.font = "12px monospace";
+        this.ctx.fillText(`Scroll: ${this.scroll.toFixed(1)}`, 10, 20);
+        this.ctx.fillText(`Time: ${this.elapsedTime.toFixed(1)}s`, 10, 35);
+        if (this.mouseX !== undefined) {
+            this.ctx.fillText(`Mouse: ${Math.round(this.mouseX)}, ${Math.round(this.mouseY)}`, 10, 50);
+        }
+
+        // Draw horizontal markers for each layer
+        this.layers.forEach((layer, i) => {
+            const y = layer._currentYPhys !== undefined ? layer._currentYPhys : layer._getBaseY(height);
+            this.ctx.strokeStyle = `rgba(255, 0, 255, ${0.2 + (i / this.layers.length) * 0.5})`;
+            this.ctx.beginPath();
+            this.ctx.moveTo(0, y);
+            this.ctx.lineTo(width, y);
+            this.ctx.stroke();
+            this.ctx.fillText(layer.config.sprite_name, 5, y - 2);
+        });
     }
 }

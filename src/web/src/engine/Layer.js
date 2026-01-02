@@ -1,365 +1,651 @@
+export const EventType = {
+    OSCILLATE: "oscillate",
+    DRIFT: "drift",
+    PULSE: "pulse",
+    BACKGROUND: "background",
+    LOCATION: "location"
+};
+
+export const CoordinateType = {
+    X: "x",
+    Y: "y",
+    SCALE: "scale",
+    ROTATION: "rotation",
+    OPACITY: "opacity"
+};
+
+class EventRuntime {
+    constructor(config) {
+        this.config = config;
+        this.active = config.enabled ?? true;
+    }
+    apply(layer, dt, transform) { }
+}
+
+class OscillateRuntime extends EventRuntime {
+    constructor(config) {
+        super(config);
+        this.timeAccum = 0.0;
+    }
+    apply(layer, dt, transform) {
+        if (!this.active) return;
+        this.timeAccum += dt;
+
+        const freq = this.config.frequency || 0;
+        const amp = this.config.amplitude || 0;
+        const phaseOffset = this.config.phase_offset || 0;
+
+        const phase = (this.timeAccum * freq * 2 * Math.PI) + phaseOffset;
+        const offset = Math.sin(phase) * amp;
+
+        const coord = this.config.coordinate || CoordinateType.Y;
+        if (coord === CoordinateType.Y) transform.y += offset;
+        else if (coord === CoordinateType.X) transform.x += offset;
+        else if (coord === CoordinateType.SCALE) transform.scale += offset / 100.0;
+        else if (coord === CoordinateType.ROTATION) transform.rotation += offset;
+    }
+}
+
+class DriftRuntime extends EventRuntime {
+    constructor(config) {
+        super(config);
+        this.currentValue = 0.0;
+        this.reachedCap = false;
+    }
+    apply(layer, dt, transform) {
+        if (!this.active) return;
+
+        const vel = this.config.velocity || 0;
+        const delta = vel * dt;
+        this.currentValue += delta;
+
+        // Cap logic
+        if (this.config.drift_cap !== null && this.config.drift_cap !== undefined) {
+            const coord = this.config.coordinate || CoordinateType.Y;
+            if (coord === CoordinateType.Y) {
+                const targetY = transform.base_y + transform.y + this.currentValue;
+                if (vel > 0 && targetY > this.config.drift_cap) {
+                    this.currentValue -= (targetY - this.config.drift_cap);
+                    this.reachedCap = true;
+                } else if (vel < 0 && targetY < this.config.drift_cap) {
+                    this.currentValue -= (targetY - this.config.drift_cap);
+                    this.reachedCap = true;
+                }
+            }
+        }
+
+        const coord = this.config.coordinate || CoordinateType.Y;
+        if (coord === CoordinateType.Y) transform.y += this.currentValue;
+        else if (coord === CoordinateType.X) transform.x += this.currentValue;
+        else if (coord === CoordinateType.SCALE) transform.scale += this.currentValue;
+    }
+}
+
+class PulseRuntime extends EventRuntime {
+    constructor(config) {
+        super(config);
+        this.timeAccum = 0.0;
+    }
+    apply(layer, dt, transform) {
+        if (!this.active) return;
+
+        // Threshold check
+        if (this.config.activation_threshold_scale !== undefined && this.config.activation_threshold_scale !== null) {
+            if (transform.scale > this.config.activation_threshold_scale) return;
+        }
+
+        this.timeAccum += dt;
+        const freq = this.config.frequency || 1.0;
+        const cycle = (this.timeAccum * freq) % 1.0;
+
+        let value = 0.0;
+        const waveform = this.config.waveform || "sine";
+
+        if (waveform === "sine") {
+            value = (Math.sin(cycle * 2 * Math.PI) + 1) / 2;
+        } else if (waveform === "spike") {
+            value = Math.pow((Math.sin(cycle * 2 * Math.PI) + 1.0) / 2.0, 10);
+        }
+
+        const minVal = this.config.min_value ?? 0.0;
+        const maxVal = this.config.max_value ?? 1.0;
+
+        const finalVal = minVal + (value * (maxVal - minVal));
+
+        const coord = this.config.coordinate || CoordinateType.OPACITY;
+        if (coord === CoordinateType.OPACITY) transform.opacity *= finalVal;
+        else if (coord === CoordinateType.SCALE) transform.scale *= finalVal;
+    }
+}
+
+// BackgroundRuntime is a no-op at runtime for transform, but properties are applied in init
+class BackgroundRuntime extends EventRuntime {
+    apply(layer, dt, transform) {
+        // No transform modifications for background
+    }
+}
+
+class LocationRuntime extends EventRuntime {
+    constructor(config) {
+        super(config);
+        this.isKeyframe = config.time_offset !== undefined && config.time_offset > 0;
+    }
+
+    apply(layer, dt, transform) {
+        if (!this.active) return;
+
+        // For non-keyframe location behaviors (time_offset = 0 or undefined), apply immediately
+        if (!this.isKeyframe) {
+            if (this.config.x !== undefined) transform.x += this.config.x;
+            if (this.config.y !== undefined) transform.y += this.config.y;
+        }
+        // Keyframe-based locations are handled in Layer.getTransform via elapsedTime
+    }
+
+    // Static method to apply time-based location behaviors
+    static applyKeyframes(layer, elapsedTime, transform) {
+        // Get all location behaviors sorted by time
+        const locationBehaviors = layer.eventRuntimes
+            .filter(rt => rt instanceof LocationRuntime && rt.isKeyframe)
+            .map(rt => rt.config)
+            .sort((a, b) => a.time_offset - b.time_offset);
+
+        if (locationBehaviors.length === 0) return;
+
+        // Find the keyframes to interpolate between
+        let prevKeyframe = null;
+        let nextKeyframe = null;
+
+        for (let i = 0; i < locationBehaviors.length; i++) {
+            const kf = locationBehaviors[i];
+            if (kf.time_offset <= elapsedTime) {
+                prevKeyframe = kf;
+            }
+            if (kf.time_offset > elapsedTime && !nextKeyframe) {
+                nextKeyframe = kf;
+                break;
+            }
+        }
+
+        // Apply position based on keyframes
+        if (prevKeyframe && nextKeyframe && nextKeyframe.interpolate) {
+            // Interpolate between keyframes
+            const t = (elapsedTime - prevKeyframe.time_offset) /
+                (nextKeyframe.time_offset - prevKeyframe.time_offset);
+            const smoothT = Math.min(1, Math.max(0, t)); // Clamp to [0, 1]
+
+            if (prevKeyframe.x !== undefined && nextKeyframe.x !== undefined) {
+                const interpolatedX = prevKeyframe.x + (nextKeyframe.x - prevKeyframe.x) * smoothT;
+                transform.x += interpolatedX;
+            }
+            if (prevKeyframe.y !== undefined && nextKeyframe.y !== undefined) {
+                const interpolatedY = prevKeyframe.y + (nextKeyframe.y - prevKeyframe.y) * smoothT;
+                transform.y += interpolatedY;
+            }
+        } else if (prevKeyframe) {
+            // Use the most recent keyframe
+            if (prevKeyframe.x !== undefined) transform.x += prevKeyframe.x;
+            if (prevKeyframe.y !== undefined) transform.y += prevKeyframe.y;
+        }
+    }
+}
+
+
 export class Layer {
     constructor(config, image) {
         this.config = config;
         this.image = image;
 
-        // Extract config with defaults matching Python ParallaxLayer
+        // Basic props
         this.z_depth = config.z_depth ?? 1;
         this.vertical_percent = config.vertical_percent ?? 0.5;
-        this.bob_amplitude = config.bob_amplitude ?? 0;
-        this.bob_frequency = config.bob_frequency ?? 0.0;
         this.scroll_speed = config.scroll_speed ?? 0.0;
         this.is_background = config.is_background ?? false;
         this.tile_horizontal = config.tile_horizontal ?? false;
         this.tile_border = config.tile_border ?? 0;
-        this.height_scale = config.height_scale;
         this.fill_down = config.fill_down ?? false;
         this.vertical_anchor = config.vertical_anchor ?? "center";
         this.x_offset = config.x_offset ?? 0;
         this.y_offset = config.y_offset ?? 0;
-        this.vertical_drift = config.vertical_drift ?? 0.0;
-        this.horizontal_drift = config.horizontal_drift ?? 0.0;
-        this.scale_drift = config.scale_drift ?? 0.0;
-        this.scale_drift_multiplier_after_cap = config.scale_drift_multiplier_after_cap ?? 3.0;
-        this.drift_cap_y = config.drift_cap_y;
-        this.twinkle_amplitude = config.twinkle_amplitude ?? 0.0;
-        this.twinkle_frequency = config.twinkle_frequency ?? 0.0;
-        this.twinkle_min_scale = config.twinkle_min_scale ?? 0.035;
-        this.environmental_reaction = config.environmental_reaction;
+        this.height_scale = config.height_scale;
 
-        // Telemetry / State
-        this.current_y = 0.0;
-        this.current_draw_x = 0.0;
-        this.current_scale_calculated = 1.0;
-        this.is_twinkling_active = false;
-        this.has_reached_cap = false;
-        this.has_ignited_star = false;
-
-        // Process Image if needed (e.g. tile border crop)
-        // Note: Complex image processing like `fill_down` or `tile_border` 
-        // implies creating an offscreen canvas. 
+        // Process Image
         this.processedImage = this._processImage(image);
         this.original_image_size = {
-            width: this.processedImage.width,
-            height: this.processedImage.height
+            width: this.processedImage ? this.processedImage.width : 0,
+            height: this.processedImage ? this.processedImage.height : 0
         };
+
+        // Initialize Events
+        this.eventRuntimes = [];
+        this._initEvents(config);
+
+        this.visible = true;
+        this.isSelected = false; // For visual highlighting during interaction
+        this.environmental_reaction = config.environmental_reaction || null;
+        if (!this.environmental_reaction && config.reacts_to_environment) {
+            // Legacy migration logic (duplicating backend logic)
+            // If strictly needed for frontend-only loading without backend compilation
+            this.environmental_reaction = {
+                reaction_type: "pivot_on_crest",
+                target_sprite_name: "wave1", // legacy default
+                max_tilt_angle: config.max_env_tilt || 30.0,
+                vertical_follow_factor: 1.0
+            };
+        }
+    }
+
+    _initEvents(config) {
+        let events = config.behaviors || config.events || [];
+
+        // MIGRATION: Logic to convert legacy overrides to events on the fly if events are missing?
+        // Ideally backend does this, but for pure frontend loaded overrides, we do it here.
+        if (events.length === 0) {
+            if (config.bob_amplitude && config.bob_frequency) {
+                events.push({
+                    type: EventType.OSCILLATE,
+                    frequency: config.bob_frequency,
+                    amplitude: config.bob_amplitude,
+                    coordinate: CoordinateType.Y
+                });
+            }
+            if (config.vertical_drift) {
+                events.push({
+                    type: EventType.DRIFT,
+                    velocity: config.vertical_drift,
+                    coordinate: CoordinateType.Y,
+                    drift_cap: config.drift_cap_y
+                });
+            }
+            if (config.twinkle_amplitude) {
+                events.push({
+                    type: EventType.PULSE,
+                    frequency: config.twinkle_frequency,
+                    min_value: 1.0 - config.twinkle_amplitude,
+                    max_value: 1.0,
+                    waveform: "spike",
+                    coordinate: CoordinateType.OPACITY,
+                    activation_threshold_scale: config.twinkle_min_scale
+                });
+            }
+        }
+
+        events.forEach(evt => {
+            if (evt.type === EventType.OSCILLATE) {
+                this.eventRuntimes.push(new OscillateRuntime(evt));
+            } else if (evt.type === EventType.DRIFT) {
+                this.eventRuntimes.push(new DriftRuntime(evt));
+            } else if (evt.type === EventType.PULSE) {
+                this.eventRuntimes.push(new PulseRuntime(evt));
+            } else if (evt.type === EventType.BACKGROUND) {
+                this.eventRuntimes.push(new BackgroundRuntime(evt));
+                this.is_background = true;
+                if (evt.scroll_speed !== undefined) {
+                    this.scroll_speed = evt.scroll_speed;
+                }
+            } else if (evt.type === EventType.LOCATION) {
+                this.eventRuntimes.push(new LocationRuntime(evt));
+            }
+        });
+    }
+
+    // --- Interaction Methods ---
+
+    containsPoint(x, y, screenW, screenH, scrollX) {
+        if (!this.processedImage || !this.visible) return false;
+        if (this.is_background) return false; // Backgrounds not selectable
+
+        const tf = this.getTransform(screenH, 0, 0);
+        const { width: baseW, height: baseH } = this._getBaseDimensions(screenH);
+        const imgW = baseW * Math.max(0.001, tf.scale);
+        const imgH = baseH * Math.max(0.001, tf.scale);
+
+        const parallaxScroll = this.scroll_speed * scrollX;
+        const scrollOffset = (parallaxScroll + this.x_offset + tf.x);
+
+        let finalY = tf.base_y + tf.y;
+
+        // Handle tiling
+        if (this.tile_horizontal) {
+            const startX = scrollOffset % imgW;
+            let currX = startX;
+            if (currX > 0) currX -= imgW;
+
+            while (currX < screenW) {
+                if (x >= currX && x <= currX + imgW && y >= finalY && y <= finalY + imgH) {
+                    return true;
+                }
+                currX += imgW;
+            }
+        } else {
+            const wrapW = screenW + imgW;
+            const drawX = ((scrollOffset) % wrapW) - imgW;
+
+            if (x >= drawX && x <= drawX + imgW && y >= finalY && y <= finalY + imgH) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    setPosition(x, y) {
+        // Update position offsets for interactive dragging
+        this.x_offset = x;
+        this.y_offset = y;
     }
 
     _processImage(originalImage) {
         if (!originalImage) return null;
 
-        let canvas = document.createElement('canvas');
-        let ctx = canvas.getContext('2d');
+        const w = originalImage.naturalWidth || originalImage.width;
+        const h = originalImage.naturalHeight || originalImage.height;
 
-        let width = originalImage.naturalWidth || originalImage.width;
-        let height = originalImage.naturalHeight || originalImage.height;
+        // If no tiling and no fill down, we can use the original image directly
+        if (this.tile_border <= 0 && !this.fill_down) return originalImage;
 
-        // Handle tile_border crop
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+
+        let targetW = w;
         let sourceX = 0;
-        let sourceWidth = width;
+
         if (this.tile_border > 0) {
             sourceX = this.tile_border;
-            sourceWidth = width - (2 * this.tile_border);
-            width = sourceWidth;
+            targetW = w - (2 * this.tile_border);
         }
 
-        canvas.width = width;
-        canvas.height = height;
-        ctx.drawImage(originalImage, sourceX, 0, sourceWidth, height, 0, 0, width, height);
+        canvas.width = targetW;
+        canvas.height = h;
 
-        // We defer height_scale and fill_down to the draw/render phase or specific setup
-        // because they depend on screen size which might change in a web context.
-        // For simplicity in this port, we'll handle resizing in draw() or a resize() method,
-        // but simple crops are best done once.
+        // Draw the (possibly cropped) image to the canvas
+        ctx.drawImage(originalImage, sourceX, 0, targetW, h, 0, 0, targetW, h);
+
+        if (this.fill_down) {
+            // Get bottom-middle pixel color for filling downward
+            try {
+                const pixelData = ctx.getImageData(Math.floor(targetW / 2), h - 1, 1, 1).data;
+                this.fillColor = `rgba(${pixelData[0]}, ${pixelData[1]}, ${pixelData[2]}, ${pixelData[3] / 255})`;
+            } catch (e) {
+                console.warn("Failed to sample fill color:", e);
+                this.fillColor = "transparent";
+            }
+        }
+
         return canvas;
     }
 
-    _getBaseY(screenH) {
-        // Calculate based on processed image or simply current logic
-        // In Python, fill_down modified the image size. JS we might just render differently.
-        // For now, let's assume the sprite size is what we use.
-
-        // If fill_down is true, we treat the "positioning height" as the original image height
-        // before the valid-fill extension. But since we aren't pre-generating a massive filled image,
-        // we use the current image height.
-
-        // Default to raw image height
+    _getBaseDimensions(screenH) {
+        let imgW = this.processedImage ? this.processedImage.width : 0;
         let imgH = this.processedImage ? this.processedImage.height : 0;
 
-        // Apply scaling logic for positioning (matching Python ParallaxLayer behavior)
         if (this.height_scale) {
             imgH = screenH * this.height_scale;
+            const aspect = (this.processedImage.width / this.processedImage.height);
+            imgW = imgH * aspect;
         } else if (this.config.target_height) {
             imgH = this.config.target_height;
+            const aspect = (this.processedImage.width / this.processedImage.height);
+            imgW = imgH * aspect;
         }
-
-        const baseYFromTop = screenH * this.vertical_percent;
-
-        if (this.vertical_anchor === "bottom") {
-            return baseYFromTop - imgH;
-        } else if (this.vertical_anchor === "top") {
-            return baseYFromTop;
-        } else {
-            return baseYFromTop - (imgH / 2);
-        }
+        return { width: imgW, height: imgH };
     }
 
-    _getBobOffset(scrollX, xCoord = null) {
-        if (this.bob_amplitude <= 0 || this.bob_frequency <= 0) return 0;
+    _getBaseY(screenH) {
+        const { height } = this._getBaseDimensions(screenH);
+        const baseY = screenH * this.vertical_percent;
 
-        if (xCoord !== null && this.tile_horizontal) {
-            const spatialPhase = (scrollX * this.scroll_speed) + (xCoord * 0.01);
-            return Math.sin(spatialPhase * this.bob_frequency) * this.bob_amplitude;
-        }
-
-        return Math.sin(scrollX * this.bob_frequency) * this.bob_amplitude;
+        if (this.vertical_anchor === "bottom") return baseY - height;
+        else if (this.vertical_anchor === "top") return baseY;
+        else return baseY - (height / 2);
     }
 
-    getCurrentY(screenH, scrollX, elapsedTime = 0.0, xCoord = null) {
-        const baseY = this._getBaseY(screenH);
-        const bobOffset = this._getBobOffset(scrollX, xCoord);
-        const drift = this.vertical_drift * elapsedTime;
+    getTransform(screenH, dt, elapsedTime = 0) {
+        const transform = {
+            x: 0.0,
+            y: 0.0,
+            base_y: this._getBaseY(screenH) + this.y_offset,
+            scale: 1.0,
+            rotation: 0.0,
+            opacity: 1.0
+        };
 
-        let y = baseY + bobOffset + this.y_offset + drift;
+        // Apply events
+        this.eventRuntimes.forEach(runtime => {
+            runtime.apply(this, dt, transform);
+        });
 
-        if (this.drift_cap_y !== undefined && this.drift_cap_y !== null) {
-            if (this.vertical_drift < 0) {
-                y = Math.max(y, this.drift_cap_y);
-            } else if (this.vertical_drift > 0) {
-                y = Math.min(y, this.drift_cap_y);
+        // Apply time-based location keyframes
+        LocationRuntime.applyKeyframes(this, elapsedTime, transform);
+
+        return transform;
+    }
+
+    getYAtX(screenH, scrollX, targetX, elapsedTime) {
+        if (!this.processedImage) return screenH;
+
+        // 1. Calculate the actual drawn width (base scaling * transform scale)
+        const tf = this.getTransform(screenH, 0, elapsedTime); // No dt for static sample
+        const { width: baseW, height: baseH } = this._getBaseDimensions(screenH);
+        const drawnW = baseW * Math.max(0.001, tf.scale);
+        const baseY = tf.base_y + tf.y;
+
+        // 2. Map screen X to local normalized X (0 to drawnW)
+        const parallaxScroll = this.scroll_speed * scrollX;
+        const scrollOffset = (parallaxScroll + this.x_offset + tf.x);
+
+        let localX = (targetX - scrollOffset) % drawnW;
+        if (localX < 0) localX += drawnW;
+
+        // 3. Map localX to actual pixels in the source image
+        // ratio is [local pixels] / [source pixels]
+        const ratio = drawnW / this.processedImage.width;
+        const xInt = Math.floor(localX / ratio);
+
+        if (xInt < 0 || xInt >= this.processedImage.width) return screenH;
+
+        // 4. Lazy initialize collision data
+        if (!this._collisionData) {
+            const c = document.createElement('canvas');
+            c.width = this.processedImage.width;
+            c.height = this.processedImage.height;
+            const ctx = c.getContext('2d', { willReadFrequently: true });
+            ctx.drawImage(this.processedImage, 0, 0);
+            this._collisionData = ctx.getImageData(0, 0, c.width, c.height);
+        }
+
+        const data = this._collisionData.data;
+        const h = this.processedImage.height;
+        const width = this.processedImage.width;
+
+        // 5. Scan vertical column for first non-transparent pixel
+        for (let y = 0; y < h; y++) {
+            const alpha = data[(y * width + xInt) * 4 + 3];
+            if (alpha > 10) {
+                // Found it. Map local Y back to screen Y.
+                // localY_scaled = y * ratio
+                const foundY = baseY + (y * ratio);
+                return foundY;
             }
         }
-        return y;
+
+        return screenH;
     }
 
-    getYAtX(screenH, scrollX, xCoord, elapsedTime = 0.0) {
-        return this.getCurrentY(screenH, scrollX, elapsedTime, xCoord);
-    }
+    draw(ctx, screenW, screenH, scrollX, elapsedTime, dt, envLayer = null) {
+        const frameDt = dt || (1 / 60);
+        if (!this.processedImage || !this.visible) return;
 
-    getCurrentTilt(screenH, scrollX, drawX, imgW, environmentLayer) {
-        if (!this.environmental_reaction || !environmentLayer) return 0;
-        if (this.environmental_reaction.reaction_type !== "pivot_on_crest") return 0;
-
-        const reactingSpriteCurrentX = drawX + (imgW / 2);
-        const sampleOffset = 2.0;
-
-        const yAtBehind = environmentLayer.getYAtX(screenH, scrollX, reactingSpriteCurrentX - sampleOffset);
-        const yAtAhead = environmentLayer.getYAtX(screenH, scrollX, reactingSpriteCurrentX + sampleOffset);
-
-        const deltaY = yAtBehind - yAtAhead; // Note: Canvas Y is down-positive, same as Pygame
-        const deltaX = 2 * sampleOffset;
-
-        let rawSlope = 0;
-        if (deltaX !== 0) rawSlope = deltaY / deltaX;
-
-        // Ramp in
-        let startRamp = 0;
-        if (scrollX > 0) startRamp = Math.min(1.0, scrollX / 300.0);
-
-        const tiltAngleDeg = Math.atan(rawSlope) * (180 / Math.PI) * 50.0 * startRamp;
-        const maxTilt = this.environmental_reaction.max_tilt_angle;
-
-        return Math.max(-maxTilt, Math.min(maxTilt, tiltAngleDeg));
-    }
-
-    draw(ctx, screenW, screenH, scrollX, elapsedTime = 0.0, environmentY = null, environmentLayerForTilt = null) {
-        if (!this.processedImage) return;
-
-        // Handling Background Scaling
         if (this.is_background) {
-            const imgW = this.processedImage.width;
-            const imgH = this.processedImage.height;
-            const screenAspect = screenW / screenH;
-            const imgAspect = imgW / imgH;
-
-            let newW, newH;
-
-            if (imgAspect > screenAspect) {
-                newH = screenH;
-                newW = newH * imgAspect;
-            } else {
-                newW = screenW;
-                newH = newW / imgAspect;
-            }
-
-            const blitX = (screenW - newW) / 2;
-            const blitY = (screenH - newH) / 2;
-
-            ctx.drawImage(this.processedImage, blitX, blitY, newW, newH);
+            this._drawBackground(ctx, screenW, screenH);
             return;
         }
 
-        // Logic for drift cap and star transition
-        let timeToCapY = 99999.0;
-        if (this.drift_cap_y !== null && this.drift_cap_y !== undefined && this.vertical_drift !== 0) {
-            const baseYNoDrift = this._getBaseY(screenH) + this.y_offset;
-            const distToCap = Math.abs(this.drift_cap_y - baseYNoDrift);
-            timeToCapY = distToCap / Math.abs(this.vertical_drift);
-        }
+        const tf = this.getTransform(screenH, frameDt, elapsedTime);
 
-        if (!this.has_reached_cap && elapsedTime >= timeToCapY) {
-            this.has_reached_cap = true;
-            // logging event could go here
-        }
+        const finalX = tf.x;
+        let finalY = tf.base_y + tf.y;
+        let finalScale = Math.max(0.001, tf.scale);
+        let finalRot = tf.rotation;
+        const finalAlpha = Math.max(0, Math.min(1.0, tf.opacity));
 
-        let timeToStar = 99999.0;
-        const accelDrift = this.scale_drift * this.scale_drift_multiplier_after_cap;
+        // --- Calculate Initial Drawn Dimensions ---
+        let { width: imgW, height: imgH } = this._getBaseDimensions(screenH);
+        imgW *= finalScale;
+        imgH *= finalScale;
 
-        if (this.scale_drift < 0) {
-            const scaleAtCap = 1.0 + (this.scale_drift * timeToCapY);
-            if (scaleAtCap <= this.twinkle_min_scale) {
-                timeToStar = (this.twinkle_min_scale - 1.0) / this.scale_drift;
-            } else if (accelDrift < 0) {
-                timeToStar = timeToCapY + (this.twinkle_min_scale - scaleAtCap) / accelDrift;
+        // --- Environmental Reaction Logic (Hull Contact Model) ---
+        if (this.environmental_reaction && envLayer) {
+            const reaction = this.environmental_reaction;
+            const hullFactor = reaction.hull_length_factor ?? 0.5;
+
+            // 1. Determine local center and sampling offsets
+            const parallaxX = (scrollX * this.scroll_speed) + this.x_offset;
+            const centerX = parallaxX + finalX + (imgW / 2);
+
+            const offsetW = imgW * (hullFactor / 2);
+            const xStern = centerX - offsetW;
+            const xBow = centerX + offsetW;
+
+            // 2. Sample environment heights
+            const yStern = envLayer.getYAtX(screenH, scrollX, xStern, elapsedTime);
+            const yBow = envLayer.getYAtX(screenH, scrollX, xBow, elapsedTime);
+
+            // 3. Calculate target position and tilt
+            const targetEnvY = (yStern + yBow) / 2.0;
+
+            // Slope-based angle
+            const hullDist = xBow - xStern;
+            let angleDeg = 0;
+            if (hullDist > 0) {
+                const slope = (yBow - yStern) / hullDist;
+                // JS atan(slope) -> nose down is positive CW
+                angleDeg = Math.atan(slope) * (180 / Math.PI);
+            }
+
+            // Apply sensitivity and ramp-in (matches backend 5x factor)
+            const startRamp = (scrollX > 0) ? Math.min(1.0, scrollX / 300.0) : 0;
+            const targetTilt = angleDeg * 5.0 * startRamp;
+            const limit = reaction.max_tilt_angle || 30.0;
+            const clampedTilt = Math.max(-limit, Math.min(limit, targetTilt));
+
+            // 4. Smoothing / Inertia
+            if (this.currentTilt === undefined) this.currentTilt = 0;
+            // Use frame-rate independent smoothing: 0.1 at 60fps
+            const smoothingFactor = 1.0 - Math.pow(0.9, frameDt * 60);
+            this.currentTilt += (clampedTilt - this.currentTilt) * smoothingFactor;
+            finalRot += this.currentTilt;
+
+            // Vertical Position smoothing
+            const followFactor = reaction.vertical_follow_factor ?? 1.0;
+            if (followFactor >= 0) {
+                // Determine img height for positioning (account for fill_down logic if needed)
+                const imgHPos = this.fill_down ? (this.processedImage.height * (imgH / this.processedImage.height)) : imgH;
+
+                // Desired final_y relative to the environment surface
+                let desiredY = targetEnvY + this.y_offset - (imgHPos * (1.0 - followFactor));
+
+                // Vertical lift based on tilt
+                const lift = this.currentTilt * (reaction.tilt_lift_factor ?? 0.0);
+                desiredY -= lift;
+
+                if (this._currentYPhys === undefined) this._currentYPhys = finalY;
+                const ySmoothingFactor = 1.0 - Math.pow(0.9, frameDt * 60);
+                this._currentYPhys += (desiredY - this._currentYPhys) * ySmoothingFactor;
+                finalY = this._currentYPhys;
             }
         }
 
-        this.is_twinkling_active = false;
-        let physicsTime = elapsedTime;
-        if (elapsedTime >= timeToStar) {
-            this.is_twinkling_active = true;
-            physicsTime = timeToStar;
-            if (!this.has_ignited_star) {
-                this.has_ignited_star = true;
-            }
-        }
+        ctx.globalAlpha = finalAlpha;
 
-        // Calculate Scale
-        let currentScale = 1.0;
-        if (physicsTime <= timeToCapY) {
-            currentScale = 1.0 + (this.scale_drift * physicsTime);
-        } else {
-            const scaleAtCap = 1.0 + (this.scale_drift * timeToCapY);
-            currentScale = scaleAtCap + (accelDrift * (physicsTime - timeToCapY));
-        }
+        // Final position - centering for rotation matches Pygame's center-of-image anchor
+        const parallaxScroll = this.scroll_speed * scrollX;
+        const scrollOffset = (parallaxScroll + this.x_offset + finalX);
+        this.lastDrawnX = scrollOffset; // Store for telemetry
 
-        currentScale = Math.max(
-            this.is_twinkling_active ? this.twinkle_min_scale : 0.001,
-            currentScale
-        );
-        this.current_scale_calculated = currentScale;
-
-
-        // Calculate Position
-        const parallaxScroll = scrollX * this.scroll_speed;
-        let y = this.getCurrentY(screenH, scrollX, physicsTime);
-        this.current_y = y;
-
-        const hDrift = this.horizontal_drift * physicsTime;
-
-        let imgW = this.processedImage.width * currentScale;
-        let imgH = this.processedImage.height * currentScale;
-
-        // Apply height_scale logic if dynamic sizing is needed? 
-        // Python version did it at load time. Here we can do it at draw time or resize time for better quality
-        if (this.height_scale) {
-            const targetH = screenH * this.height_scale;
-            const aspect = this.processedImage.width / this.processedImage.height;
-            const targetW = targetH * aspect;
-            imgW = targetW; // Override scale logic if height_scale is set? 
-            // Python version was EITHER height_scale OR drift scale. 
-            // Let's assume height_scale overrides standard size but drift scale multiplies it.
-            imgH = targetH;
-
-            // Re-apply scale drift if it exists?
-            // In python, height_scale changed base image size. 
-            // So currentScale should apply ON TOP of that.
-            imgW *= currentScale;
-            imgH *= currentScale;
-        } else if (this.config.target_height) {
-            // Same logic for target_height
-            const aspect = this.processedImage.width / this.processedImage.height;
-            imgW = (this.config.target_height * aspect) * currentScale;
-            imgH = this.config.target_height * currentScale;
-        }
-
-        const wrapWidth = screenW + imgW;
-        const x = (parallaxScroll + this.x_offset + hDrift) % wrapWidth;
-        let drawX = x - imgW;
-
-        // Environmental Vertical Follow
-        if (this.environmental_reaction && environmentY !== null &&
-            this.environmental_reaction.reaction_type === "pivot_on_crest") {
-
-            if (this.environmental_reaction.vertical_follow_factor > 0) {
-                // In Python: y = env_y - (img_h_pos * (1 - factor))
-                // img_h_pos was original height. 
-                const imgHForPos = imgH; // Simplify
-                y = environmentY - (imgHForPos * (1 - this.environmental_reaction.vertical_follow_factor));
-            }
-        }
-
-        // Twinkle Alpha
-        let alpha = 1.0;
-        if (this.twinkle_amplitude > 0 && this.is_twinkling_active) {
-            const phaseOffset = (this.x_offset % 360) / 10.0;
-            const rateMod = 1.0 + ((this.x_offset % 10) / 20.0);
-
-            const rawSpike = Math.pow(
-                (Math.sin((elapsedTime * rateMod + phaseOffset) * this.twinkle_frequency) + 1.0) / 2.0,
-                10
-            );
-
-            const baseAlpha = 212 / 255;
-            alpha = baseAlpha + (rawSpike * (1.0 - baseAlpha));
-        }
-
-        ctx.globalAlpha = alpha;
-
-        // Tiling Logic
         if (this.tile_horizontal) {
-            const startX = (parallaxScroll + this.x_offset + hDrift) % imgW;
-            let currentX = startX - imgW;
+            const startX = scrollOffset % imgW;
+            let currX = startX;
+            if (currX > 0) currX -= imgW;
 
-            // We don't support environmental tilt on tiled layers in this loop yet
-            // (Python version didn't seem to either, explicitly)
-            while (currentX < screenW) {
-                ctx.drawImage(this.processedImage, currentX, y, imgW, imgH);
+            while (currX < screenW) {
+                if (finalRot !== 0) {
+                    ctx.save();
+                    ctx.translate(currX + imgW / 2, finalY + imgH / 2);
+                    ctx.rotate(finalRot * Math.PI / 180);
+                    ctx.drawImage(this.processedImage, -imgW / 2, -imgH / 2, imgW, imgH);
 
-                // Fill down?
-                if (this.fill_down) {
-                    // Draw a rect below
-                    // In python we made a surface. Here just fillRect check color
-                    // For MVP, skip robust color sampling, just repeat image?
-                    // Or just don't support fill_down dynamic color yet.
-                    // The python logic was: sample bottom pxl, fill rect.
+                    if (this.fill_down) {
+                        ctx.fillStyle = this.fillColor;
+                        ctx.fillRect(-imgW / 2, imgH / 2, imgW, screenH); // Fill to bottom of screen
+                    }
+                    ctx.restore();
+                } else {
+                    ctx.drawImage(this.processedImage, currX, finalY, imgW, imgH);
+                    if (this.fill_down) {
+                        ctx.fillStyle = this.fillColor;
+                        ctx.fillRect(currX, finalY + imgH, imgW, screenH);
+                    }
                 }
-                currentX += imgW;
+                currX += imgW;
             }
         } else {
-            // Single sprite draw
-            let rotation = 0;
-            if (this.environmental_reaction && environmentY !== null &&
-                this.environmental_reaction.reaction_type === "pivot_on_crest" &&
-                environmentLayerForTilt) {
-                rotation = this.getCurrentTilt(screenH, scrollX, drawX, imgW, environmentLayerForTilt);
-            }
+            const wrapW = screenW + imgW;
+            const x = (scrollOffset) % wrapW;
+            const drawX = x - imgW;
 
-            if (rotation !== 0) {
-                // Rotate around center
+            if (finalRot !== 0) {
                 const cx = drawX + imgW / 2;
-                const cy = y + imgH / 2;
-
+                const cy = finalY + imgH / 2;
                 ctx.save();
                 ctx.translate(cx, cy);
-                ctx.rotate(rotation * Math.PI / 180);
+                ctx.rotate(finalRot * Math.PI / 180);
                 ctx.drawImage(this.processedImage, -imgW / 2, -imgH / 2, imgW, imgH);
+
+                if (this.fill_down) {
+                    ctx.fillStyle = this.fillColor;
+                    ctx.fillRect(-imgW / 2, imgH / 2, imgW, screenH);
+                }
                 ctx.restore();
             } else {
-                ctx.drawImage(this.processedImage, drawX, y, imgW, imgH);
+                ctx.drawImage(this.processedImage, drawX, finalY, imgW, imgH);
+                if (this.fill_down) {
+                    ctx.fillStyle = this.fillColor;
+                    ctx.fillRect(drawX, finalY + imgH, imgW, screenH);
+                }
             }
+        }
 
-            if (this.fill_down) {
-                // Sample bottom pixel? 
-                // Performance warning: getImageData is slow.
-                // Ideally we'd do this in _processImage to create a taller canvas.
-                // For now, let's just extend the image? 
-                // Or draw a rectangle if we knew the color:
-                // ctx.fillStyle = ...; ctx.fillRect(drawX, y + imgH, imgW, screenH - (y+imgH));
+        // Draw selection highlight
+        if (this.isSelected) {
+            ctx.strokeStyle = 'rgba(0, 255, 255, 0.8)';
+            ctx.lineWidth = 3;
+            if (this.tile_horizontal) {
+                const startX = scrollOffset % imgW;
+                let currX = startX;
+                if (currX > 0) currX -= imgW;
+                while (currX < screenW) {
+                    ctx.strokeRect(currX, finalY, imgW, imgH);
+                    currX += imgW;
+                }
+            } else {
+                const wrapW = screenW + imgW;
+                const drawX = ((scrollOffset) % wrapW) - imgW;
+                ctx.strokeRect(drawX, finalY, imgW, imgH);
             }
         }
 
         ctx.globalAlpha = 1.0;
-        this.current_draw_x = drawX;
+    }
+
+    _drawBackground(ctx, screenW, screenH) {
+        const imgW = this.processedImage.width;
+        const imgH = this.processedImage.height;
+        const scale = Math.max(screenW / imgW, screenH / imgH);
+        const newW = imgW * scale;
+        const newH = imgH * scale;
+        const x = (screenW - newW) / 2;
+        const y = (screenH - newH) / 2;
+        ctx.drawImage(this.processedImage, x, y, newW, newH);
     }
 }

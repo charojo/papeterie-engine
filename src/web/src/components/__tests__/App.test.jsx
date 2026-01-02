@@ -240,6 +240,11 @@ describe('App', () => {
         const deleteBtn = screen.getByTestId('icon-delete').closest('button');
         await act(async () => { fireEvent.click(deleteBtn); });
 
+        // Confirm dialog should appear
+        await waitFor(() => expect(screen.getByText('Confirm')).toBeInTheDocument());
+        const confirmBtn = screen.getByText('Confirm');
+        await act(async () => { fireEvent.click(confirmBtn); });
+
         expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/sprites/dragon'), expect.objectContaining({ method: 'DELETE' }));
     });
 });

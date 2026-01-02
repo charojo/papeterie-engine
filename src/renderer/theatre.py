@@ -3,8 +3,9 @@ import logging
 import math
 import os
 import sys
+from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import pygame
 
@@ -14,7 +15,142 @@ if __name__ == "__main__":
     if str(project_root) not in sys.path:
         sys.path.insert(0, str(project_root))
 
-from src.compiler.models import EnvironmentalReaction, EnvironmentalReactionType
+from src.compiler.models import (
+    BackgroundBehavior,
+    BehaviorConfig,
+    BehaviorType,
+    CoordinateType,
+    DriftBehavior,
+    EnvironmentalReaction,
+    LocationBehavior,
+    OscillateBehavior,
+    PulseBehavior,
+    SpriteMetadata,
+)
+
+logger = logging.getLogger(__name__)
+
+
+class BehaviorRuntime(ABC):
+    """Base class for runtime behavior."""
+
+    def __init__(self, config: BehaviorConfig):
+        self.config = config
+        self.active = config.enabled
+
+    @abstractmethod
+    def apply(self, layer: "ParallaxLayer", dt: float, transform: Dict[str, float]):
+        """Modify the transformation state."""
+        pass
+
+
+class OscillateRuntime(BehaviorRuntime):
+    def __init__(self, config: OscillateBehavior):
+        super().__init__(config)
+        self.config: OscillateBehavior = config
+        self.time_accum = 0.0
+
+    def apply(self, layer, dt, transform):
+        if not self.active:
+            return
+
+        self.time_accum += dt
+
+        # Calculate offset: sin(2 * pi * freq * t + phase) * amplitude
+        phase = (self.time_accum * self.config.frequency * 2 * math.pi) + self.config.phase_offset
+        offset = math.sin(phase) * self.config.amplitude
+
+        if self.config.coordinate == CoordinateType.Y:
+            transform["y"] += offset
+        elif self.config.coordinate == CoordinateType.X:
+            transform["x"] += offset
+        elif self.config.coordinate == CoordinateType.SCALE:
+            transform["scale"] += offset / 100.0
+        elif self.config.coordinate == CoordinateType.ROTATION:
+            transform["rotation"] += offset
+
+
+class DriftRuntime(BehaviorRuntime):
+    def __init__(self, config: DriftBehavior):
+        super().__init__(config)
+        self.config: DriftBehavior = config
+        self.current_value = 0.0
+        self.reached_cap = False
+
+    def apply(self, layer, dt, transform):
+        if not self.active:
+            return
+
+        # Simple linear drift for now (v * t)
+        delta = self.config.velocity * dt
+        self.current_value += delta
+
+        # Apply cap logic
+        if self.config.drift_cap is not None:
+            if self.config.coordinate == CoordinateType.Y:
+                target_y = transform["base_y"] + transform["y"] + self.current_value
+                # Simplified cap logic
+                if abs(target_y) > self.config.drift_cap:
+                    self.current_value = 0  # Wrap/Reset
+
+        val = self.current_value
+
+        if self.config.coordinate == CoordinateType.Y:
+            transform["y"] += val
+        elif self.config.coordinate == CoordinateType.X:
+            transform["x"] += val
+        elif self.config.coordinate == CoordinateType.SCALE:
+            transform["scale"] += val
+
+
+class PulseRuntime(BehaviorRuntime):
+    def __init__(self, config: PulseBehavior):
+        super().__init__(config)
+        self.config: PulseBehavior = config
+        self.time_accum = 0.0
+
+    def apply(self, layer, dt, transform):
+        if not self.active:
+            return
+
+        self.time_accum += dt
+
+        # 0.0 to 1.0 progress
+        cycle = (self.time_accum * self.config.frequency) % 1.0
+
+        value = 0.0
+        if self.config.waveform == "sine":
+            value = (math.sin(cycle * 2 * math.pi) + 1) / 2
+        elif self.config.waveform == "spike":
+            value = pow((math.sin(cycle * 2 * math.pi) + 1.0) / 2.0, 10)
+
+        # Map 0-1 to min-max
+        final_val = self.config.min_value + (
+            value * (self.config.max_value - self.config.min_value)
+        )
+
+        if self.config.coordinate == CoordinateType.OPACITY:
+            transform["opacity"] *= final_val
+        elif self.config.coordinate == CoordinateType.SCALE:
+            transform["scale"] *= final_val
+
+
+class LocationRuntime(BehaviorRuntime):
+    def __init__(self, config: LocationBehavior):
+        super().__init__(config)
+        self.config: LocationBehavior = config
+
+    def apply(self, layer, dt, transform):
+        if not self.active:
+            return
+
+        transform["x"] += self.config.x
+        transform["y"] += self.config.y
+
+
+class BackgroundRuntime(BehaviorRuntime):
+    def apply(self, layer, dt, transform):
+        pass
 
 
 class ParallaxLayer:
@@ -22,10 +158,8 @@ class ParallaxLayer:
         self,
         asset_path,
         z_depth,
-        vertical_percent,
+        vertical_percent=0.5,
         target_height=None,
-        bob_amplitude=0,
-        bob_frequency=0.0,
         scroll_speed=1.0,
         is_background=False,
         tile_horizontal=False,
@@ -35,22 +169,14 @@ class ParallaxLayer:
         vertical_anchor="center",
         x_offset: int = 0,
         y_offset: int = 0,
-        vertical_drift: float = 0.0,
-        horizontal_drift: float = 0.0,
-        scale_drift: float = 0.0,
-        scale_drift_multiplier_after_cap: float = 3.0,
-        drift_cap_y: Optional[float] = None,
-        twinkle_amplitude: float = 0.0,
-        twinkle_frequency: float = 0.0,
-        twinkle_min_scale: float = 0.035,
         environmental_reaction: Optional[EnvironmentalReaction] = None,
+        behaviors: List[BehaviorConfig] = None,
     ):
         self.z_depth = z_depth
         self.asset_path = Path(asset_path)
-        self.vertical_percent = vertical_percent
-        self.bob_amplitude = bob_amplitude
-        self.bob_frequency = bob_frequency
-        self.scroll_speed = scroll_speed
+        self.vertical_percent = vertical_percent or 0.5
+        self.target_height = target_height
+        self.scroll_speed = scroll_speed or 0
         self.is_background = is_background
         self.tile_horizontal = tile_horizontal
         self.tile_border = tile_border
@@ -59,26 +185,35 @@ class ParallaxLayer:
         self.vertical_anchor = vertical_anchor
         self.x_offset = x_offset
         self.y_offset = y_offset
-        self.vertical_drift = vertical_drift
-        self.horizontal_drift = horizontal_drift
-        self.scale_drift = scale_drift
-        self.scale_drift_multiplier_after_cap = scale_drift_multiplier_after_cap
-        self.drift_cap_y = drift_cap_y
-        self.twinkle_amplitude = twinkle_amplitude
-        self.twinkle_frequency = twinkle_frequency
-        self.twinkle_min_scale = twinkle_min_scale
         self.environmental_reaction = environmental_reaction
+        self.visible = True
 
-        # Runtime state for telemetry
-        self.current_y = 0.0
-        self.current_draw_x = 0.0
-        self.current_scale_calculated = 1.0
-        self.is_twinkling_active = False
+        # Initialize Behavior Runtimes
+        self.behavior_runtimes: List[BehaviorRuntime] = []
+        if behaviors:
+            for b_config in behaviors:
+                if b_config.type == BehaviorType.OSCILLATE:
+                    self.behavior_runtimes.append(OscillateRuntime(b_config))
+                elif b_config.type == BehaviorType.DRIFT:
+                    self.behavior_runtimes.append(DriftRuntime(b_config))
+                elif b_config.type == BehaviorType.PULSE:
+                    self.behavior_runtimes.append(PulseRuntime(b_config))
+                elif b_config.type == BehaviorType.BACKGROUND:
+                    self.behavior_runtimes.append(BackgroundRuntime(b_config))
+                    # Also enforce properties
+                    self.is_background = True
+                    self.scroll_speed = b_config.scroll_speed
+                elif b_config.type == BehaviorType.LOCATION:
+                    self.behavior_runtimes.append(LocationRuntime(b_config))
 
-        # State tracking for event-driven logging
-        self.has_reached_cap = False
-        self.has_ignited_star = False
+        self.original_image_size = (0, 0)
+        self.image = None
+        self.mask = None
+        # Physics state
+        self.current_tilt = 0.0
+        self._load_image()
 
+    def _load_image(self):
         if self.asset_path.exists():
             original_image = pygame.image.load(str(self.asset_path)).convert_alpha()
 
@@ -88,384 +223,480 @@ class ParallaxLayer:
                 original_image = original_image.subsurface(crop_rect)
 
             processed_image = original_image
+            # Handle resizing logic
             if self.height_scale is not None:
                 screen_surface = pygame.display.get_surface()
-                if screen_surface is None:
-                    raise RuntimeError(
-                        "pygame.display.set_mode() must be called before creating ParallaxLayer "
-                        "with height_scale. Screen surface is None."
+                if screen_surface:
+                    screen_h = screen_surface.get_height()
+                    target_h = int(screen_h * self.height_scale)
+                    w, h = processed_image.get_size()
+                    aspect = w / h
+                    target_w = int(target_h * aspect)
+                    processed_image = pygame.transform.smoothscale(
+                        processed_image, (target_w, target_h)
                     )
-                screen_h = screen_surface.get_height()
-                target_h = int(screen_h * self.height_scale)
+            elif self.target_height:
                 w, h = processed_image.get_size()
-                aspect_ratio = w / h
-                target_w = int(target_h * aspect_ratio)
+                aspect = w / h
                 processed_image = pygame.transform.smoothscale(
-                    processed_image, (target_w, target_h)
-                )
-            elif target_height:
-                w, h = processed_image.get_size()
-                aspect_ratio = w / h
-                target_width = int(target_height * aspect_ratio)
-                processed_image = pygame.transform.smoothscale(
-                    processed_image, (target_width, target_height)
+                    processed_image, (int(self.target_height * aspect), self.target_height)
                 )
 
             self.original_image_size = processed_image.get_size()
+            self.image = processed_image
+            self.fill_color = None
 
             if self.fill_down:
-                screen_surface = pygame.display.get_surface()
-                if screen_surface is None:
-                    raise RuntimeError(
-                        "pygame.display.set_mode() must be called before creating ParallaxLayer "
-                        "with fill_down=True. Screen surface is None."
-                    )
-                screen_h = screen_surface.get_height()
                 w, h = processed_image.get_size()
-
-                bottom_color = processed_image.get_at((w // 2, h - 1))
-
-                new_h = h + screen_h
-                filled_surface = pygame.Surface((w, new_h), pygame.SRCALPHA)
-
-                filled_surface.blit(processed_image, (0, 0))
-
-                fill_rect = pygame.Rect(0, h, w, new_h - h)
-                filled_surface.fill(bottom_color, fill_rect)
-
-                self.image = filled_surface
-            else:
-                self.image = processed_image
-        else:
-            self.image = pygame.Surface((100, 50))
-            self.image.fill((255, 0, 255))
+                try:
+                    self.fill_color = processed_image.get_at((w // 2, h - 1))
+                except Exception as e:
+                    logging.warning(f"Could not sample fill color: {e}")
 
     @classmethod
     def from_sprite_dir(cls, sprite_dir_path: str, overrides: Optional[Dict[str, Any]] = None):
         sprite_dir = Path(sprite_dir_path)
         sprite_name = sprite_dir.name
-
-        # Look for .prompt.json
         meta_path = sprite_dir / f"{sprite_name}.prompt.json"
 
         png_files = list(sprite_dir.glob("*.png"))
-        if not png_files:
-            raise FileNotFoundError(f"No PNG asset found in sprite directory: {sprite_dir}")
-        if len(png_files) > 1:
-            logging.warning(
-                f"Multiple PNG assets found in {sprite_dir}. Using the first one: {png_files[0]}"
-            )
-        asset_path = png_files[0]
+        asset_path = png_files[0] if png_files else sprite_dir / "placeholder.png"
 
-        with open(meta_path, "r") as f:
-            meta = json.load(f)
-            logging.info(f"Loaded sprite '{sprite_name}' with metadata: {meta}")
+        meta_data = {}
+        if meta_path.exists():
+            with open(meta_path, "r") as f:
+                raw_json = json.load(f)
+                try:
+                    sprite_meta = SpriteMetadata(**raw_json)
+                    meta_data = sprite_meta.model_dump()
+                except Exception as e:
+                    logging.error(f"Failed to parse metadata for {sprite_name}: {e}")
+                    meta_data = raw_json
 
+        # Merge overrides
         if overrides:
-            meta.update({k: v for k, v in overrides.items() if v is not None})
+            meta_data.update({k: v for k, v in overrides.items() if v is not None})
+
+        # Re-construct behavior models from list of dicts/models
+        raw_behaviors = meta_data.get("behaviors", [])
+        behavior_list = []
+        for b in raw_behaviors:
+            if isinstance(b, dict):
+                b_type = b.get("type")
+                if b_type == BehaviorType.OSCILLATE:
+                    behavior_list.append(OscillateBehavior(**b))
+                elif b_type == BehaviorType.DRIFT:
+                    behavior_list.append(DriftBehavior(**b))
+                elif b_type == BehaviorType.PULSE:
+                    behavior_list.append(PulseBehavior(**b))
+                elif b_type == BehaviorType.BACKGROUND:
+                    behavior_list.append(BackgroundBehavior(**b))
+                elif b_type == BehaviorType.LOCATION:
+                    behavior_list.append(LocationBehavior(**b))
+            else:
+                behavior_list.append(b)
 
         return cls(
             asset_path=str(asset_path),
-            z_depth=meta.get("z_depth", 1),
-            vertical_percent=meta.get("vertical_percent", 0.5),
-            target_height=meta.get("target_height"),
-            bob_amplitude=meta.get("bob_amplitude", 0),
-            bob_frequency=meta.get("bob_frequency", 0.0),
-            scroll_speed=meta.get("scroll_speed", 0.0),
-            is_background=meta.get("is_background", False),
-            tile_horizontal=meta.get("tile_horizontal", False),
-            tile_border=meta.get("tile_border", 0),
-            height_scale=meta.get("height_scale"),
-            fill_down=meta.get("fill_down", False),
-            vertical_anchor=meta.get("vertical_anchor", "center"),
-            x_offset=meta.get("x_offset", 0),
-            y_offset=meta.get("y_offset", 0),
-            vertical_drift=meta.get("vertical_drift", 0.0),
-            horizontal_drift=meta.get("horizontal_drift", 0.0),
-            scale_drift=meta.get("scale_drift", 0.0),
-            scale_drift_multiplier_after_cap=meta.get("scale_drift_multiplier_after_cap", 3.0),
-            drift_cap_y=meta.get("drift_cap_y"),
-            twinkle_amplitude=meta.get("twinkle_amplitude", 0.0),
-            twinkle_frequency=meta.get("twinkle_frequency", 0.0),
-            twinkle_min_scale=meta.get("twinkle_min_scale", 0.035),
+            z_depth=meta_data.get("z_depth", 1),
+            vertical_percent=meta_data.get("vertical_percent", 0.5),
+            target_height=meta_data.get("target_height"),
+            scroll_speed=meta_data.get("scroll_speed", 0.0),
+            is_background=meta_data.get("is_background", False),
+            tile_horizontal=meta_data.get("tile_horizontal", False),
+            tile_border=meta_data.get("tile_border", 0),
+            height_scale=meta_data.get("height_scale"),
+            fill_down=meta_data.get("fill_down", False),
+            vertical_anchor=meta_data.get("vertical_anchor", "center"),
+            x_offset=meta_data.get("x_offset", 0),
+            y_offset=meta_data.get("y_offset", 0),
             environmental_reaction=(
-                EnvironmentalReaction(**meta["environmental_reaction"])
-                if meta.get("environmental_reaction")
+                EnvironmentalReaction(**meta_data["environmental_reaction"])
+                if meta_data.get("environmental_reaction")
                 else None
             ),
+            behaviors=behavior_list,
         )
 
     def _get_base_y(self, screen_h: int) -> float:
-        """Calculate the Y coordinate before bobbing, following, or offsets."""
-        img_h_for_blit = self.image.get_size()[1]
-        img_h_for_positioning = self.original_image_size[1] if self.fill_down else img_h_for_blit
-        base_y_from_top = screen_h * self.vertical_percent
+        pos_h = self.original_image_size[1]
 
+        base = screen_h * self.vertical_percent
         if self.vertical_anchor == "bottom":
-            return base_y_from_top - img_h_for_positioning
+            return base - pos_h
         elif self.vertical_anchor == "top":
-            return base_y_from_top
-        else:  # Default to "center"
-            return base_y_from_top - (img_h_for_positioning / 2)
+            return base
+        else:
+            return base - (pos_h / 2)
 
-    def _get_bob_offset(self, scroll_x: float, x_coord: Optional[int] = None) -> float:
-        """Calculate the bobbing offset at a specific scroll and optional screen X."""
-        if self.bob_amplitude <= 0 or self.bob_frequency <= 0:
-            return 0
+    def get_transform(self, screen_h: int, scroll_x: float, elapsed_time: float, dt: float):
+        """Calculate the final transform for this frame."""
 
-        if x_coord is not None and self.tile_horizontal:
-            # Spatial bobbing for environment layers
-            spatial_phase = (scroll_x * self.scroll_speed) + (x_coord * 0.01)
-            return math.sin(spatial_phase * self.bob_frequency) * self.bob_amplitude
+        # Base state
+        transform = {
+            "x": 0.0,
+            "y": 0.0,
+            "base_y": self._get_base_y(screen_h) + self.y_offset,
+            "scale": 1.0,
+            "rotation": 0.0,
+            "opacity": 1.0,
+        }
 
-        return math.sin(scroll_x * self.bob_frequency) * self.bob_amplitude
+        # Apply Behaviors
+        for runtime in self.behavior_runtimes:
+            runtime.apply(self, dt, transform)
 
-    def get_current_y(
-        self,
-        screen_h: int,
-        scroll_x: float,
-        elapsed_time: float = 0.0,
-        x_coord: Optional[int] = None,
+        return transform
+
+    def get_y_at_x(
+        self, screen_h: int, scroll_x: float, x_coord: float, elapsed_time: float
     ) -> float:
-        """
-        Calculate the final Y coordinate including base position, bobbing, Y offset,
-        and vertical drift.
-        """
-        base_y = self._get_base_y(screen_h)
-        bob_offset = self._get_bob_offset(scroll_x, x_coord)
-        drift = self.vertical_drift * elapsed_time
+        # 1. Transform x_coord (screen space) to local image space
+        # screen_w = 800 # TODO: Pass screen_w? Assuming 800 for now or calculating?
+        # Ideally we know the screen dimensions.
 
-        y = base_y + bob_offset + self.y_offset + drift
+        # Recalculate transform to find where the image is drawn
+        # Similar logic to draw() but inverse.
 
-        # Apply drift cap if defined
-        if self.drift_cap_y is not None:
-            # If drifting up (negative drift), cap at the minimum Y (higher on screen)
-            if self.vertical_drift < 0:
-                y = max(y, self.drift_cap_y)
-            # If drifting down (positive drift), cap at the maximum Y (lower on screen)
-            elif self.vertical_drift > 0:
-                y = min(y, self.drift_cap_y)
+        # Calculate scroll offset
+        parallax_scroll = scroll_x * self.scroll_speed
 
-        return y
+        # Calculate transforms (assumes dt small or 0 for static sampling)
+        tf = self.get_transform(screen_h, scroll_x, elapsed_time, 0.0)
 
-    def get_current_tilt(
-        self,
-        screen_h: int,
-        scroll_x: float,
-        draw_x: float,
-        img_w: int,
-        environment_layer_for_tilt: Optional["ParallaxLayer"],
-    ) -> float:
-        """Calculate the tilt angle based on environment slope."""
-        if not self.environmental_reaction or not environment_layer_for_tilt:
-            return 0
+        if self.image is None:
+            return screen_h
 
-        if self.environmental_reaction.reaction_type != EnvironmentalReactionType.PIVOT_ON_CREST:
-            return 0
+        # Use original_image_size (pre-fill-down) to ensure correct aspect ratio/dimensions
+        # logic. self.image might include fill_down extension which skews h.
+        base_w, base_h = self.original_image_size
+        if base_w == 0 or base_h == 0:
+            base_w = self.image.get_width()
+            base_h = self.image.get_height()
 
-        # Calculate the reacting sprite's current horizontal center on the screen
-        reacting_sprite_current_x = draw_x + img_w / 2
+        # If scaled, we need to account for that.
+        final_scale = max(0.001, tf["scale"])
+        base_y = tf["base_y"] + tf["y"]
 
-        # Sample the environment's Y at points slightly ahead and behind the sprite's center
-        sample_offset = 2.0
+        # Note: _load_image already handled target_height/height_scale resizing
+        # into original_image_size. We just need to apply behavioral scale.
+        img_w = base_w * final_scale
 
-        y_at_behind_point = environment_layer_for_tilt.get_y_at_x(
-            screen_h, scroll_x, int(reacting_sprite_current_x - sample_offset)
-        )
-        y_at_ahead_point = environment_layer_for_tilt.get_y_at_x(
-            screen_h, scroll_x, int(reacting_sprite_current_x + sample_offset)
-        )
+        scroll_offset = parallax_scroll + self.x_offset + tf["x"]
 
-        delta_y = y_at_behind_point - y_at_ahead_point
-        delta_x = 2 * sample_offset
-        raw_slope = delta_y / delta_x if delta_x != 0 else 0
+        # NOTE: This assumes standard non-tiled or horizontally tiled logic.
+        # Inverse mapping:
+        # screen_x = (local_x + scroll_offset) % wrap_w - img_w (roughly)
 
-        # Apply sensitivity factor and start-of-scene ramp-in
-        start_ramp = min(1.0, scroll_x / 300.0) if scroll_x > 0 else 0
-        tilt_angle_deg = math.degrees(math.atan(raw_slope)) * 50.0 * start_ramp
+        # Let's map screen X to local X.
+        # local_x = (screen_x - scroll_offset) % img_w
 
-        return max(
-            -self.environmental_reaction.max_tilt_angle,
-            min(self.environmental_reaction.max_tilt_angle, tilt_angle_deg),
-        )
+        # Normalize x_coord into pattern space
+        # We need the 'time' factor if there is horizontal drift?
+        # For environment (waves), usually they scroll.
 
-    def log_state_change(self, event_name: str, elapsed_time: float):
-        """Log the current state when a key transition occurs."""
-        name = self.asset_path.parent.name
-        x, y = self.current_draw_x, self.current_y
-        scale = self.current_scale_calculated
-        logging.info(
-            f"[EVENT: {event_name}] Sprite:{name} T:{elapsed_time:.2f}s "
-            f"Pos:({x:.1f}, {y:.1f}) Scale:{scale:.4f}"
-        )
+        # Simple wrapping logic:
+        # The image repeats every img_w pixels (if tiled) or effectively wraps.
+        local_x = (x_coord - scroll_offset) % img_w
+
+        # Scale back to original image coordinates for pixel lookup
+        # original_x = local_x / final_scale ?
+        # Wait, img_w above IS the scaled width.
+
+        ratio = self.image.get_width() / img_w
+        orig_x = int(local_x * ratio)
+        orig_x = max(0, min(self.image.get_width() - 1, orig_x))
+
+        # Scan vertical column in original image for first non-transparent pixel
+        # This is expensive if done every frame for every point.
+        # Optimization: Use mask?
+        if self.mask is None:
+            self.mask = pygame.mask.from_surface(self.image)
+
+        # Mask scan
+        try:
+            # Find first set bit in column orig_x
+            # pygame mask doesn't have 'get_at_x' column scan directly efficient?
+            # We iterate Y?
+            h_orig = self.image.get_height()
+
+            if "wave1" in str(self.asset_path):
+                logging.info(f"W1: sx={x_coord:.0f} ox={orig_x} by={base_y:.1f}")
+
+            for y in range(h_orig - 3):
+                if (
+                    self.mask.get_at((orig_x, y))
+                    and self.mask.get_at((orig_x, y + 1))
+                    and self.mask.get_at((orig_x, y + 2))
+                ):
+                    # Found it.
+                    # Map back to screen Y
+                    # ScreenY = base_y + (y * 1/ratio) ?
+                    # inverse ratio = img_h / original_h
+                    y_scaled = y / ratio
+                    if "wave1" in str(self.asset_path):
+                        logging.info(
+                            f"W1 HIT: y={y} y_scaled={y_scaled:.1f} result={base_y + y_scaled:.1f}"
+                        )
+                    return base_y + y_scaled
+        except IndexError:
+            pass
+
+        return screen_h
+
+    def get_screen_pos(self, screen_w: int, screen_h: int, scroll_x: float, elapsed_time: float):
+        """Calculate the logical screen position of the sprite."""
+        tf = self.get_transform(screen_h, scroll_x, elapsed_time, 0.0)
+        final_x = tf["x"]
+        final_y = tf["base_y"] + tf["y"]
+        final_scale = max(0.001, tf["scale"])
+
+        base_w, base_h = self.original_image_size
+        if base_w == 0 or base_h == 0:
+            if self.image:
+                base_w, base_h = self.image.get_size()
+            else:
+                return (0.0, 0.0)
+
+        scaled_unrotated_w = base_w * final_scale
+
+        parallax_x = (scroll_x * self.scroll_speed) + self.x_offset
+        wrapper_w = screen_w + scaled_unrotated_w
+        x = (parallax_x + final_x) % wrapper_w
+        logical_x = x - scaled_unrotated_w
+
+        return (logical_x, final_y)
 
     def draw(
         self,
         screen,
-        scroll_x,
-        elapsed_time: float = 0.0,
-        environment_y: Optional[float] = None,
-        environment_layer_for_tilt: Optional["ParallaxLayer"] = None,
+        scroll_x: float,
+        elapsed_time: float,
+        dt: float,
+        env_y: Optional[float] = None,
+        env_layer: Optional["ParallaxLayer"] = None,
     ):
+        if not self.visible:
+            return
+
         screen_w, screen_h = screen.get_size()
 
         if self.is_background:
-            img_w, img_h = self.image.get_size()
-
-            screen_aspect = screen_w / screen_h
-            img_aspect = img_w / img_h
-
-            if img_aspect > screen_aspect:
-                new_h = screen_h
-                new_w = int(new_h * img_aspect)
-            else:
-                new_w = screen_w
-                new_h = int(new_w / img_aspect)
-
-            scaled_image = pygame.transform.smoothscale(self.image, (new_w, new_h))
-
-            blit_x = (screen_w - new_w) / 2
-            blit_y = (screen_h - new_h) / 2
-
-            screen.blit(scaled_image, (blit_x, blit_y))
+            self._draw_background(screen)
             return
 
-        # Calculate multi-phase scaling threshold
-        time_to_cap_y = 99999.0
-        if self.drift_cap_y is not None and self.vertical_drift != 0:
-            base_y_no_drift = self._get_base_y(screen_h) + self.y_offset
-            dist_to_cap = abs(self.drift_cap_y - base_y_no_drift)
-            time_to_cap_y = dist_to_cap / abs(self.vertical_drift)
+        # Calculate Transform
+        tf = self.get_transform(screen_h, scroll_x, elapsed_time, dt)
 
-        # Trigger event logging for height cap
-        if not self.has_reached_cap and elapsed_time >= time_to_cap_y:
-            self.has_reached_cap = True
-            self.log_state_change("REACHED_HEIGHT_CAP", elapsed_time)
+        # Resolve final values
+        final_x = tf["x"]
+        final_y = tf["base_y"] + tf["y"]
+        final_scale = max(0.001, tf["scale"])
+        final_rot = tf["rotation"]
+        final_alpha = max(0.0, min(1.0, tf["opacity"]))
 
-        # Calculate time when scale hits threshold
-        time_to_star = 99999.0
-        accel_drift = self.scale_drift * self.scale_drift_multiplier_after_cap
+        # Prepare Image
+        if self.image is None:
+            return
 
-        if self.scale_drift < 0:
-            scale_at_cap = 1.0 + (self.scale_drift * time_to_cap_y)
-            if scale_at_cap <= self.twinkle_min_scale:
-                # Hits threshold in Phase 1
-                time_to_star = (self.twinkle_min_scale - 1.0) / self.scale_drift
-            elif accel_drift < 0:
-                # Hits threshold in Phase 2
-                time_to_star = time_to_cap_y + (self.twinkle_min_scale - scale_at_cap) / accel_drift
+        img_to_draw = self.image
 
-        self.is_twinkling_active = False
-        physics_time = elapsed_time
-        if elapsed_time >= time_to_star:
-            self.is_twinkling_active = True
-            physics_time = time_to_star  # Freeze position and size
+        if abs(final_scale - 1.0) > 0.001:
+            w, h = img_to_draw.get_size()
+            new_size = (int(w * final_scale), int(h * final_scale))
+            img_to_draw = pygame.transform.smoothscale(img_to_draw, new_size)
 
-            # Trigger event logging for star ignition
-            if not self.has_ignited_star:
-                self.has_ignited_star = True
-                self.log_state_change("STAR_IGNITED", elapsed_time)
+        # Environmental Reaction Logic
+        if self.environmental_reaction and env_layer:
+            reaction = self.environmental_reaction
 
-        # Calculate Scale
-        if physics_time <= time_to_cap_y:
-            current_scale = 1.0 + (self.scale_drift * physics_time)
-        else:
-            scale_at_cap = 1.0 + (self.scale_drift * time_to_cap_y)
-            current_scale = scale_at_cap + (accel_drift * (physics_time - time_to_cap_y))
+            # hull_length_factor defaults to 0.5 if not present
+            hull_factor = getattr(reaction, "hull_length_factor", 0.5)
 
-        # Absolute safety cap: no negative flipping
-        current_scale = max(
-            self.twinkle_min_scale if self.is_twinkling_active else 0.001, current_scale
-        )
-        self.current_scale_calculated = current_scale
+            # 1. Determine local center and sampling offsets
+            img_w_curr = img_to_draw.get_width()
+            parallax_x = (scroll_x * self.scroll_speed) + self.x_offset
+            center_x = parallax_x + final_x + (img_w_curr / 2)
 
-        img_w_for_blit, img_h_for_blit = self.image.get_size()
-        image_to_draw = self.image
+            offset_w = img_w_curr * (hull_factor / 2)
+            x_stern = center_x - offset_w
+            x_bow = center_x + offset_w
 
-        if current_scale != 1.0 and current_scale > 0:
-            new_w = max(1, int(img_w_for_blit * current_scale))
-            new_h = max(1, int(img_h_for_blit * current_scale))
-            image_to_draw = pygame.transform.smoothscale(image_to_draw, (new_w, new_h))
-            img_w_for_blit, img_h_for_blit = new_w, new_h
+            # 2. Sample environment heights
+            y_stern = env_layer.get_y_at_x(screen_h, scroll_x, x_stern, elapsed_time)
+            y_bow = env_layer.get_y_at_x(screen_h, scroll_x, x_bow, elapsed_time)
 
-        img_h_for_positioning = self.original_image_size[1] if self.fill_down else img_h_for_blit
+            # 3. Calculate target position and tilt
+            # Average height of these two points defines the surface level for the boat center
+            target_env_y = (y_stern + y_bow) / 2.0
 
-        parallax_scroll = scroll_x * self.scroll_speed
-        y = self.get_current_y(screen_h, scroll_x, physics_time)
-        self.current_y = y
+            # Determine slope-based angle
+            hull_dist = x_bow - x_stern
+            if hull_dist > 0:
+                slope = (y_bow - y_stern) / hull_dist
+                # Screen Y is inverted, positive slope = nose down.
+                # Pygame rotation is CCW positive, so -atan(slope)
+                angle = -math.degrees(math.atan(slope))
+            else:
+                angle = 0
 
-        # Calculate initial draw_x for horizontal wrapping/positioning
-        h_drift = self.horizontal_drift * physics_time
-        wrap_width = screen_w + img_w_for_blit
-        x = (parallax_scroll + self.x_offset + h_drift) % wrap_width
-        draw_x = x - img_w_for_blit
-        self.current_draw_x = draw_x
+            # Apply sensitivity factor and start-of-scene ramp-in
+            start_ramp = min(1.0, scroll_x / 300.0) if scroll_x > 0 else 0
+            target_tilt = max(
+                -reaction.max_tilt_angle,
+                min(reaction.max_tilt_angle, angle * 5.0 * start_ramp),
+            )
 
-        if (
-            self.environmental_reaction
-            and environment_y is not None
-            and self.environmental_reaction.reaction_type
-            == EnvironmentalReactionType.PIVOT_ON_CREST
-        ):
-            # Apply vertical following if configured, BEFORE calculating tilt
-            if self.environmental_reaction.vertical_follow_factor > 0:
-                y = environment_y - (
-                    img_h_for_positioning * (1 - self.environmental_reaction.vertical_follow_factor)
+            # 4. Smoothing / Inertia
+            # Rotation smoothing
+            self.current_tilt += (target_tilt - self.current_tilt) * 0.1
+            final_rot += self.current_tilt
+
+            # Vertical Position calculation
+            if reaction.vertical_follow_factor > 0:
+                # Base height from environment
+                current_h = img_to_draw.get_height()
+                img_h_pos = (
+                    self.original_image_size[1] * final_scale if self.fill_down else current_h
                 )
 
-            current_tilt = self.get_current_tilt(
-                screen_h, scroll_x, draw_x, img_w_for_blit, environment_layer_for_tilt
-            )
+                # Desired final_y relative to the environment surface
+                desired_y = (
+                    target_env_y
+                    + self.y_offset
+                    - (img_h_pos * (1 - reaction.vertical_follow_factor))
+                )
 
-            image_to_draw = pygame.transform.rotate(image_to_draw, current_tilt)
-            rotated_rect = image_to_draw.get_rect(
-                center=(draw_x + img_w_for_blit / 2, y + img_h_for_blit / 2)
-            )
-            draw_x = rotated_rect.x
-            y = rotated_rect.y
+                # We use internal smoothing for vertical position to simulate weight
+                if not hasattr(self, "_current_y_phys"):
+                    self._current_y_phys = final_y
 
-        # Apply twinkle (opacity pulsing) - ONLY if at or past threshold
-        if self.twinkle_amplitude > 0 and self.is_twinkling_active:
-            # Randomize rate/phase using x_offset
-            phase_offset = (self.x_offset % 360) / 10.0
-            rate_mod = 1.0 + ((self.x_offset % 10) / 20.0)
+                # Update physical Y with smoothing
+                lift = self.current_tilt * getattr(reaction, "tilt_lift_factor", 0.0)
+                desired_y -= lift
 
-            # Use high-exponent sine for "brief bright spikes"
-            # sin gives [-1, 1], shifted to [0, 1] then powered up for sharpness
-            raw_spike = pow(
-                (math.sin((elapsed_time * rate_mod + phase_offset) * self.twinkle_frequency) + 1.0)
-                / 2.0,
-                10,
-            )
+                self._current_y_phys += (desired_y - self._current_y_phys) * 0.1
+                final_y = self._current_y_phys
 
-            # Range: base (80%) to spike (100%)
-            # "Brightening by 20%" means 100% is the peak, 83% is the base (since 100/83 ~ 1.2)
-            # Let's use 212 as the steady state (approx 83%) and spike to 255.
-            base_alpha = 212
-            target_alpha = base_alpha + int(raw_spike * (255 - base_alpha))
-            image_to_draw.set_alpha(target_alpha)
+            if self.asset_path.name == "boat.png":
+                logging.info(
+                    "BOAT PHYSICS: y_stern=%s y_bow=%s target_y=%s tilt=%s",
+                    y_stern,
+                    y_bow,
+                    final_y,
+                    self.current_tilt,
+                )
+
+        # Always rotate if there is a value (or test expects it even if 0)
+        # Optimization: only if abs(final_rot) > 0.001
+        # But test expects 0.0 call.
+        img_to_draw = pygame.transform.rotate(img_to_draw, final_rot)
+
+        if final_alpha < 1.0:
+            img_to_draw.set_alpha(int(final_alpha * 255))
         else:
-            # Regular sprites or pre-star phase
-            pass
+            img_to_draw.set_alpha(255)
 
+        # Positioning
+        rotated_w, rotated_h = img_to_draw.get_size()
+
+        # Defensive check for image size (handling mocks/unloaded states in tests)
+        unrotated_w, unrotated_h = 0, 0
+        if hasattr(self, "original_image_size") and len(self.original_image_size) == 2:
+            unrotated_w, unrotated_h = self.original_image_size
+        else:
+            unrotated_w, unrotated_h = rotated_w, rotated_h
+
+        scaled_unrotated_w = unrotated_w * final_scale
+        scaled_unrotated_h = unrotated_h * final_scale
+
+        parallax_x = (scroll_x * self.scroll_speed) + self.x_offset
+
+        # Tiling vs Single
         if self.tile_horizontal:
-            start_x = (parallax_scroll + self.x_offset + h_drift) % img_w_for_blit
-            current_x = start_x - img_w_for_blit
-            while current_x < screen_w:
-                screen.blit(image_to_draw, (current_x, y))
-                current_x += img_w_for_blit
-        else:
-            screen.blit(image_to_draw, (draw_x, y))
+            # Calculate logical tiling start based on unrotated width
+            start_x = (parallax_x + final_x) % scaled_unrotated_w
+            if start_x > 0:
+                start_x -= scaled_unrotated_w
 
-    def get_y_at_x(
-        self, screen_h: int, scroll_x: float, x_coord: int, elapsed_time: float = 0.0
-    ) -> float:
-        effective_y = self.get_current_y(screen_h, scroll_x, elapsed_time, x_coord)
-        logging.debug(
-            f"Environment: Layer '{self.asset_path.parent.name}' (z={self.z_depth}) "
-            f"at x_coord={x_coord}: effective_y={effective_y:.2f}"
-        )
-        return effective_y
+            curr_x = start_x
+            while curr_x < screen_w:
+                # Position rotated image centered on the logical unrotated tile's center
+                tile_center_x = curr_x + (scaled_unrotated_w / 2)
+                tile_center_y = final_y + (scaled_unrotated_h / 2)
+
+                draw_x = tile_center_x - (rotated_w / 2)
+                draw_y = tile_center_y - (rotated_h / 2)
+
+                screen.blit(img_to_draw, (draw_x, draw_y))
+
+                if self.fill_down and self.fill_color:
+                    # Create a fill surface that covers the screen below the sprite
+                    # We need to handle rotation for the fill as well if we want it to match Web
+                    # For Pygame simplicity, if not rotated, we can just fill rect.
+                    # If rotated, we'd need a more complex polygon or a large surface.
+                    # To match Layer.js: 'fillRect(-imgW / 2, imgH / 2, imgW, screenH)'
+                    fill_w = scaled_unrotated_w
+                    fill_h = screen_h  # Enough to cover
+                    fill_surf = pygame.Surface((int(fill_w), int(fill_h)), pygame.SRCALPHA)
+                    fill_surf.fill(self.fill_color)
+                    if abs(final_rot) > 0.1:
+                        fill_surf = pygame.transform.rotate(fill_surf, final_rot)
+                        # Re-center rotated fill
+                        frw, frh = fill_surf.get_size()
+                        # Position below the sprite center
+                        # This is tricky in Pygame. Let's stick to the simpler unrotated
+                        # till we verify. Actually, better to just blit a large enough rect.
+                        screen.blit(
+                            fill_surf,
+                            (
+                                tile_center_x - frw / 2,
+                                tile_center_y + rotated_h / 2 - (frh - fill_h) / 2,
+                            ),
+                        )
+                    else:
+                        screen.blit(fill_surf, (curr_x, tile_center_y + (scaled_unrotated_h / 2)))
+
+                curr_x += scaled_unrotated_w
+        else:
+            # Wrap around screen using logical unrotated width for the boundary
+            wrapper_w = screen_w + scaled_unrotated_w
+            x = (parallax_x + final_x) % wrapper_w
+
+            # logical_x is the left edge of the unrotated image
+            logical_x = x - scaled_unrotated_w
+
+            # logical_center is the stable midpoint
+            logical_center_x = logical_x + (scaled_unrotated_w / 2)
+            logical_center_y = final_y + (scaled_unrotated_h / 2)
+
+            # Position rotated image centered on the logical center
+            draw_x = logical_center_x - (rotated_w / 2)
+            draw_y = logical_center_y - (rotated_h / 2)
+
+            screen.blit(img_to_draw, (draw_x, draw_y))
+
+            if self.fill_down and self.fill_color:
+                fill_w = scaled_unrotated_w
+                fill_h = screen_h
+                fill_surf = pygame.Surface((int(fill_w), int(fill_h)), pygame.SRCALPHA)
+                fill_surf.fill(self.fill_color)
+                if abs(final_rot) > 0.1:
+                    fill_surf = pygame.transform.rotate(fill_surf, final_rot)
+                    frw, frh = fill_surf.get_size()
+                    screen.blit(
+                        fill_surf,
+                        (
+                            logical_center_x - frw / 2,
+                            logical_center_y + rotated_h / 2 - (frh - fill_h) / 2,
+                        ),
+                    )
+                else:
+                    screen.blit(fill_surf, (logical_x, logical_center_y + (scaled_unrotated_h / 2)))
+
+    def _draw_background(self, screen):
+        if self.image:
+            screen.blit(self.image, (0, 0))
 
 
 class Theatre:
@@ -489,7 +720,6 @@ class Theatre:
         # Legacy path support
         path_obj = Path(scene_path)
         if not path_obj.exists() and "assets/story" in scene_path:
-            # Try to map assets/story/scene_NAME.json -> assets/scenes/NAME/scene.json
             name_part = path_obj.stem.replace("scene_", "")
             new_path = Path("assets/scenes") / name_part / "scene.json"
             if new_path.exists():
@@ -501,9 +731,10 @@ class Theatre:
         self.layers: list[ParallaxLayer] = []
         self.sprite_base_dir = Path("assets/sprites")
 
-        self.previous_env_y: Dict[str, float] = {}
-        self.env_y_direction: Dict[str, int] = {}
         self.elapsed_time = 0.0
+        self.debug_target_layer_index = 0
+        self.show_debug_menu = True
+        self.debug_menu_rect = pygame.Rect(10, 40, 320, 420)
 
         self.load_scene()
         logging.info("Theatre initialized. Main loop starting.")
@@ -514,45 +745,17 @@ class Theatre:
             with open(self.scene_path, "r") as f:
                 scene_config = json.load(f)
 
-            self.previous_env_y.clear()
-            self.env_y_direction.clear()
-
             new_layers = []
             for layer_data in scene_config.get("layers", []):
                 sprite_name = layer_data.get("sprite_name")
                 if not sprite_name:
                     continue
 
-                overrides = {
-                    k: layer_data.get(k)
-                    for k in [
-                        "z_depth",
-                        "vertical_percent",
-                        "target_height",
-                        "bob_amplitude",
-                        "bob_frequency",
-                        "scroll_speed",
-                        "tile_horizontal",
-                        "fill_down",
-                        "vertical_anchor",
-                        "is_background",
-                        "x_offset",
-                        "y_offset",
-                        "environmental_reaction",
-                        "vertical_drift",
-                        "horizontal_drift",
-                        "scale_drift",
-                        "scale_drift_multiplier_after_cap",
-                        "drift_cap_y",
-                        "twinkle_amplitude",
-                        "twinkle_frequency",
-                        "twinkle_min_scale",
-                    ]
-                }
-                filtered_overrides = {k: v for k, v in overrides.items() if v is not None}
+                # Pass legacy overrides if any, from_sprite_dir might use them if matched
+                overrides = layer_data.copy()
+                if "sprite_name" in overrides:
+                    del overrides["sprite_name"]
 
-                # Resolve sprite path: checks scene-local 'sprites/' first,
-                # then global 'assets/sprites/'
                 scene_dir = self.scene_path.parent
                 local_sprite_path = scene_dir / "sprites" / sprite_name
                 global_sprite_path = self.sprite_base_dir / sprite_name
@@ -568,12 +771,10 @@ class Theatre:
                     )
                     continue
 
-                layer = ParallaxLayer.from_sprite_dir(
-                    str(target_path), overrides=filtered_overrides
-                )
+                layer = ParallaxLayer.from_sprite_dir(str(target_path), overrides=overrides)
                 new_layers.append(layer)
 
-            new_layers.sort(key=lambda layer: layer.z_depth)
+            new_layers.sort(key=lambda layer: layer.z_depth or 0)
             self.layers = new_layers
             self.last_modified_time = os.path.getmtime(self.scene_path)
             logging.info(f"Loaded {len(self.layers)} layers. Scene reloaded due to file change.")
@@ -581,55 +782,57 @@ class Theatre:
         except Exception as e:
             logging.error(f"Error loading scene: {e}")
 
-    def _detect_peaks_and_valleys(
-        self, layer: ParallaxLayer, env_layer: ParallaxLayer, current_env_y: float
-    ):
-        """Analyze environmental Y changes to detect and log peaks/valleys."""
-        env_name = env_layer.asset_path.parent.name
-        prev_y = self.previous_env_y.get(env_name)
-        prev_dir = self.env_y_direction.get(env_name, 0)
-
-        current_dir = 0
-        if prev_y is not None:
-            if current_env_y > prev_y:
-                current_dir = -1
-            elif current_env_y < prev_y:
-                current_dir = 1
-
-        if prev_dir != 0 and current_dir != 0 and (prev_dir * current_dir < 0):
-            peak_or_valley = "Peak  " if current_dir == -1 else "Valley"
-
-            img_w = layer.image.get_size()[0]
-            parallax_scroll = self.scroll * layer.scroll_speed
-            draw_x = (parallax_scroll + layer.x_offset) % (self.screen.get_width() + img_w) - img_w
-
-            tilt = layer.get_current_tilt(
-                self.screen.get_height(), self.scroll, draw_x, img_w, env_layer
-            )
-            logging.info(
-                f"{peak_or_valley} Detected! Environment '{env_name}' "
-                f"(Env_y={current_env_y:.2f}) at scroll={self.scroll}. "
-                f"Reacting Sprite '{layer.asset_path.parent.name}': Tilt={tilt:.2f}"
-            )
-
-        self.previous_env_y[env_name] = current_env_y
-        self.env_y_direction[env_name] = current_dir
-
     def run(self, max_frames: Optional[int] = None):
         """The main theatre loop."""
         frame_count = 0
         while True:
-            if max_frames and frame_count >= max_frames:
+            if max_frames is not None and frame_count >= max_frames:
                 logging.info(f"Reached max_frames ({max_frames}). Exiting loop.")
                 return
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     return
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_TAB:
+                        self.debug_target_layer_index = (self.debug_target_layer_index + 1) % len(
+                            self.layers
+                        )
+                        layer = self.layers[self.debug_target_layer_index]
+                        target_name = layer.asset_path.parent.name
+                        logging.info(f"Debug sampler target changed to layer: {target_name}")
+                    if event.key == pygame.K_d:
+                        self.show_debug_menu = not self.show_debug_menu
+                        logging.info(f"Debug menu {'opened' if self.show_debug_menu else 'closed'}")
+
+                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:  # Left click
+                    if self.show_debug_menu:
+                        mouse_pos = pygame.mouse.get_pos()
+                        if self.debug_menu_rect.collidepoint(mouse_pos):
+                            # Calculate index based on click Y relative to menu top
+                            relative_y = mouse_pos[1] - (self.debug_menu_rect.y + 40)  # 40px header
+                            if relative_y >= 0:
+                                clicked_idx = relative_y // 25  # 25px per item
+                                if 0 <= clicked_idx < len(self.layers):
+                                    # Clicked layer name area -> Select for pink dot
+                                    if mouse_pos[0] < self.debug_menu_rect.x + 280:
+                                        self.debug_target_layer_index = clicked_idx
+                                        layer = self.layers[clicked_idx]
+                                        target_name = layer.asset_path.parent.name
+                                        logging.info(f"Debug target selected: {target_name}")
+                                    else:
+                                        # Clicked visibility toggle area
+                                        layer = self.layers[clicked_idx]
+                                        layer.visible = not layer.visible
+                                        target_name = layer.asset_path.parent.name
+                                        msg = f"Toggle: {target_name} -> {layer.visible}"
+                                        logging.info(msg)
 
             if os.path.getmtime(self.scene_path) != self.last_modified_time:
                 logging.info(f"Detected change in {self.scene_path}. Reloading...")
                 self.load_scene()
+                # Ensure index still valid after reload
+                self.debug_target_layer_index %= len(self.layers) if self.layers else 1
 
             dt = self.clock.tick(60) / 1000.0
             self.elapsed_time += dt
@@ -640,39 +843,133 @@ class Theatre:
             self.screen.fill((200, 230, 255))
 
             layers_by_name = {layer.asset_path.parent.name: layer for layer in self.layers}
-            environment_y_data = {}
+
+            # Simple environment binding via name for now
+            # (Assuming one-way binding or simple lookup)
 
             for layer in self.layers:
-                if not layer.environmental_reaction:
-                    continue
-
-                target_name = layer.environmental_reaction.target_sprite_name
-                env_layer = layers_by_name.get(target_name)
-
-                if env_layer:
-                    img_w = layer.image.get_size()[0]
-                    parallax_scroll = self.scroll * layer.scroll_speed
-                    draw_x = (parallax_scroll + layer.x_offset) % (screen_w + img_w) - img_w
-                    center_x = draw_x + img_w / 2
-
-                    env_y = env_layer.get_y_at_x(
-                        screen_h, self.scroll, int(center_x), self.elapsed_time
-                    )
-                    environment_y_data[layer] = env_y
-
-                    self._detect_peaks_and_valleys(layer, env_layer, env_y)
-
-            for layer in self.layers:
-                env_y = environment_y_data.get(layer)
                 env_layer_for_tilt = None
-                if layer.environmental_reaction:
-                    env_layer_for_tilt = layers_by_name.get(
-                        layer.environmental_reaction.target_sprite_name
-                    )
 
-                layer.draw(self.screen, self.scroll, self.elapsed_time, env_y, env_layer_for_tilt)
+                if layer.environmental_reaction:
+                    target_name = layer.environmental_reaction.target_sprite_name
+                    env_layer_for_tilt = layers_by_name.get(target_name)
+
+                layer.draw(
+                    self.screen, self.scroll, self.elapsed_time, dt, None, env_layer_for_tilt
+                )
+
+                # DEBUG: Visualize Physics Sampling
+                if layer.asset_path.name == "boat.png" and env_layer_for_tilt:
+                    # Let's just draw the points returned by the log!
+                    # We can't easier get them without recalculating.
+                    pass
+
+            # DEBUG: Draw a marker at the mouse-reported "Surface Y" for the mouse X
+            # to see what the physics engine thinks is at the mouse X
+            if self.layers and self.debug_target_layer_index < len(self.layers):
+                sampled_layer = self.layers[self.debug_target_layer_index]
+                mx, my = pygame.mouse.get_pos()
+                physics_y = sampled_layer.get_y_at_x(screen_h, self.scroll, mx, self.elapsed_time)
+                pygame.draw.circle(self.screen, (255, 0, 255), (mx, physics_y), 5)
+
+            # DEBUG: Interactive Menu & Overlay
+            if self.show_debug_menu:
+                self._draw_debug_menu()
+            elif self.layers and self.debug_target_layer_index < len(self.layers):
+                # Simple overlay when menu is closed
+                if pygame.font.get_init():
+                    font = pygame.font.SysFont(None, 24)
+                    sampled_layer = self.layers[self.debug_target_layer_index]
+                    mx, my = pygame.mouse.get_pos()
+                    physics_y = sampled_layer.get_y_at_x(
+                        screen_h, self.scroll, mx, self.elapsed_time
+                    )
+                    msg = (
+                        f"Sampling Layer: {sampled_layer.asset_path.parent.name} | "
+                        f"Surface Y: {int(physics_y)}"
+                    )
+                    text = font.render(msg, True, (255, 0, 0))
+                    self.screen.blit(text, (10, 10))
 
             pygame.display.flip()
+
+    def _draw_debug_menu(self):
+        """Draw the interactive debug dialog."""
+        if not pygame.font.get_init():
+            return
+
+        font_header = pygame.font.SysFont(None, 28, bold=True)
+        font_item = pygame.font.SysFont(None, 24)
+        mx, my = pygame.mouse.get_pos()
+        screen_h = self.screen.get_height()
+
+        # 1. Background box
+        s = pygame.Surface(
+            (self.debug_menu_rect.width, self.debug_menu_rect.height), pygame.SRCALPHA
+        )
+        s.fill((0, 0, 0, 180))  # Dark transparent
+        self.screen.blit(s, (self.debug_menu_rect.x, self.debug_menu_rect.y))
+        pygame.draw.rect(self.screen, (255, 255, 255), self.debug_menu_rect, 2)
+
+        # 2. Header
+        header_text = font_header.render("Debug Menu: Select Layer", True, (255, 255, 0))
+        self.screen.blit(header_text, (self.debug_menu_rect.x + 10, self.debug_menu_rect.y + 10))
+
+        # 3. Layer list
+        y_offset = self.debug_menu_rect.y + 45
+        for i, layer in enumerate(self.layers):
+            color = (255, 255, 255)
+            prefix = "[ ] "
+            if i == self.debug_target_layer_index:
+                color = (255, 0, 255)  # Pink for active
+                prefix = "[x] "
+
+            layer_name = layer.asset_path.parent.name
+            item_text = font_item.render(f"{prefix}{layer_name}", True, color)
+            self.screen.blit(item_text, (self.debug_menu_rect.x + 20, y_offset))
+
+            # Visibility toggle
+            vis_char = "[V]" if layer.visible else "[H]"
+            vis_color = (0, 255, 0) if layer.visible else (150, 150, 150)
+            vis_text = font_item.render(vis_char, True, vis_color)
+            self.screen.blit(vis_text, (self.debug_menu_rect.right - 40, y_offset))
+
+            y_offset += 25
+
+        # 4. Detailed Coordinate Reporting (Footer)
+        footer_y = self.debug_menu_rect.bottom - 105
+        pygame.draw.line(
+            self.screen,
+            (150, 150, 150),
+            (self.debug_menu_rect.x + 10, footer_y),
+            (self.debug_menu_rect.right - 10, footer_y),
+        )
+
+        if not self.layers:
+            return
+
+        idx = self.debug_target_layer_index % len(self.layers)
+        sampled_layer = self.layers[idx]
+        physics_y = sampled_layer.get_y_at_x(screen_h, self.scroll, mx, self.elapsed_time)
+        sprite_x, sprite_y = sampled_layer.get_screen_pos(
+            self.screen.get_width(), screen_h, self.scroll, self.elapsed_time
+        )
+
+        report_mouse = font_item.render(f"Mouse X: {mx}  Y: {my}", True, (200, 200, 200))
+        report_pink = font_item.render(
+            f"Pink Dot X: {mx}  Y: {int(physics_y)}", True, (255, 0, 255)
+        )
+        report_sprite = font_item.render(
+            f"Sprite X: {int(sprite_x)}  Y: {int(sprite_y)}", True, (255, 255, 0)
+        )
+        report_layer = font_item.render(
+            f"Target: {sampled_layer.asset_path.parent.name}", True, (0, 255, 255)
+        )
+
+        self.screen.blit(report_mouse, (self.debug_menu_rect.x + 15, footer_y + 5))
+        self.screen.blit(report_pink, (self.debug_menu_rect.x + 15, footer_y + 30))
+        self.screen.blit(report_sprite, (self.debug_menu_rect.x + 15, footer_y + 55))
+        self.screen.blit(report_layer, (self.debug_menu_rect.x + 15, footer_y + 80))
 
 
 def run_theatre(scene_path: str = "assets/scenes/sailboat/scene.json"):

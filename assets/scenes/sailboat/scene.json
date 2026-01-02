@@ -2,14 +2,69 @@
     "scene_name": "Opening Scene",
     "duration_sec": 10,
     "layers": [
-        {"sprite_name": "stars",  "scroll_speed": 0.00 },
-        {"sprite_name": "clouds", "scroll_speed": 0.01 },
-        { "sprite_name": "wave6", "vertical_percent": 0.64, "x_offset":  0, "y_offset": 70, "scroll_speed": 0.05 },
-        { "sprite_name": "wave5", "vertical_percent": 0.68, "x_offset":  0, "y_offset": 70, "scroll_speed": 0.10 },
-        { "sprite_name": "wave4", "vertical_percent": 0.70, "x_offset":  0, "y_offset": 70, "scroll_speed": 0.20 },
-        { "sprite_name": "boat",  "vertical_percent": 0.69, "x_offset":  0, "y_offset": 20, "scroll_speed": 0.30, "environmental_reaction": {"reaction_type": "pivot_on_crest", "target_sprite_name": "wave1", "max_tilt_angle": 30.0, "vertical_follow_factor": 0.35} },
-        { "sprite_name": "wave1", "vertical_percent": 0.72, "x_offset":  0, "y_offset": 70, "scroll_speed": -0.45 },
-        { "sprite_name": "wave2", "vertical_percent": 0.75, "x_offset":  0, "y_offset": 70, "scroll_speed": -0.4 },
-        { "sprite_name": "wave3", "vertical_percent": 0.80, "x_offset":  0, "y_offset": 70, "scroll_speed": -0.35 }
+        {
+            "sprite_name": "stars",
+            "scroll_speed": 0.00
+        },
+        {
+            "sprite_name": "clouds",
+            "scroll_speed": 0.01
+        },
+        {
+            "sprite_name": "wave6",
+            "vertical_percent": 0.64,
+            "x_offset": 0,
+            "y_offset": 0,
+            "scroll_speed": 0.05
+        },
+        {
+            "sprite_name": "wave5",
+            "vertical_percent": 0.68,
+            "x_offset": 0,
+            "y_offset": 0,
+            "scroll_speed": 0.10
+        },
+        {
+            "sprite_name": "wave4",
+            "vertical_percent": 0.70,
+            "x_offset": 0,
+            "y_offset": 0,
+            "scroll_speed": 0.20
+        },
+        {
+            "sprite_name": "boat",
+            "vertical_percent": 0.69,
+            "x_offset": 0,
+            "y_offset": 0,
+            "scroll_speed": 0.30,
+            "environmental_reaction": {
+                "reaction_type": "pivot_on_crest",
+                "target_sprite_name": "wave1",
+                "max_tilt_angle": 10.0,
+                "vertical_follow_factor": 0.15,
+                "tilt_lift_factor": 0.5
+            }
+        },
+        {
+            "sprite_name": "wave1",
+            "vertical_percent": 0.72,
+            "x_offset": 0,
+            "y_offset": 0,
+            "scroll_speed": -0.45
+        },
+        {
+            "sprite_name": "wave2",
+            "vertical_percent": 0.75,
+            "x_offset": 0,
+            "y_offset": 0,
+            "scroll_speed": -0.4
+        },
+        {
+            "sprite_name": "wave3",
+            "vertical_percent": 0.80,
+            "x_offset": 0,
+            "y_offset": 0,
+            "scroll_speed": -0.35
+        }
     ]
 }

@@ -5,6 +5,7 @@ import { ImageViewer } from './ImageViewer';
 import { Icon } from './Icon';
 import { TheatreStage } from './TheatreStage';
 import { DeleteConfirmationDialog } from './DeleteConfirmationDialog';
+import { BehaviorEditor } from './BehaviorEditor';
 
 const API_BASE = "http://localhost:8000/api";
 
@@ -20,6 +21,10 @@ export function GenericDetailView({ type, asset, refresh, isExpanded, toggleExpa
         setConfigPrompt,
         handleOptimize,
         handleUpdateConfig,
+        handleEventsChange,
+        currentBehaviors,   // Added here
+        activeConfigTab,
+        setActiveConfigTab,
         handleRevert,
         handleDeleteClick,
         handleConfirmDelete,
@@ -28,7 +33,16 @@ export function GenericDetailView({ type, asset, refresh, isExpanded, toggleExpa
         mainSrc,
         tabs,
         statusLabel,
-        configData
+        configData,
+        telemetry,
+        handleTelemetry,
+        debugOverlayMode,
+        setDebugOverlayMode,
+        toggleLayerVisibility,
+        layerVisibility,
+        handleRemoveLayer,
+        handleSpriteSelected,
+        handleSpritePositionChanged
     } = useAssetController(type, asset, refresh);
 
     // ... (keep existing useState/useEffect) ...
@@ -127,6 +141,19 @@ export function GenericDetailView({ type, asset, refresh, isExpanded, toggleExpa
                                     scene={asset.config}
                                     sceneName={asset.name}
                                     style={{ width: '100%', height: '100%' }}
+                                    onTelemetry={handleTelemetry}
+                                    debugMode={
+                                        debugOverlayMode === 'on' ||
+                                        (debugOverlayMode === 'auto' && activeConfigTab === 'debug')
+                                    }
+                                    layerVisibility={layerVisibility}
+                                    selectedSprite={selectedImage !== 'original' ? selectedImage : null}
+                                    onSpriteSelected={handleSpriteSelected}
+                                    onSpritePositionChanged={handleSpritePositionChanged}
+                                    onInitialize={(theatre) => {
+                                        // Restore visibility settings if any
+                                        // This is a bit tricky since theatre is recreated on scene change
+                                    }}
                                 />
                                 <button
                                     className="btn"
@@ -144,33 +171,153 @@ export function GenericDetailView({ type, asset, refresh, isExpanded, toggleExpa
                 }
                 configContent={
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', height: '100%' }}>
-                        {/* Unified Prompt Box & Actions for Config - Moved to Top */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                            <label style={{ fontSize: '0.8rem', opacity: 0.7 }}>Refine Configuration</label>
-                            <div style={{ display: 'flex', gap: '8px' }}>
-                                <textarea
-                                    className="input"
-                                    placeholder="Describe changes to metadata/physics..."
-                                    value={configPrompt}
-                                    onChange={e => setConfigPrompt(e.target.value)}
-                                    style={{ flex: 1, height: '38px', minHeight: '38px', resize: 'none' }} /* Match Text Input Height generally */
-                                />
+                        {/* Tab Switcher for Right Pane */}
+                        <div style={{ display: 'flex', borderBottom: '1px solid #333', marginBottom: '8px' }}>
+                            <button
+                                className={`btn ${activeConfigTab === 'behaviors' ? 'active-tab' : ''}`}
+                                style={{
+                                    borderBottom: activeConfigTab === 'behaviors' ? '2px solid var(--primary)' : 'none',
+                                    borderRadius: 0, padding: '8px 16px', color: activeConfigTab === 'behaviors' ? 'white' : '#888'
+                                }}
+                                onClick={() => setActiveConfigTab('behaviors')}
+                            >
+                                Behaviors
+                            </button>
+                            <button
+                                className={`btn ${activeConfigTab === 'json' ? 'active-tab' : ''}`}
+                                style={{
+                                    borderBottom: activeConfigTab === 'json' ? '2px solid var(--primary)' : 'none',
+                                    borderRadius: 0, padding: '8px 16px', color: activeConfigTab === 'json' ? 'white' : '#888'
+                                }}
+                                onClick={() => setActiveConfigTab('json')}
+                            >
+                                JSON Config
+                            </button>
+                            {type === 'scene' && (
                                 <button
-                                    className="btn btn-primary"
-                                    onClick={handleUpdateConfig}
-                                    disabled={isOptimizing || !configPrompt.trim()}
-                                    style={{ height: 'auto' }}
+                                    className={`btn ${activeConfigTab === 'debug' ? 'active-tab' : ''}`}
+                                    style={{
+                                        borderBottom: activeConfigTab === 'debug' ? '2px solid var(--primary)' : 'none',
+                                        borderRadius: 0, padding: '8px 16px', color: activeConfigTab === 'debug' ? 'white' : '#888'
+                                    }}
+                                    onClick={() => setActiveConfigTab('debug')}
                                 >
-                                    <Icon name="config" size={14} />
+                                    Debug
                                 </button>
-                            </div>
+                            )}
                         </div>
 
-                        <div style={{ flex: 1, overflow: 'auto', background: 'rgba(0,0,0,0.2)', padding: '12px', borderRadius: '6px' }}>
-                            <pre style={{ margin: 0, fontSize: '0.8rem', fontFamily: 'monospace', opacity: configData ? 1 : 0.5 }}>
-                                {configData ? JSON.stringify(configData, null, 2) : "No configuration data."}
-                            </pre>
-                        </div>
+                        {activeConfigTab === 'behaviors' && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', height: '100%' }}>
+                                {type === 'scene' && selectedImage === 'original' ? (
+                                    <div style={{ padding: '20px', textAlign: 'center', opacity: 0.5 }}>
+                                        Select a sprite from the tabs above to edit its behaviors.
+                                    </div>
+                                ) : (
+                                    <BehaviorEditor
+                                        behaviors={currentBehaviors}
+                                        onChange={handleEventsChange}
+                                        readOnly={false}
+                                        spriteName={selectedImage}
+                                        isVisible={layerVisibility[selectedImage] !== false}
+                                        onToggleVisibility={() => toggleLayerVisibility(selectedImage)}
+                                        onRemoveSprite={type === 'scene' && selectedImage !== 'original' ? (() => handleRemoveLayer(selectedImage)) : null}
+                                    />
+                                )}
+                            </div>
+                        )}
+
+                        {activeConfigTab === 'debug' && (
+                            <div style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.3)', padding: '8px 12px', borderRadius: '4px' }}>
+                                    <span style={{ fontSize: '0.8rem', opacity: 0.8 }}>Debug Overlay</span>
+                                    <div style={{ display: 'flex', gap: '4px' }}>
+                                        {['auto', 'on', 'off'].map(mode => (
+                                            <button
+                                                key={mode}
+                                                className={`btn btn-xs ${debugOverlayMode === mode ? 'btn-primary' : ''}`}
+                                                style={{ padding: '2px 8px', fontSize: '0.7rem', textTransform: 'capitalize' }}
+                                                onClick={() => setDebugOverlayMode(mode)}
+                                            >
+                                                {mode}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div style={{ background: 'rgba(255,0,255,0.1)', padding: '10px', borderRadius: '4px', border: '1px solid rgba(255,0,255,0.3)' }}>
+                                    <h4 style={{ margin: '0 0 8px 0', fontSize: '0.9rem', color: '#ff00ff' }}>Live Telemetry</h4>
+                                    {!telemetry ? (
+                                        <div style={{ opacity: 0.5, fontSize: '0.8rem' }}>Play the scene to see live data.</div>
+                                    ) : (
+                                        <table style={{ width: '100%', fontSize: '0.75rem', borderCollapse: 'collapse' }}>
+                                            <thead>
+                                                <tr style={{ textAlign: 'left', opacity: 0.6, borderBottom: '1px solid #333' }}>
+                                                    <th style={{ paddingBottom: '4px', width: '24px' }}></th>
+                                                    <th style={{ paddingBottom: '4px' }}>Layer</th>
+                                                    <th style={{ paddingBottom: '4px' }}>X</th>
+                                                    <th style={{ paddingBottom: '4px' }}>Y Pos</th>
+                                                    <th style={{ paddingBottom: '4px' }}>Tilt</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {telemetry.map(t => (
+                                                    <tr key={t.name} style={{ borderBottom: '1px solid #222' }}>
+                                                        <td style={{ padding: '4px 0' }}>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={layerVisibility[t.name] !== false}
+                                                                onChange={() => toggleLayerVisibility(t.name)}
+                                                                style={{ cursor: 'pointer' }}
+                                                            />
+                                                        </td>
+                                                        <td style={{ padding: '4px 0' }}>{t.name}</td>
+                                                        <td style={{ padding: '4px 0' }}>{Math.round(t.x)}</td>
+                                                        <td style={{ padding: '4px 0' }}>{t.y.toFixed(1)}</td>
+                                                        <td style={{ padding: '4px 0' }}>{t.tilt.toFixed(1)}°</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    )}
+                                </div>
+                                <div style={{ background: 'rgba(0,0,0,0.2)', padding: '10px', borderRadius: '4px', fontSize: '0.8rem' }}>
+                                    <p style={{ margin: 0, opacity: 0.7 }}>Tip: Select a layer to see its environment sampling markers on the stage.</p>
+                                </div>
+                            </div>
+                        )}
+
+                        {activeConfigTab === 'json' && (
+                            <>
+                                {/* Unified Prompt Box & Actions for Config */}
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    <label style={{ fontSize: '0.8rem', opacity: 0.7 }}>Refine Configuration</label>
+                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                        <textarea
+                                            className="input"
+                                            placeholder="Describe changes to metadata/physics..."
+                                            value={configPrompt}
+                                            onChange={e => setConfigPrompt(e.target.value)}
+                                            style={{ flex: 1, height: '38px', minHeight: '38px', resize: 'none' }}
+                                        />
+                                        <button
+                                            className="btn btn-primary"
+                                            onClick={handleUpdateConfig}
+                                            disabled={isOptimizing || !configPrompt.trim()}
+                                            style={{ height: 'auto' }}
+                                        >
+                                            <Icon name="config" size={14} />
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div style={{ flex: 1, overflow: 'auto', background: 'rgba(0,0,0,0.2)', padding: '12px', borderRadius: '6px' }}>
+                                    <pre style={{ margin: 0, fontSize: '0.8rem', fontFamily: 'monospace', opacity: configData ? 1 : 0.5 }}>
+                                        {configData ? JSON.stringify(configData, null, 2) : "No configuration data."}
+                                    </pre>
+                                </div>
+                            </>
+                        )}
 
                     </div>
                 }
@@ -183,7 +330,7 @@ export function GenericDetailView({ type, asset, refresh, isExpanded, toggleExpa
 function useAssetController(type, asset, refresh) {
     const [logs, setLogs] = useState('');
     const [isOptimizing, setIsOptimizing] = useState(false);
-    const [selectedImage, setSelectedImage] = useState(null); // 'current' | 'original' | sprite_name
+    const [selectedImage, setSelectedImage] = useState(type === 'sprite' ? 'current' : 'original');
     const [visualPrompt, setVisualPrompt] = useState('');
     const [configPrompt, setConfigPrompt] = useState('');
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -238,6 +385,56 @@ function useAssetController(type, asset, refresh) {
 
     // --- Actions ---
 
+    const [activeConfigTab, setActiveConfigTab] = useState('behaviors');
+
+    // --- Actions ---
+
+    // Note: This is an optimistic update helper. Real persistence needs a backend endpoint for "update metadata".
+    // For now we assume we just update it locally to verify UI. 
+    // In a real flow, we'd POST to /sprites/{name}/config or similar.
+    const handleEventsChange = async (newBehaviors) => {
+        try {
+            if (type === 'sprite') {
+                const updatedMetadata = {
+                    ...asset.metadata,
+                    behaviors: newBehaviors
+                };
+                const res = await fetch(`${API_BASE}/sprites/${asset.name}/config`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updatedMetadata)
+                });
+                if (!res.ok) throw new Error(await res.text());
+                toast.success("Sprite behaviors updated");
+            } else {
+                // Scene mode
+                if (selectedImage === 'original') {
+                    toast.error("Cannot add behaviors to original scene background directly. Select a sprite layer.");
+                    return;
+                }
+
+                const updatedConfig = JSON.parse(JSON.stringify(asset.config)); // Deep clone
+                const layer = updatedConfig.layers.find(l => l.sprite_name === selectedImage);
+                if (layer) {
+                    layer.behaviors = newBehaviors;
+                    const res = await fetch(`${API_BASE}/scenes/${asset.name}/config`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(updatedConfig)
+                    });
+                    if (!res.ok) throw new Error(await res.text());
+                    toast.success(`Updated behaviors for ${selectedImage}`);
+                } else {
+                    toast.error(`Layer ${selectedImage} not found in scene config`);
+                }
+            }
+            await refresh();
+        } catch (e) {
+            console.error("Failed to update behaviors:", e);
+            toast.error(`Failed to save changes: ${e.message}`);
+        }
+    };
+
     const handleOptimize = async () => {
         setIsOptimizing(true);
         const actionName = type === 'sprite' ? "Transformation" : "Optimization";
@@ -279,6 +476,24 @@ function useAssetController(type, asset, refresh) {
         setConfigPrompt('');
     };
 
+    const [telemetry, setTelemetry] = useState(null);
+    const handleTelemetry = (data) => {
+        setTelemetry(data);
+    };
+
+    const [debugOverlayMode, setDebugOverlayMode] = useState('auto'); // 'auto' | 'on' | 'off'
+    const [layerVisibility, setLayerVisibility] = useState({}); // { layerName: boolean }
+
+    const toggleLayerVisibility = (name) => {
+        setLayerVisibility(prev => ({
+            ...prev,
+            [name]: prev[name] === false ? true : false
+        }));
+    };
+
+    // Forward visibility to engine whenever telemetry updates (poor man's sync)
+    // Actually, it's better to pass layerVisibility to TheatreStage and let it sync.
+
     const handleRevert = async () => {
         if (!confirm("Are you sure you want to revert to original? Any changes will be lost.")) return;
         toast.info("Reverting...");
@@ -311,8 +526,102 @@ function useAssetController(type, asset, refresh) {
             }
 
             refresh();
+            refresh();
         } catch (e) {
             toast.error(`Action failed: ${e.message}`);
+        }
+    };
+
+    const handleRemoveLayer = async (spriteName) => {
+        if (!confirm(`Are you sure you want to remove sprite '${spriteName}' from this scene?`)) return;
+
+        const updatedConfig = JSON.parse(JSON.stringify(asset.config));
+        updatedConfig.layers = updatedConfig.layers.filter(l => l.sprite_name !== spriteName);
+
+        try {
+            const res = await fetch(`${API_BASE}/scenes/${asset.name}/config`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updatedConfig)
+            });
+            if (!res.ok) throw new Error(await res.text());
+            toast.success(`Removed layer ${spriteName}`);
+            setSelectedImage('original'); // Reset selection
+            await refresh();
+        } catch (e) {
+            toast.error(`Failed to remove layer: ${e.message}`);
+        }
+    };
+
+    const handleSpriteSelected = (spriteName) => {
+        // Update selected image when sprite is clicked in theatre
+        if (type === 'scene') {
+            setSelectedImage(spriteName);
+            // Optionally switch to behaviors tab
+            setActiveConfigTab('behaviors');
+        }
+    };
+
+    const handleSpritePositionChanged = async (spriteName, x, y, time) => {
+        if (type !== 'scene') return;
+
+        try {
+            const updatedConfig = JSON.parse(JSON.stringify(asset.config));
+            const layer = updatedConfig.layers.find(l => l.sprite_name === spriteName);
+
+            if (!layer) {
+                toast.error(`Layer ${spriteName} not found`);
+                return;
+            }
+
+            // Update x_offset and y_offset
+            layer.x_offset = Math.round(x);
+            layer.y_offset = Math.round(y);
+
+            // Create or update LocationBehavior with current time
+            if (!layer.behaviors) layer.behaviors = [];
+
+            // Find existing location behavior at this time (within 0.5s tolerance)
+            const existingIndex = layer.behaviors.findIndex(
+                b => b.type === 'location' && Math.abs(b.time_offset - time) < 0.5
+            );
+
+            const locationBehavior = {
+                type: 'location',
+                x: Math.round(x),
+                y: Math.round(y),
+                time_offset: parseFloat(time.toFixed(2)),
+                interpolate: true,
+                enabled: true
+            };
+
+            if (existingIndex >= 0) {
+                // Update existing
+                layer.behaviors[existingIndex] = locationBehavior;
+            } else {
+                // Add new
+                layer.behaviors.push(locationBehavior);
+                // Sort by time_offset
+                layer.behaviors.sort((a, b) => {
+                    const aTime = a.time_offset || 0;
+                    const bTime = b.time_offset || 0;
+                    return aTime - bTime;
+                });
+            }
+
+            const res = await fetch(`${API_BASE}/scenes/${asset.name}/config`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updatedConfig)
+            });
+
+            if (!res.ok) throw new Error(await res.text());
+
+            toast.success(`Updated position for ${spriteName} at ${time.toFixed(1)}s`);
+            await refresh();
+        } catch (e) {
+            console.error('Failed to update position:', e);
+            toast.error(`Failed to save position: ${e.message}`);
         }
     };
 
@@ -349,11 +658,19 @@ function useAssetController(type, asset, refresh) {
             mainSrc = asset.has_original
                 ? `${API_BASE.replace('/api', '')}/assets/scenes/${asset.name}/${asset.name}.original.${ext}`
                 : null;
-        } else {
+        } else if (selectedImage) {
             // Scene sprite view
             mainSrc = `${API_BASE.replace('/api', '')}/assets/sprites/${selectedImage}/${selectedImage}.png`;
         }
     }
+
+    const activeLayer = (type === 'scene' && selectedImage !== 'original')
+        ? (asset.config?.layers || []).find(l => l.sprite_name === selectedImage)
+        : null;
+
+    const currentBehaviors = type === 'sprite'
+        ? (asset.metadata?.behaviors || asset.metadata?.events || [])
+        : (activeLayer ? (activeLayer.behaviors || activeLayer.events || []) : []);
 
     return {
         logs,
@@ -366,6 +683,10 @@ function useAssetController(type, asset, refresh) {
         setConfigPrompt,
         handleOptimize,
         handleUpdateConfig,
+        handleEventsChange,
+        currentBehaviors,
+        activeConfigTab,
+        setActiveConfigTab,
         handleRevert,
         handleDeleteClick,
         handleConfirmDelete,
@@ -374,6 +695,15 @@ function useAssetController(type, asset, refresh) {
         mainSrc,
         tabs,
         statusLabel,
-        configData
+        configData,
+        telemetry,
+        handleTelemetry,
+        debugOverlayMode,
+        setDebugOverlayMode,
+        toggleLayerVisibility,
+        layerVisibility,
+        handleRemoveLayer,
+        handleSpriteSelected,
+        handleSpritePositionChanged
     };
 }

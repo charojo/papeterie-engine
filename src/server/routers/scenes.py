@@ -467,9 +467,9 @@ def delete_scene(name: str, mode: str = "delete_scene"):
                             with open(c_path, "r") as f:
                                 c = json.load(f)
                             if c and "layers" in c:
-                                for l in c["layers"]:
-                                    if "sprite_name" in l:
-                                        usage_map.add(l["sprite_name"])
+                                for layer in c["layers"]:
+                                    if "sprite_name" in layer:
+                                        usage_map.add(layer["sprite_name"])
                         except Exception:
                             pass
 
@@ -522,3 +522,26 @@ def delete_scene(name: str, mode: str = "delete_scene"):
             raise e
         raise HTTPException(status_code=500, detail=f"Delete failed: {e}")
 
+
+@router.put("/scenes/{name}/config")
+async def update_scene_config(name: str, config: dict):
+    from src.compiler.models import SceneConfig
+
+    scene_dir = SCENES_DIR / name
+    if not scene_dir.exists():
+        raise HTTPException(status_code=404, detail="Scene not found")
+
+    config_path = scene_dir / "scene.json"
+
+    try:
+        # Validate with Pydantic
+        scene_config = SceneConfig(**config)
+
+        with open(config_path, "w") as f:
+            f.write(scene_config.model_dump_json(indent=2))
+
+        asset_logger.log_action("scenes", name, "UPDATE_CONFIG", "Scene config updated", "")
+        return {"name": name, "message": "Config updated successfully", "config": config}
+    except Exception as e:
+        logger.error(f"Failed to update config for {name}: {e}")
+        raise HTTPException(status_code=400, detail=f"Invalid config: {str(e)}")
