@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import List, Literal, Optional, Union
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field
 
 
 class EnvironmentalReactionType(str, Enum):
@@ -132,29 +132,12 @@ class SpriteMetadata(BaseModel):
     name: Optional[str] = None
     z_depth: Optional[int] = Field(None, ge=1, le=100, description="Layer depth: 1-100")
 
-    # New Behavior System
+    # Behavior System
     behaviors: List[BehaviorConfig] = Field(default_factory=list, description="List of behaviors")
-
-    # Legacy alias for backward compatibility (optional)
-    events: List[BehaviorConfig] = Field(
-        default_factory=list, description="Legacy alias for behaviors"
-    )
-
-    # Legacy / Flat fields (Optional for backward compat)
-    frequency: Optional[float] = Field(None, description="LEGACY: Oscillation speed in Hz")
-    amplitude_y: Optional[int] = Field(None, description="LEGACY: Vertical heave in pixels")
-    bob_frequency: Optional[float] = Field(None, description="LEGACY: Bob speed")
-    bob_amplitude: Optional[float] = Field(None, description="LEGACY: Bob amount")
-    vertical_drift: Optional[int] = Field(None, description="LEGACY: Rise/Fall speed")
-    drift_cap_y: Optional[int] = Field(None, description="LEGACY: Max drift")
-    reacts_to_environment: Optional[bool] = Field(None, description="LEGACY: Enable env reaction")
-    max_env_tilt: Optional[float] = Field(None, description="LEGACY: Max tilt angle")
 
     # Layer Properties
     vertical_percent: float = Field(0.5, ge=0.0, le=1.0)
     target_height: Optional[int] = None
-    scroll_speed: Optional[float] = None
-    is_background: Optional[bool] = Field(None, description="If true, implies BackgroundBehavior")
 
     tile_horizontal: bool = False
     tile_border: int = 0
@@ -166,84 +149,6 @@ class SpriteMetadata(BaseModel):
 
     environmental_reaction: Optional[EnvironmentalReaction] = None
 
-    @model_validator(mode="after")
-    def migrate_legacy_fields(self):
-        # 0. Migrate 'events' -> 'behaviors'
-        if self.events and not self.behaviors:
-            self.behaviors = self.events
-
-        # 1. Migrate Background
-        if self.is_background:
-            if not any(isinstance(b, BackgroundBehavior) for b in self.behaviors):
-                self.behaviors.append(
-                    BackgroundBehavior(
-                        scroll_speed=self.scroll_speed if self.scroll_speed is not None else 0.0
-                    )
-                )
-
-        # 2. Migrate basic Oscillation (Bobbing)
-        # 2. Migrate basic Oscillation (Bobbing)
-        freq = self.frequency
-        amp = self.amplitude_y
-
-        if self.bob_frequency is not None:
-            freq = self.bob_frequency
-        if self.bob_amplitude is not None:
-            amp = self.bob_amplitude
-
-        if freq is not None and amp is not None:
-            has_oscillate = any(
-                isinstance(b, OscillateBehavior) and b.coordinate == CoordinateType.Y
-                for b in self.behaviors
-            )
-            if not has_oscillate:
-                self.behaviors.append(
-                    OscillateBehavior(
-                        frequency=freq,
-                        amplitude=float(amp),
-                        coordinate=CoordinateType.Y,
-                    )
-                )
-
-        # 3. Migrate Vertical Drift
-        if self.vertical_drift is not None:
-            has_drift = any(
-                isinstance(b, DriftBehavior) and b.coordinate == CoordinateType.Y
-                for b in self.behaviors
-            )
-            if not has_drift:
-                self.behaviors.append(
-                    DriftBehavior(
-                        velocity=float(self.vertical_drift),
-                        coordinate=CoordinateType.Y,
-                        drift_cap=float(self.drift_cap_y) if self.drift_cap_y is not None else None,
-                    )
-                )
-
-        # 4. Migrate Environment (Legacy)
-        # Check if legacy fields are present
-        reacts_legacy = getattr(self, "reacts_to_environment", None)
-        tilt_legacy = getattr(self, "max_env_tilt", None)
-
-        if reacts_legacy is True:
-            if self.environmental_reaction is None:
-                self.environmental_reaction = EnvironmentalReaction(
-                    reaction_type=EnvironmentalReactionType.PIVOT_ON_CREST,
-                    target_sprite_name="wave1",  # Fallback default
-                    max_tilt_angle=float(tilt_legacy) if tilt_legacy is not None else 30.0,
-                    vertical_follow_factor=1.0,
-                )
-
-        return self
-
-    @model_validator(mode="after")
-    def validate_legacy_requirements(self):
-        if self.amplitude_y is not None and self.frequency is None:
-            raise ValueError("frequency is required when amplitude_y is provided")
-        if self.bob_amplitude is not None and self.bob_frequency is None:
-            raise ValueError("bob_frequency is required when bob_amplitude is provided")
-        return self
-
 
 class SceneLayer(BaseModel):
     """Overrides for a sprite instance in a scene."""
@@ -254,31 +159,13 @@ class SceneLayer(BaseModel):
     y_offset: Optional[int] = None
     scale: Optional[float] = None
 
-    # New Behavior System support for scenes
+    # Behavior System support for scenes
     behaviors: List[BehaviorConfig] = Field(
         default_factory=list, description="Scene-specific added behaviors"
     )
-    events: List[BehaviorConfig] = Field(default_factory=list, description="Legacy alias")
 
-    # Optional overrides from SpriteMetadata (Legacy & Convenience)
+    # Optional overrides from SpriteMetadata
     vertical_percent: Optional[float] = None
-    scroll_speed: Optional[float] = None
-    frequency: Optional[float] = None  # For override
-    amplitude_y: Optional[int] = None
-
-    @model_validator(mode="after")
-    def migrate_legacy_overrides(self):
-        # Migrate events -> behaviors
-        if self.events and not self.behaviors:
-            self.behaviors = self.events
-
-        def add_behavior(beh):
-            self.behaviors.append(beh)
-
-        if self.frequency is not None and self.amplitude_y is not None:
-            add_behavior(OscillateBehavior(frequency=self.frequency, amplitude=self.amplitude_y))
-
-        return self
 
 
 class SpriteDecompositionInfo(BaseModel):

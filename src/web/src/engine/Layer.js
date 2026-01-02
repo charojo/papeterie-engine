@@ -275,6 +275,11 @@ export class Layer {
                 this.eventRuntimes.push(new OscillateRuntime(evt));
             } else if (evt.type === EventType.DRIFT) {
                 this.eventRuntimes.push(new DriftRuntime(evt));
+                // Extract scroll_speed from DriftBehavior with X coordinate
+                // This handles the migration from scroll_speed field to DriftBehavior
+                if (evt.coordinate === CoordinateType.X && evt.velocity !== undefined) {
+                    this.scroll_speed = evt.velocity;
+                }
             } else if (evt.type === EventType.PULSE) {
                 this.eventRuntimes.push(new PulseRuntime(evt));
             } else if (evt.type === EventType.BACKGROUND) {

@@ -26,7 +26,8 @@ def test_real_compilation():
     try:
         meta = compiler.compile_sprite("boat", "A heavy wooden boat rocking slowly.")
         assert isinstance(meta, SpriteMetadata)
-        assert 0.1 <= meta.frequency <= 1.0
+        # Just verify it returns valid metadata - behaviors are optional
+        assert meta.name == "boat"
     except Exception as e:
         # Catch quota/limit errors specifically
         if "quota" in str(e).lower() or "limit" in str(e).lower():
@@ -37,16 +38,42 @@ def test_real_compilation():
 @patch("src.compiler.gemini_client.GeminiCompilerClient.generate_metadata")
 def test_fixup_mechanism(mock_generate_metadata):
     """
-    This test is 'efficient' because it uses mocks.
-    It tests the logic of your engine WITHOUT consuming tokens.
+    This test verifies the fixup mechanism by providing malformed JSON
+    that will trigger a validation error, then a corrected version.
     """
-    malformed_json = json.dumps({"amplitude_y": 10, "z_depth": 5})
-    corrected_json = json.dumps({"frequency": 0.5, "amplitude_y": 10, "z_depth": 5})
+    # Malformed: invalid behavior (missing required fields)
+    malformed_json = json.dumps(
+        {
+            "z_depth": 5,
+            "behaviors": [
+                {"type": "oscillate"}  # Missing required frequency and amplitude
+            ],
+        }
+    )
+    # Corrected: all required fields present
+    corrected_json = json.dumps(
+        {
+            "z_depth": 5,
+            "behaviors": [
+                {
+                    "type": "oscillate",
+                    "frequency": 0.5,
+                    "amplitude": 10,
+                    "coordinate": "y",
+                    "phase_offset": 0.0,
+                }
+            ],
+        }
+    )
 
     mock_generate_metadata.side_effect = [malformed_json, corrected_json]
 
     compiler = SpriteCompiler()
     meta = compiler.compile_sprite("test_sprite", "A simple test sprite.")
 
-    assert meta.frequency == 0.5
+    # Verify fixup worked
+    assert len(meta.behaviors) == 1
+    assert meta.behaviors[0].type == "oscillate"
+    assert meta.behaviors[0].frequency == 0.5
+    # Verify fixup was called twice (initial + fixup)
     assert mock_generate_metadata.call_count == 2

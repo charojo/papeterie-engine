@@ -112,3 +112,83 @@ def test_delete_sprite_reset():
     assert not (d / f"{name}.png").exists()
 
     shutil.rmtree(d)
+
+
+def test_list_sprites(setup_test_assets):
+    """Test GET /api/sprites endpoint."""
+    response = client.get("/api/sprites")
+    assert response.status_code == 200
+    data = response.json()
+    assert isinstance(data, list)
+    # Should include our test sprites
+    sprite_names = [s["name"] for s in data]
+    assert "sprite_shared" in sprite_names
+    assert "sprite_unique" in sprite_names
+
+
+def test_list_scenes(setup_test_assets):
+    """Test GET /api/scenes endpoint."""
+    response = client.get("/api/scenes")
+    assert response.status_code == 200
+    data = response.json()
+    assert isinstance(data, list)
+    # Should include our test scenes
+    scene_names = [s["name"] for s in data]
+    assert "test_scene_A" in scene_names
+    assert "test_scene_B" in scene_names
+
+
+def test_update_scene_config(setup_test_assets):
+    """Test PUT /api/scenes/{name}/config endpoint."""
+    new_config = {
+        "name": "test_scene_A",
+        "layers": [{"sprite_name": "sprite_shared", "z_depth": 5, "x_offset": 0, "y_offset": 0}],
+    }
+    response = client.put("/api/scenes/test_scene_A/config", json=new_config)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["name"] == "test_scene_A"
+    assert "message" in data
+
+    # Verify the config was actually updated
+    scene_dir = SCENES_DIR / "test_scene_A"
+    config_path = scene_dir / "scene.json"
+    with open(config_path, "r") as f:
+        saved_config = json.load(f)
+    assert saved_config["name"] == "test_scene_A"
+    assert len(saved_config["layers"]) == 1
+
+
+def test_update_sprite_config():
+    """Test PUT /api/sprites/{name}/config endpoint."""
+    name = "test_sprite_config"
+    sprite_dir = SPRITES_DIR / name
+    sprite_dir.mkdir(exist_ok=True)
+    (sprite_dir / f"{name}.png").touch()
+
+    new_metadata = {
+        "name": name,
+        "target_height": 500,
+        "tile_horizontal": False,
+        "z_depth": 5,
+        "vertical_percent": 0.5,
+        "x_offset": 100,
+        "y_offset": 50,
+        "behaviors": [],
+    }
+
+    response = client.put(f"/api/sprites/{name}/config", json=new_metadata)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["name"] == name
+
+    # Verify metadata was saved
+    metadata_path = sprite_dir / f"{name}.prompt.json"
+    assert metadata_path.exists()
+    with open(metadata_path, "r") as f:
+        saved_metadata = json.load(f)
+    assert saved_metadata["target_height"] == 500
+    assert saved_metadata["x_offset"] == 100
+
+    # Cleanup
+    shutil.rmtree(sprite_dir)

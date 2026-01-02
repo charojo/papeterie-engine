@@ -24,4 +24,11 @@ mkdir -p logs
     
     echo "----------------------------------------"
     echo "All tests passed!"
-} | tee >(sed 's/\x1b\[[0-9;]*m//g' > logs/verification.log)
+} | tee >(sed 's/\x1b\[[0-9;]*m//g' > logs/validate.log)
+
+# Give sed a moment to flush to disk
+sleep 1
+
+# Run coverage analysis and append to log (and show on screen)
+echo "" | tee -a logs/validate.log
+./scripts/analyze.sh logs/validate.log | tee -a logs/validate.log

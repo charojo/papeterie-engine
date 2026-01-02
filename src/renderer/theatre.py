@@ -196,6 +196,10 @@ class ParallaxLayer:
                     self.behavior_runtimes.append(OscillateRuntime(b_config))
                 elif b_config.type == BehaviorType.DRIFT:
                     self.behavior_runtimes.append(DriftRuntime(b_config))
+                    # Extract scroll_speed from DriftBehavior with X coordinate
+                    # This handles the migration from scroll_speed field to DriftBehavior
+                    if b_config.coordinate == CoordinateType.X and b_config.velocity is not None:
+                        self.scroll_speed = b_config.velocity
                 elif b_config.type == BehaviorType.PULSE:
                     self.behavior_runtimes.append(PulseRuntime(b_config))
                 elif b_config.type == BehaviorType.BACKGROUND:

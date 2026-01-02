@@ -259,12 +259,12 @@ function NewSpriteForm({ onSuccess }) {
   return (
     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
       <div>
-        <label style={{ display: 'block', marginBottom: '8px', color: 'var(--color-text-muted)' }}>Sprite Name</label>
-        <input className="input" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. mythical_dragon" autoFocus />
+        <label htmlFor="sprite-name" style={{ display: 'block', marginBottom: '8px', color: 'var(--color-text-muted)' }}>Sprite Name</label>
+        <input id="sprite-name" className="input" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. mythical_dragon" autoFocus />
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        <label style={{ display: 'block', color: 'var(--color-text-muted)' }}>Source Image (PNG)</label>
-        <input type="file" onChange={e => {
+        <label htmlFor="sprite-file" style={{ display: 'block', color: 'var(--color-text-muted)' }}>Source Image (PNG)</label>
+        <input id="sprite-file" type="file" onChange={e => {
           const file = e.target.files[0];
           setFile(file);
           if (file && !name) {
@@ -278,9 +278,7 @@ function NewSpriteForm({ onSuccess }) {
       </button>
     </form>
   )
-}
-
-function NewSceneForm({ onSuccess }) {
+} function NewSceneForm({ onSuccess }) {
   const [name, setName] = useState('');
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -319,12 +317,12 @@ function NewSceneForm({ onSuccess }) {
   return (
     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
       <div>
-        <label style={{ display: 'block', marginBottom: '8px', color: 'var(--color-text-muted)' }}>Scene Name</label>
-        <input className="input" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. spooky_forest" autoFocus />
+        <label htmlFor="scene-name" style={{ display: 'block', marginBottom: '8px', color: 'var(--color-text-muted)' }}>Scene Name</label>
+        <input id="scene-name" className="input" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. spooky_forest" autoFocus />
       </div>
       <div>
-        <label style={{ display: 'block', marginBottom: '8px', color: 'var(--color-text-muted)' }}>Original Reference Image</label>
-        <input type="file" onChange={e => {
+        <label htmlFor="scene-file" style={{ display: 'block', marginBottom: '8px', color: 'var(--color-text-muted)' }}>Original Reference Image</label>
+        <input id="scene-file" type="file" onChange={e => {
           const file = e.target.files[0];
           setFile(file);
           if (file && !name) {
@@ -380,12 +378,12 @@ function GenerateSceneForm({ onSuccess }) {
   return (
     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
       <div>
-        <label style={{ display: 'block', marginBottom: '8px', color: 'var(--color-text-muted)' }}>Scene Name</label>
-        <input className="input" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. magical_forest" />
+        <label htmlFor="gen-name" style={{ display: 'block', marginBottom: '8px', color: 'var(--color-text-muted)' }}>Scene Name</label>
+        <input id="gen-name" className="input" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. magical_forest" />
       </div>
       <div>
-        <label style={{ display: 'block', marginBottom: '8px', color: 'var(--color-text-muted)' }}>Description Prompt</label>
-        <textarea className="input" style={{ width: '100%', height: '100px', resize: 'vertical' }}
+        <label htmlFor="gen-prompt" style={{ display: 'block', marginBottom: '8px', color: 'var(--color-text-muted)' }}>Description Prompt</label>
+        <textarea id="gen-prompt" className="input" style={{ width: '100%', height: '100px', resize: 'vertical' }}
           value={prompt} onChange={e => setPrompt(e.target.value)}
           placeholder="Describe the scene you want to generate" />
       </div>
