@@ -98,8 +98,6 @@ def test_optimize_scene_mocked(mock_image_open, mock_gemini_client):
 
 @pytest.mark.live
 def test_optimize_scene_live():
-    return True
-
     """
     Integration test that hits the real Gemini API.
     Ported from scripts/debug_optimization.py.

@@ -49,6 +49,7 @@ GEMINI_API_KEY=your_google_ai_studio_api_key
 | Task | Command |
 | --- | --- |
 | **Run All Tests** | `uv run pytest -v` |
+| **Run Smart Tests** | `./scripts/smart_validate.sh` |
 | **Check AI Model Access** | `uv run python scripts/check_models.py` |
 | **Process New Sprites** | `uv run python main.py` |
 | **Run Web Backend** | `uv run python -m src.server.main` |

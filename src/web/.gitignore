@@ -1,5 +1,8 @@
 # Logs
 logs
+.nyc_output
+playwright-report
+test-results
 *.log
 npm-debug.log*
 .vite

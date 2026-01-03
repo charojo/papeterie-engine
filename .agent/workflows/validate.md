@@ -5,5 +5,9 @@ description: Run full project validation (linting, testing, coverage)
 // turbo
 ./scripts/validate.sh
 
-2. To skip auto-fixing (e.g., for CI), use:
+2. (Faster) Run Smart Validation (only tests affected by changes):
+// turbo
+./scripts/smart_validate.sh
+
+3. To skip auto-fixing (e.g., for CI), use:
 ./scripts/validate.sh --nofix

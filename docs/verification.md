@@ -41,6 +41,36 @@ The web dashboard (`src/web`) is tested using `vitest`.
 - **Location**: `src/web/src/**/__tests__`
 - **Frameworks**: `vitest`, `react-testing-library`, `@vitest/coverage-v8`
 
+## Test Impact Analysis (Smart Testing)
+
+To optimize verification time, we support "Smart Testing" to run only tests affected by code changes.
+
+### Backend (Python)
+We use `pytest-testmon` to track dependencies between tests and code.
+
+- **Setup**: `uv run pytest --testmon` (First run builds the dependency database)
+- **Run Impacted**: `uv run pytest --testmon`
+- **Principles**:
+    - `testmon` monitors which lines of code are executed by each test.
+    - When code changes, it selects only the tests that cover the changed lines.
+    - If `testmon` database is missing or out of sync, it falls back to running all tests.
+
+### Frontend (React)
+We leverage Vitest's built-in related/changed logic.
+
+- **Command**: `npm run test -- --changed` (or `vitest --changed`)
+- **Principles**:
+    - Runs tests for files that have been modified since the last commit.
+    - Uses the module graph to find tests that import modified files.
+
+### Automation
+We have a unified script to run both of these:
+```bash
+./scripts/smart_validate.sh
+```
+This script will execute the relevant checks for both backend and frontend based on your current changes.
+
+
 ## Verification Backlog
 
 Improvements planned for the verification system:

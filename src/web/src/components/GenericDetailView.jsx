@@ -373,7 +373,7 @@ function useAssetController(type, asset, refresh, onDelete) {
         setVisualPrompt(saved || '');
 
         setConfigPrompt('');
-    }, [asset.name, type]);
+    }, [asset.name, type, asset.used_sprites]);
 
     // Persist prompt changes
     useEffect(() => {

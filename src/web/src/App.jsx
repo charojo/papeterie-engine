@@ -136,6 +136,7 @@ function App() {
             {scenes.map(scene => (
               <div
                 key={scene.name}
+                data-testid={`scene-item-${scene.name}`}
                 className={`btn ${selectedItem?.name === scene.name && view === 'scene-detail' ? 'btn-primary' : ''}`}
                 style={{ textAlign: 'left', border: 'none', background: selectedItem?.name === scene.name && view === 'scene-detail' ? 'var(--color-primary)' : 'transparent', color: selectedItem?.name === scene.name && view === 'scene-detail' ? 'var(--color-text-on-primary)' : 'var(--color-text-main)', paddingLeft: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}
                 onClick={() => { setSelectedItem(scene); setView('scene-detail'); }}
