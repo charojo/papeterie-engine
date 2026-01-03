@@ -7,16 +7,16 @@ import shutil
 from datetime import datetime
 from typing import List, Optional
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, constr
 
 from src.compiler.gemini_client import GeminiCompilerClient
 from src.compiler.models import SceneConfig, SceneDecomposition, SceneLayer, SpriteMetadata
-from src.config import PROJECT_ROOT, SCENES_DIR, SPRITES_DIR
-from src.server.dependencies import asset_logger
+from src.config import PROJECT_ROOT
+from src.server.dependencies import asset_logger, get_user_assets
 
 logger = logging.getLogger("papeterie")
-router = APIRouter(prefix="/api", tags=["scenes"])
+router = APIRouter(tags=["scenes"])
 
 # --- Models ---
 
@@ -43,12 +43,13 @@ class OptimizeRequest(BaseModel):
 
 
 @router.get("/scenes", response_model=List[SceneInfo])
-async def list_scenes():
+async def list_scenes(user_assets=Depends(get_user_assets)):
+    scenes_dir, _ = user_assets
     scenes = []
-    logger.info(f"Scanning scenes in {SCENES_DIR}")
+    logger.info(f"Scanning scenes in {scenes_dir}")
 
-    if SCENES_DIR.exists():
-        for item in SCENES_DIR.iterdir():
+    if scenes_dir.exists():
+        for item in scenes_dir.iterdir():
             if item.is_dir():
                 name = item.name
                 config_path = item / "scene.json"
@@ -97,12 +98,15 @@ async def list_scenes():
 
 
 @router.post("/scenes/upload")
-async def upload_scene(name: str = Form(...), file: UploadFile = File(...)):
+async def upload_scene(
+    name: str = Form(...), file: UploadFile = File(...), user_assets=Depends(get_user_assets)
+):
+    scenes_dir, _ = user_assets
     safe_name = "".join(c for c in name if c.isalnum() or c in ("_", "-")).strip()
     if not safe_name:
         raise HTTPException(status_code=400, detail="Invalid scene name")
 
-    scene_dir = SCENES_DIR / safe_name
+    scene_dir = scenes_dir / safe_name
 
     if scene_dir.exists():
         raise HTTPException(status_code=400, detail="Scene already exists")
@@ -140,12 +144,13 @@ async def upload_scene(name: str = Form(...), file: UploadFile = File(...)):
 
 
 @router.post("/scenes/generate")
-async def generate_scene(request: GenerateSceneRequest):
+async def generate_scene(request: GenerateSceneRequest, user_assets=Depends(get_user_assets)):
+    scenes_dir, _ = user_assets
     safe_name = "".join(c for c in request.name if c.isalnum() or c in ("_", "-")).strip()
     if not safe_name:
         raise HTTPException(status_code=400, detail="Invalid scene name")
 
-    scene_dir = SCENES_DIR / safe_name
+    scene_dir = scenes_dir / safe_name
 
     if scene_dir.exists():
         raise HTTPException(status_code=400, detail="Scene already exists")
@@ -190,7 +195,10 @@ async def generate_scene(request: GenerateSceneRequest):
 
 
 @router.post("/scenes/{name}/optimize")
-def optimize_scene(name: str, request: OptimizeRequest = OptimizeRequest()):
+def optimize_scene(
+    name: str, request: OptimizeRequest = OptimizeRequest(), user_assets=Depends(get_user_assets)
+):
+    scenes_dir, sprites_dir = user_assets
     logger.info(f"Starting scene optimization for {name}")
     asset_logger.log_action(
         "scenes",
@@ -201,7 +209,7 @@ def optimize_scene(name: str, request: OptimizeRequest = OptimizeRequest()):
     )
     start_time = datetime.now()
 
-    scene_dir = SCENES_DIR / name
+    scene_dir = scenes_dir / name
     original_png = scene_dir / f"{name}.original.png"
     original_jpg = scene_dir / f"{name}.original.jpg"
 
@@ -268,7 +276,7 @@ def optimize_scene(name: str, request: OptimizeRequest = OptimizeRequest()):
         )
 
         bg_sprite_name = f"{name}_background"
-        bg_sprite_dir = SPRITES_DIR / bg_sprite_name
+        bg_sprite_dir = sprites_dir / bg_sprite_name
         bg_sprite_dir.mkdir(parents=True, exist_ok=True)
 
         with open(bg_sprite_dir / f"{bg_sprite_name}.png", "wb") as f:
@@ -316,7 +324,7 @@ def optimize_scene(name: str, request: OptimizeRequest = OptimizeRequest()):
                     aspect_ratio="1:1",
                 )
 
-                s_dir = SPRITES_DIR / s_name
+                s_dir = sprites_dir / s_name
                 s_dir.mkdir(parents=True, exist_ok=True)
 
                 with open(s_dir / f"{s_name}.png", "wb") as f:
@@ -424,15 +432,16 @@ def optimize_scene(name: str, request: OptimizeRequest = OptimizeRequest()):
 
 
 @router.delete("/scenes/{name}")
-def delete_scene(name: str, mode: str = "delete_scene"):
+def delete_scene(name: str, mode: str = "delete_scene", user_assets=Depends(get_user_assets)):
     """
     Delete a scene with various modes:
     - delete_scene: Deletes the scene folder only.
     - delete_all: Deletes scene folder AND sprites (if not shared).
     - reset: Deletes generated files, keeps original.
     """
+    scenes_dir, sprites_dir = user_assets
     logger.info(f"Deleting scene {name} with mode {mode}")
-    scene_dir = SCENES_DIR / name
+    scene_dir = scenes_dir / name
 
     if not scene_dir.exists():
         raise HTTPException(status_code=404, detail="Scene not found")
@@ -459,7 +468,7 @@ def delete_scene(name: str, mode: str = "delete_scene"):
 
             # 2. Check usage in OTHER scenes
             usage_map = set()
-            for item in SCENES_DIR.iterdir():
+            for item in scenes_dir.iterdir():
                 if item.is_dir() and item.name != name:
                     c_path = item / "scene.json"
                     if c_path.exists():
@@ -479,7 +488,7 @@ def delete_scene(name: str, mode: str = "delete_scene"):
                     kept_sprites.append(s_name)
                     logger.info(f"Preserving sprite {s_name} (used in other scenes)")
                 else:
-                    s_dir = SPRITES_DIR / s_name
+                    s_dir = sprites_dir / s_name
                     if s_dir.exists():
                         shutil.rmtree(s_dir)
                         deleted_sprites.append(s_name)
@@ -524,10 +533,11 @@ def delete_scene(name: str, mode: str = "delete_scene"):
 
 
 @router.put("/scenes/{name}/config")
-async def update_scene_config(name: str, config: dict):
+async def update_scene_config(name: str, config: dict, user_assets=Depends(get_user_assets)):
     from src.compiler.models import SceneConfig
 
-    scene_dir = SCENES_DIR / name
+    scenes_dir, _ = user_assets
+    scene_dir = scenes_dir / name
     if not scene_dir.exists():
         raise HTTPException(status_code=404, detail="Scene not found")
 

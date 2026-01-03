@@ -1,26 +1,31 @@
-import { useState, useEffect } from 'react'
-import { Toaster, toast } from 'sonner'
+import { useState, useEffect } from 'react';
+import { Toaster, toast } from 'sonner';
 import { GenericDetailView } from './components/GenericDetailView';
 import { Icon } from './components/Icon';
+import { usePersistentState } from './hooks/usePersistentState';
+import { LoginView } from './components/LoginView';
 
 const API_BASE = "http://localhost:8000/api";
 
 function App() {
   const [sprites, setSprites] = useState([]);
   const [scenes, setScenes] = useState([]);
-  const [selectedItem, setSelectedItem] = useState(null); // Can be a sprite or a scene
-  const [view, setView] = useState('list'); // 'list', 'create', 'sprite-detail', 'scene-detail'
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [selectedItem, setSelectedItem] = usePersistentState('papeterie-selected-item', null);
+  const [view, setView] = usePersistentState('papeterie-view', 'list');
+  const [isExpanded, setIsExpanded] = usePersistentState('papeterie-is-expanded', false);
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  const [user, setUser] = usePersistentState('papeterie-user', null);
+  const [storageMode, setStorageMode] = useState('LOCAL'); // Default to LOCAL until loaded
+  const [isInitializing, setIsInitializing] = useState(true);
 
   const fetchData = async () => {
+    if (!user && storageMode !== 'LOCAL') return;
+
     try {
+      const headers = user ? { 'Authorization': `Bearer ${user.access_token}` } : {};
       const [spriteRes, sceneRes] = await Promise.all([
-        fetch(`${API_BASE}/sprites`),
-        fetch(`${API_BASE}/scenes`)
+        fetch(`${API_BASE}/sprites`, { headers }),
+        fetch(`${API_BASE}/scenes`, { headers })
       ]);
 
       const spriteData = await spriteRes.json();
@@ -46,14 +51,61 @@ function App() {
     }
   };
 
+  useEffect(() => {
+    const init = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/config`);
+        const config = await res.json();
+        setStorageMode(config.storage_mode);
+      } catch (e) {
+        console.error("Failed to load config", e);
+      } finally {
+        setIsInitializing(false);
+      }
+    };
+    init();
+  }, []);
+
+  useEffect(() => {
+    if (!isInitializing) {
+      fetchData();
+    }
+  }, [isInitializing, user]);
+
+  if (isInitializing) {
+    return (
+      <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0f0f1a' }}>
+        <div className="animate-spin"><Icon name="generate" size={48} color="var(--color-primary)" /></div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <LoginView onLogin={(userData) => setUser(userData)} storageMode={storageMode} />;
+  }
+
   return (
     <div className="app-container">
       <aside className="sidebar glass">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-          <h3>Papeterie</h3>
-          <button className="btn btn-primary" style={{ padding: '4px 8px' }} onClick={() => setView('create')}>
-            <Icon name="add" size={16} />
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <h3 style={{ margin: 0 }}>Papeterie</h3>
+            {user && (
+              <span style={{ fontSize: '10px', padding: '2px 6px', background: 'rgba(255,255,255,0.1)', borderRadius: '10px', opacity: 0.6 }}>
+                {user.user.username} {user.type === 'local' ? '(Local)' : ''}
+              </span>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: '4px' }}>
+            {user && (
+              <button className="btn btn-secondary" style={{ padding: '4px 8px' }} onClick={() => setUser(null)} title="Logout">
+                <Icon name="chevronRight" size={16} />
+              </button>
+            )}
+            <button className="btn btn-primary" style={{ padding: '4px 8px' }} onClick={() => setView('create')} title="Add">
+              <Icon name="add" size={16} />
+            </button>
+          </div>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflowY: 'auto', flex: 1, minHeight: 0 }}>

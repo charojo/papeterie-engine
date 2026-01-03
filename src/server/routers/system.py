@@ -2,16 +2,21 @@ import logging
 
 from fastapi import APIRouter, HTTPException
 
-from src.config import PROJECT_ROOT
+from src.config import PROJECT_ROOT, STORAGE_MODE
 from src.server.dependencies import asset_logger
 
 logger = logging.getLogger("papeterie")
-router = APIRouter(prefix="/api", tags=["system"])
+router = APIRouter(tags=["system"])
 
 
 @router.get("/health")
 async def health_check():
     return {"status": "ok", "version": "0.1.0"}
+
+
+@router.get("/config")
+async def get_config():
+    return {"storage_mode": STORAGE_MODE, "version": "0.1.0"}
 
 
 @router.get("/system-prompt")

@@ -267,3 +267,34 @@ def test_rotation_position_stability(dummy_png, mocker):
     center0_y = pos0[1] + 50 / 2
     center45_y = pos45[1] + 120 / 2
     assert center0_y == center45_y
+    assert center0_y == center45_y
+
+
+def test_location_behavior(dummy_png, mocker):
+    """
+    Verify LocationBehavior correctly applies x, y, and scale.
+    """
+    mock_screen = MagicMock(spec=pygame.Surface)
+    mock_screen.get_size.return_value = (800, 600)
+
+    # Mock image loading
+    mock_img = MagicMock(spec=pygame.Surface)
+    mock_img.get_size.return_value = (100, 100)
+    mock_img.set_alpha = MagicMock()
+    mock_img.convert_alpha.return_value = mock_img
+    mocker.patch("pygame.image.load", return_value=mock_img)
+    mocker.patch("pygame.transform.smoothscale", return_value=mock_img)
+
+    # Create layer with a LocationBehavior
+    from compiler.models import LocationBehavior
+
+    loc_behavior = LocationBehavior(x=50, y=100, scale=2.0, enabled=True)
+
+    layer = ParallaxLayer(dummy_png, z_depth=1, behaviors=[loc_behavior])
+
+    # Get transform
+    tf = layer.get_transform(screen_h=600, scroll_x=0, elapsed_time=0, dt=0.016)
+
+    assert tf["x"] == 50
+    assert tf["y"] == 100
+    assert tf["scale"] == 2.0

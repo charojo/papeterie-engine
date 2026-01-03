@@ -41,7 +41,26 @@ The web dashboard (`src/web`) is tested using `vitest`.
 
 Improvements planned for the verification system:
 
-- [ ] **End-to-End (E2E) Testing**: Implement Playwright/Cypress/Selenium tests to verify the full flow from Web UI -> Backend -> Rendering.
+- [ ] **End-to-End (E2E) Testing**: Implement a basic Playwright test that verifies the full flow:
+    1. Start dev server
+    2. Navigate to dashboard
+    3. Open a scene (sailboat)
+    4. Play scene and verify canvas renders
+    5. Stop playback
 - [ ] **Visual Regression Testing**: Automatically compare rendered output frames against "known good" baselines to detect rendering regressions.
 - [ ] **Snapshot Testing**: Use Vitest snapshots for React components to catch unexpected UI changes.
 - [ ] **CI Integration**: Set up GitHub Actions to run `validate.sh` on PRs.
+
+## Current Coverage (as of Jan 2026)
+
+| Area | Coverage |
+|------|----------|
+| **Backend (Python)** | 64% |
+| **Frontend (React)** | 58% |
+| **Total** | 61% |
+
+### Recent Improvements
+- Added tests for `AudioManager.js` (21% → 52%)
+- Added tests for `BehaviorEditor.jsx` (0% → 56%)
+- Added tests for `TimelineEditor.jsx` (0% → 43%)
+- Added tests for `sounds.py` router (44% → 100%)

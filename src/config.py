@@ -7,8 +7,8 @@ LOGS_DIR = PROJECT_ROOT / "logs"
 ASSETS_DIR = PROJECT_ROOT / "assets"
 
 # Asset Directories
-SPRITES_DIR = ASSETS_DIR / "sprites"
-SCENES_DIR = ASSETS_DIR / "scenes"
+SPRITES_DIR = ASSETS_DIR / "users" / "default" / "sprites"
+SCENES_DIR = ASSETS_DIR / "users" / "default" / "scenes"
 PROMPTS_DIR = ASSETS_DIR / "prompts"
 
 # Ensure directories exist
@@ -25,3 +25,8 @@ CORS_ORIGINS: List[str] = [
     "http://localhost:8000",
     "http://127.0.0.1:8000",
 ]
+
+# Storage & Auth Configuration
+STORAGE_MODE = "LOCAL"  # Options: LOCAL, CLOUD (S3/GCS simulation)
+STORAGE_ROOT = ASSETS_DIR / "users"
+AUTH_SECRET_KEY = "super-secret-key-change-me"  # For token signing

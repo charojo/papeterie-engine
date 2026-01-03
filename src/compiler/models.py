@@ -1,7 +1,8 @@
+import uuid
 from enum import Enum
 from typing import List, Literal, Optional, Union
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class EnvironmentalReactionType(str, Enum):
@@ -54,6 +55,7 @@ class BehaviorType(str, Enum):
     ENVIRONMENT = "environment_reaction"
     BACKGROUND = "background"
     LOCATION = "location"
+    SOUND = "sound"
 
 
 class CoordinateType(str, Enum):
@@ -109,10 +111,23 @@ class BackgroundBehavior(BaseBehavior):
 
 
 class LocationBehavior(BaseBehavior):
+    """Unified positioning behavior - handles initial placement and keyframe animation."""
+
     type: Literal[BehaviorType.LOCATION] = BehaviorType.LOCATION
     coordinate: CoordinateType = Field(CoordinateType.Y, description="Ignored for location")
+
+    # Position
     x: float = Field(0.0, description="X offset in pixels")
     y: float = Field(0.0, description="Y offset in pixels")
+    vertical_percent: Optional[float] = Field(
+        None, ge=0.0, le=1.0, description="Position as % of screen height (0=top, 1=bottom)"
+    )
+
+    # Layering & Scale
+    z_depth: Optional[int] = Field(None, ge=1, le=100, description="Layer stacking order")
+    scale: Optional[float] = Field(None, ge=0.0, description="Size multiplier")
+
+    # Timeline
     time_offset: float = Field(
         0.0, ge=0.0, description="Time in seconds when this position applies"
     )
@@ -121,8 +136,33 @@ class LocationBehavior(BaseBehavior):
     )
 
 
+class SoundBehavior(BaseBehavior):
+    type: Literal[BehaviorType.SOUND] = BehaviorType.SOUND
+    coordinate: CoordinateType = Field(CoordinateType.Y, description="Ignored")
+
+    # Sound configuration
+    sound_file: str = Field(..., description="Path to audio file relative to assets/sounds/")
+    volume: float = Field(1.0, ge=0.0, le=1.0, description="Playback volume")
+
+    # Trigger configuration (mutually exclusive)
+    time_offset: Optional[float] = Field(None, description="Trigger at specific time (seconds)")
+    trigger_event: Optional[str] = Field(
+        None, description="Trigger on event: 'crest_peak', 'loop_start'"
+    )
+
+    # Playback options
+    loop: bool = Field(False, description="Loop the sound")
+    fade_in: float = Field(0.0, description="Fade in duration (seconds)")
+    fade_out: float = Field(0.0, description="Fade out duration (seconds)")
+
+
 BehaviorConfig = Union[
-    OscillateBehavior, DriftBehavior, PulseBehavior, BackgroundBehavior, LocationBehavior
+    OscillateBehavior,
+    DriftBehavior,
+    PulseBehavior,
+    BackgroundBehavior,
+    LocationBehavior,
+    SoundBehavior,
 ]
 
 
@@ -183,3 +223,22 @@ class SceneConfig(BaseModel):
 
     name: str
     layers: List[SceneLayer]
+    duration_sec: float = Field(30.0, description="Scene duration in seconds")
+    sounds: List[SoundBehavior] = Field(default_factory=list)
+
+
+# --- User Models ---
+
+
+class User(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    username: str
+    email: str
+    password_hash: str
+    model_config = ConfigDict(from_attributes=True)
+
+
+class UserCreate(BaseModel):
+    username: str
+    email: str
+    password: str

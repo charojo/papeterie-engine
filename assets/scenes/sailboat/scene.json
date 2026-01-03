@@ -29,10 +29,16 @@
     },
     {
       "sprite_name": "wave6",
-      "vertical_percent": 0.64,
-      "x_offset": 0,
-      "y_offset": 0,
       "behaviors": [
+        {
+          "type": "location",
+          "time_offset": 0,
+          "enabled": true,
+          "interpolate": false,
+          "x": 0,
+          "y": 0,
+          "vertical_percent": 0.64
+        },
         {
           "type": "drift",
           "enabled": true,
@@ -46,10 +52,16 @@
     },
     {
       "sprite_name": "wave5",
-      "vertical_percent": 0.68,
-      "x_offset": 0,
-      "y_offset": 0,
       "behaviors": [
+        {
+          "type": "location",
+          "time_offset": 0,
+          "enabled": true,
+          "interpolate": false,
+          "x": 0,
+          "y": 0,
+          "vertical_percent": 0.68
+        },
         {
           "type": "drift",
           "enabled": true,
@@ -63,10 +75,16 @@
     },
     {
       "sprite_name": "wave4",
-      "vertical_percent": 0.7,
-      "x_offset": 0,
-      "y_offset": 0,
       "behaviors": [
+        {
+          "type": "location",
+          "time_offset": 0,
+          "enabled": true,
+          "interpolate": false,
+          "x": 0,
+          "y": 0,
+          "vertical_percent": 0.7
+        },
         {
           "type": "drift",
           "enabled": true,
@@ -80,9 +98,6 @@
     },
     {
       "sprite_name": "boat",
-      "vertical_percent": 0.69,
-      "x_offset": 0,
-      "y_offset": 0,
       "environmental_reaction": {
         "reaction_type": "pivot_on_crest",
         "target_sprite_name": "wave1",
@@ -91,6 +106,15 @@
         "tilt_lift_factor": 0.5
       },
       "behaviors": [
+        {
+          "type": "location",
+          "time_offset": 0,
+          "enabled": true,
+          "interpolate": false,
+          "x": 0,
+          "y": 0,
+          "vertical_percent": 0.69
+        },
         {
           "type": "drift",
           "enabled": true,
@@ -104,10 +128,16 @@
     },
     {
       "sprite_name": "wave1",
-      "vertical_percent": 0.72,
-      "x_offset": 0,
-      "y_offset": 0,
       "behaviors": [
+        {
+          "type": "location",
+          "time_offset": 0,
+          "enabled": true,
+          "interpolate": false,
+          "x": 0,
+          "y": 0,
+          "vertical_percent": 0.72
+        },
         {
           "type": "drift",
           "enabled": true,
@@ -121,10 +151,16 @@
     },
     {
       "sprite_name": "wave2",
-      "vertical_percent": 0.75,
-      "x_offset": 0,
-      "y_offset": 0,
       "behaviors": [
+        {
+          "type": "location",
+          "time_offset": 0,
+          "enabled": true,
+          "interpolate": false,
+          "x": 0,
+          "y": 0,
+          "vertical_percent": 0.75
+        },
         {
           "type": "drift",
           "enabled": true,
@@ -138,10 +174,16 @@
     },
     {
       "sprite_name": "wave3",
-      "vertical_percent": 0.8,
-      "x_offset": 0,
-      "y_offset": 0,
       "behaviors": [
+        {
+          "type": "location",
+          "time_offset": 0,
+          "enabled": true,
+          "interpolate": false,
+          "x": 0,
+          "y": 0,
+          "vertical_percent": 0.8
+        },
         {
           "type": "drift",
           "enabled": true,

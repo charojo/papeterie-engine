@@ -3,17 +3,17 @@ import logging
 import shutil
 from typing import List, Optional
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from PIL import Image
 from pydantic import BaseModel, constr
 
 from src.compiler.engine import SpriteCompiler
-from src.config import PROJECT_ROOT, SPRITES_DIR
-from src.server.dependencies import asset_logger
+from src.config import PROJECT_ROOT
+from src.server.dependencies import asset_logger, get_user_assets
 from src.server.image_processing import optimize_image, remove_green_screen
 
 logger = logging.getLogger("papeterie")
-router = APIRouter(prefix="/api", tags=["sprites"])
+router = APIRouter(tags=["sprites"])
 
 # --- Models ---
 
@@ -41,11 +41,12 @@ class CompileRequest(BaseModel):
 
 
 @router.get("/sprites", response_model=List[SpriteInfo])
-async def list_sprites():
+async def list_sprites(user_assets=Depends(get_user_assets)):
+    _, sprites_dir = user_assets
     sprites = []
-    logger.info(f"Scanning sprites in {SPRITES_DIR}")
-    if SPRITES_DIR.exists():
-        for item in SPRITES_DIR.iterdir():
+    logger.info(f"Scanning sprites in {sprites_dir}")
+    if sprites_dir.exists():
+        for item in sprites_dir.iterdir():
             if item.is_dir():
                 name = item.name
                 image_path = item / f"{name}.png"
@@ -94,12 +95,14 @@ async def upload_sprite(
     file: UploadFile = File(...),
     remove_background: bool = Form(False),
     optimize: bool = Form(False),
+    user_assets=Depends(get_user_assets),
 ):
+    _, sprites_dir = user_assets
     safe_name = "".join(c for c in name if c.isalnum() or c in ("_", "-")).strip()
     if not safe_name:
         raise HTTPException(status_code=400, detail="Invalid sprite name")
 
-    sprite_dir = SPRITES_DIR / safe_name
+    sprite_dir = sprites_dir / safe_name
     sprite_dir.mkdir(parents=True, exist_ok=True)
 
     image_path = sprite_dir / f"{safe_name}.png"
@@ -146,8 +149,9 @@ async def upload_sprite(
 
 
 @router.post("/sprites/{name}/process")
-def process_sprite(name: str, request: ProcessRequest):
-    sprite_dir = SPRITES_DIR / name
+def process_sprite(name: str, request: ProcessRequest, user_assets=Depends(get_user_assets)):
+    _, sprites_dir = user_assets
+    sprite_dir = sprites_dir / name
     image_path = sprite_dir / f"{name}.png"
     original_path = sprite_dir / f"{name}.original.png"
 
@@ -240,8 +244,9 @@ def process_sprite(name: str, request: ProcessRequest):
 
 
 @router.post("/sprites/{name}/revert")
-async def revert_sprite(name: str):
-    sprite_dir = SPRITES_DIR / name
+async def revert_sprite(name: str, user_assets=Depends(get_user_assets)):
+    _, sprites_dir = user_assets
+    sprite_dir = sprites_dir / name
     image_path = sprite_dir / f"{name}.png"
     original_path = sprite_dir / f"{name}.original.png"
 
@@ -257,10 +262,11 @@ async def revert_sprite(name: str):
 
 
 @router.put("/sprites/{name}/config")
-async def update_sprite_config(name: str, config: dict):
+async def update_sprite_config(name: str, config: dict, user_assets=Depends(get_user_assets)):
     from src.compiler.models import SpriteMetadata
 
-    sprite_dir = SPRITES_DIR / name
+    _, sprites_dir = user_assets
+    sprite_dir = sprites_dir / name
     if not sprite_dir.exists():
         raise HTTPException(status_code=404, detail="Sprite not found")
 
@@ -281,11 +287,13 @@ async def update_sprite_config(name: str, config: dict):
 
 
 @router.post("/compile")
-def compile_sprite(request: CompileRequest):
+def compile_sprite(request: CompileRequest, user_assets=Depends(get_user_assets)):
     try:
-        compiler = SpriteCompiler()  # Uses default paths from src.config in engine.py
+        _, sprites_dir = user_assets
+        compiler = SpriteCompiler(sprite_dir=sprites_dir)  # Scoped to user
+        # TODO: Update compiler to support user-scoped directories!
 
-        sprite_dir = SPRITES_DIR / request.name
+        sprite_dir = sprites_dir / request.name
         sprite_dir.mkdir(parents=True, exist_ok=True)
         (sprite_dir / f"{request.name}.prompt.txt").write_text(request.prompt, encoding="utf-8")
 
@@ -299,14 +307,15 @@ def compile_sprite(request: CompileRequest):
 
 
 @router.delete("/sprites/{name}")
-def delete_sprite(name: str, mode: str = "delete"):
+def delete_sprite(name: str, mode: str = "delete", user_assets=Depends(get_user_assets)):
     """
     Delete a sprite.
     - delete: Completely remove.
     - reset: Remove generated files, keep original.
     """
     logger.info(f"Deleting sprite {name} with mode {mode}")
-    sprite_dir = SPRITES_DIR / name
+    _, sprites_dir = user_assets
+    sprite_dir = sprites_dir / name
 
     if not sprite_dir.exists():
         raise HTTPException(status_code=404, detail="Sprite not found")

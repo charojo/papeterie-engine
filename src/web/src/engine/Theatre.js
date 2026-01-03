@@ -1,4 +1,5 @@
 import { Layer } from './Layer.js';
+import { AudioManager } from './AudioManager.js';
 
 export class Theatre {
     constructor(canvas, sceneData, sceneName, assetBaseUrl = "http://localhost:8000/assets") {
@@ -7,6 +8,9 @@ export class Theatre {
         this.sceneData = sceneData;
         this.sceneName = sceneName;
         this.assetBaseUrl = assetBaseUrl;
+
+        this.audioManager = new AudioManager();
+        this.audioManager.setBasePath(`${assetBaseUrl}/sounds/`);
 
         this.layers = [];
         this.scroll = 0;
@@ -34,9 +38,26 @@ export class Theatre {
         // Event callbacks
         this.onSpriteSelected = null;
         this.onSpritePositionChanged = null;
+        this.onTimeUpdate = null;
 
         // Bind for loop
         this.loop = this.loop.bind(this);
+    }
+
+    setTime(time) {
+        this.elapsedTime = time;
+        // Also update audio? 
+        // Audio scheduling in update() handles sequential play. 
+        // If we seek, we might need to reset played flags?
+        // Simple seek logic for audio:
+        this.audioManager.stopAll();
+        // Reset played flags for future events
+        this.audioManager.scheduled.forEach(s => {
+            if (s.time >= time) s.played = false;
+        });
+
+        // Force redraw
+        this.updateAndDraw(0);
     }
 
     async initialize() {
@@ -104,6 +125,27 @@ export class Theatre {
         // OPTIMIZATION: Reuse Map for environment data
         this.envYData = new Map();
 
+        // Initialize Audio
+        this.audioManager.resetSchedule();
+
+        // 1. Load and schedule Global Scene sounds
+        if (this.sceneData.sounds) {
+            for (const sound of this.sceneData.sounds) {
+                if (sound.sound_file) {
+                    await this.audioManager.loadSound(sound.sound_file, sound.sound_file);
+                    // Schedule if it has a time offset
+                    if (sound.time_offset !== undefined && sound.time_offset !== null) {
+                        this.audioManager.scheduleAt(sound.sound_file, sound.time_offset, {
+                            volume: sound.volume,
+                            loop: sound.loop,
+                            fade_in: sound.fade_in,
+                            fade_out: sound.fade_out
+                        });
+                    }
+                }
+            }
+        }
+
         console.log(`Theatre initialized with ${this.layers.length} layers.`);
     }
 
@@ -119,6 +161,7 @@ export class Theatre {
 
     start() {
         if (this.isRunning) return;
+        // Resume specific audio context if needed (browsers require user interaction usually)
         this.isRunning = true;
         this.lastTime = performance.now();
         this.animationFrameId = requestAnimationFrame(this.loop);
@@ -130,6 +173,8 @@ export class Theatre {
             cancelAnimationFrame(this.animationFrameId);
             this.animationFrameId = null;
         }
+        this.audioManager.stopAll(); // Stop sound on pause/stop? Or maybe just pause?
+        // For editor experience, stop is safer.
     }
 
     loop(timestamp) {
@@ -139,9 +184,16 @@ export class Theatre {
         this.lastTime = timestamp;
         this.elapsedTime += dt;
 
+        if (this.onTimeUpdate) {
+            this.onTimeUpdate(this.elapsedTime);
+        }
+
         // Scroll speed: Python uses `self.scroll += 3` per frame (at 60fps supposedly, or just loop speed)
         // If python ticks at 60fps, that's 180 units per second.
         this.scroll += 180 * dt;
+
+        // Update Audio
+        this.audioManager.update(this.elapsedTime);
 
         this.updateAndDraw(dt);
 

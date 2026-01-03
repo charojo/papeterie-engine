@@ -1,12 +1,25 @@
 {
-    "name": "starbuild_lantern",
-    "frequency": 1.2,
-    "amplitude_y": 15,
-    "rotation_range": [
-        -10.0,
-        10.0
-    ],
-    "z_depth": 5,
-    "opacity": 1.0,
-    "vertical_drift": -30.0
+  "name": "starbuild_lantern",
+  "rotation_range": [
+    -10.0,
+    10.0
+  ],
+  "z_depth": 5,
+  "opacity": 1.0,
+  "behaviors": [
+    {
+      "type": "oscillate",
+      "coordinate": "y",
+      "frequency": 1.2,
+      "amplitude": 15,
+      "phase_offset": 0.0,
+      "enabled": true
+    },
+    {
+      "type": "drift",
+      "coordinate": "y",
+      "velocity": -30.0,
+      "enabled": true
+    }
+  ]
 }

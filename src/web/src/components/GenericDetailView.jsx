@@ -6,6 +6,7 @@ import { Icon } from './Icon';
 import { TheatreStage } from './TheatreStage';
 import { DeleteConfirmationDialog } from './DeleteConfirmationDialog';
 import { BehaviorEditor } from './BehaviorEditor';
+import { TimelineEditor } from './TimelineEditor';
 
 const API_BASE = "http://localhost:8000/api";
 
@@ -42,10 +43,12 @@ export function GenericDetailView({ type, asset, refresh, isExpanded, toggleExpa
         layerVisibility,
         handleRemoveLayer,
         handleSpriteSelected,
-        handleSpritePositionChanged
+        handleSpritePositionChanged,
+        handleKeyframeMove
     } = useAssetController(type, asset, refresh);
 
     // ... (keep existing useState/useEffect) ...
+    const [currentTime, setCurrentTime] = useState(0);
 
     const [isPlaying, setIsPlaying] = useState(false);
 
@@ -136,32 +139,50 @@ export function GenericDetailView({ type, asset, refresh, isExpanded, toggleExpa
 
                         {/* Theatre Stage Overlay/Replacement */}
                         {isPlaying && type === 'scene' && (
-                            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 10, background: 'black' }}>
-                                <TheatreStage
-                                    scene={asset.config}
-                                    sceneName={asset.name}
-                                    style={{ width: '100%', height: '100%' }}
-                                    onTelemetry={handleTelemetry}
-                                    debugMode={
-                                        debugOverlayMode === 'on' ||
-                                        (debugOverlayMode === 'auto' && activeConfigTab === 'debug')
-                                    }
-                                    layerVisibility={layerVisibility}
-                                    selectedSprite={selectedImage !== 'original' ? selectedImage : null}
-                                    onSpriteSelected={handleSpriteSelected}
-                                    onSpritePositionChanged={handleSpritePositionChanged}
-                                    onInitialize={(theatre) => {
-                                        // Restore visibility settings if any
-                                        // This is a bit tricky since theatre is recreated on scene change
+                            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 10, background: 'black', display: 'flex', flexDirection: 'column' }}>
+                                <div style={{ flex: 1, position: 'relative' }}>
+                                    <TheatreStage
+                                        scene={asset.config}
+                                        sceneName={asset.name}
+                                        style={{ width: '100%', height: '100%' }}
+                                        onTelemetry={handleTelemetry}
+                                        debugMode={
+                                            debugOverlayMode === 'on' ||
+                                            (debugOverlayMode === 'auto' && activeConfigTab === 'debug')
+                                        }
+                                        layerVisibility={layerVisibility}
+                                        selectedSprite={selectedImage !== 'original' ? selectedImage : null}
+                                        onSpriteSelected={handleSpriteSelected}
+                                        onSpritePositionChanged={handleSpritePositionChanged}
+                                        currentTime={currentTime}
+                                        onTimeUpdate={setCurrentTime}
+                                        onInitialize={(theatre) => {
+                                            // Restore visibility settings if any
+                                            // This is a bit tricky since theatre is recreated on scene change
+                                        }}
+                                    />
+                                    <button
+                                        className="btn"
+                                        style={{ position: 'absolute', top: '10px', right: '10px', zIndex: 20 }}
+                                        onClick={() => setIsPlaying(false)}
+                                    >
+                                        <Icon name="delete" size={16} /> Close
+                                    </button>
+                                </div>
+                                <TimelineEditor
+                                    duration={asset.config.duration_sec || 30}
+                                    currentTime={currentTime}
+                                    layers={asset.config.layers}
+                                    selectedLayer={selectedImage}
+                                    onTimeChange={setCurrentTime}
+                                    onKeyframeMove={handleKeyframeMove}
+                                    onPlayPause={() => { /* Theatre handles play loop, maybe pause prop needed? For now just toggle */
+                                        // Actually Theatre.js runs loop if initialized.
+                                        // We might need to control playback state via prop or ref.
+                                        // For now, Timeline doesn't control Engine playback state directly except via time seek.
                                     }}
+                                    isPlaying={true} // Theatre is always running in this view
                                 />
-                                <button
-                                    className="btn"
-                                    style={{ position: 'absolute', top: '10px', right: '10px', zIndex: 20 }}
-                                    onClick={() => setIsPlaying(false)}
-                                >
-                                    <Icon name="delete" size={16} /> Close
-                                </button>
                             </div>
                         )}
 
@@ -625,6 +646,39 @@ function useAssetController(type, asset, refresh) {
         }
     };
 
+    const handleKeyframeMove = async (layerName, behaviorIndex, newTime, commit) => {
+        if (type !== 'scene' || !commit) return; // Only commit=true saves
+
+        try {
+            const updatedConfig = JSON.parse(JSON.stringify(asset.config));
+            const layer = updatedConfig.layers.find(l => l.sprite_name === layerName);
+
+            if (!layer || !layer.behaviors || !layer.behaviors[behaviorIndex]) {
+                toast.error(`Keyframe not found`);
+                return;
+            }
+
+            layer.behaviors[behaviorIndex].time_offset = parseFloat(newTime.toFixed(2));
+
+            // Re-sort behaviors by time
+            layer.behaviors.sort((a, b) => (a.time_offset || 0) - (b.time_offset || 0));
+
+            const res = await fetch(`${API_BASE}/scenes/${asset.name}/config`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updatedConfig)
+            });
+
+            if (!res.ok) throw new Error(await res.text());
+
+            toast.success(`Moved keyframe to ${newTime.toFixed(2)}s`);
+            await refresh();
+        } catch (e) {
+            console.error('Failed to move keyframe:', e);
+            toast.error(`Failed to move keyframe: ${e.message}`);
+        }
+    };
+
     // --- Computed State ---
 
     const statusLabel = type === 'sprite'
@@ -704,6 +758,7 @@ function useAssetController(type, asset, refresh) {
         layerVisibility,
         handleRemoveLayer,
         handleSpriteSelected,
-        handleSpritePositionChanged
+        handleSpritePositionChanged,
+        handleKeyframeMove
     };
 }

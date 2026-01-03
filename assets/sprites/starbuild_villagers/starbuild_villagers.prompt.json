@@ -1,12 +1,19 @@
 {
-    "name": "starbuild_villagers",
-    "frequency": 0.5,
-    "amplitude_y": 10,
-    "rotation_range": [
-        -2.0,
-        2.0
-    ],
-    "z_depth": 10,
-    "opacity": 1.0,
-    "vertical_drift": 0.0
+  "name": "starbuild_villagers",
+  "rotation_range": [
+    -2.0,
+    2.0
+  ],
+  "z_depth": 10,
+  "opacity": 1.0,
+  "behaviors": [
+    {
+      "type": "oscillate",
+      "coordinate": "y",
+      "frequency": 0.5,
+      "amplitude": 10,
+      "phase_offset": 0.0,
+      "enabled": true
+    }
+  ]
 }

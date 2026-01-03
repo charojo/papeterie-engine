@@ -19,10 +19,19 @@ This file lists features, improvements, and bugs to be addressed in the Papeteri
 *   **Token Optimization Analyzer:** Create a script that analyzes `logs/token_ledger.csv` and suggests prompt compression or model switching to reduce operational costs.
 *   **Sprite Remixing**: Allow users to "remix" existing sprites by editing their prompts.
 *   **Scene Templates**: Provide pre-configured scene templates (e.g., "Forest Theater", "Space Stage").
+*   **SMTP Email Verification**: Implement real email verification using Python's `smtplib`. This is planned for when the engine is hosted on PythonAnywhere. For now, email validation is assumed to be successful on registration.
 
 ## Verification & Quality Assurance
 
 *   **Improve Verification Coverage**: See `docs/verification.md` for the detailed backlog of testing improvements (E2E, Visual Regression, etc.).
+*   **Add E2E Simple Test**: Implement a basic end-to-end test using Playwright that:
+    1. Starts the dev server
+    2. Navigates to the dashboard
+    3. Opens a scene (e.g., sailboat)
+    4. Plays the scene and verifies canvas renders
+    5. Stops playback
+    - Priority: Medium
+    - Files: `e2e/basic_flow.spec.js` (new), `playwright.config.js` (new)
 *   **Add Linting to Validate Script**: Incorporate `eslint` and `ruff` checks into `scripts/validate.sh`.
 
 ## Technical Debt

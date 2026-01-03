@@ -1,15 +1,44 @@
 {
-    "name": "starbuild_lantern_charcoal",
-    "frequency": 1.2,
-    "amplitude_y": 15,
-    "rotation_range": [-10.0, 10.0],
-    "z_depth": 5,
-    "opacity": 1.0,
-    "vertical_drift": -30.0,
-    "scale_drift": -0.04,
-    "scale_drift_multiplier_after_cap": 3.0,
-    "drift_cap_y": 100,
-    "twinkle_amplitude": 0.4,
-    "twinkle_frequency": 6.0,
-    "twinkle_min_scale": 0.035
+  "name": "starbuild_lantern_charcoal",
+  "rotation_range": [
+    -10.0,
+    10.0
+  ],
+  "z_depth": 5,
+  "opacity": 1.0,
+  "behaviors": [
+    {
+      "type": "oscillate",
+      "coordinate": "y",
+      "frequency": 1.2,
+      "amplitude": 15,
+      "phase_offset": 0.0,
+      "enabled": true
+    },
+    {
+      "type": "drift",
+      "coordinate": "y",
+      "velocity": -30.0,
+      "enabled": true,
+      "drift_cap": 100,
+      "cap_behavior": "stop"
+    },
+    {
+      "type": "drift",
+      "coordinate": "scale",
+      "velocity": -0.04,
+      "enabled": true,
+      "scale_drift_multiplier_after_cap": 3.0
+    },
+    {
+      "type": "pulse",
+      "coordinate": "opacity",
+      "frequency": 6.0,
+      "min_value": 0.6,
+      "max_value": 1.0,
+      "waveform": "sine",
+      "enabled": true,
+      "activation_threshold_scale": 0.035
+    }
+  ]
 }

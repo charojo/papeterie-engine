@@ -37,11 +37,21 @@ const mockScenes = [
 
 describe('App Component', () => {
     beforeEach(() => {
+        localStorage.clear();
+        // Default: start with no user to avoid unwanted side effects
+        // Individual tests will set the user if they need to be in the "App" view.
+
         // Reset fetch mock before each test
         global.fetch = vi.fn();
 
         // Default successful fetch response
         global.fetch.mockImplementation((url) => {
+            if (url.endsWith('/config')) {
+                return Promise.resolve({
+                    ok: true,
+                    json: () => Promise.resolve({ storage_mode: 'LOCAL' })
+                });
+            }
             if (url.endsWith('/sprites')) {
                 return Promise.resolve({
                     ok: true,
@@ -62,7 +72,16 @@ describe('App Component', () => {
         vi.clearAllMocks();
     });
 
+    const loginAsGuest = () => {
+        localStorage.setItem('papeterie-user', JSON.stringify({
+            user: { username: 'TestUser' },
+            access_token: 'mock-token',
+            type: 'local'
+        }));
+    };
+
     it('renders sidebar and fetches data on mount', async () => {
+        loginAsGuest();
         await act(async () => {
             render(<App />);
         });
@@ -80,11 +99,12 @@ describe('App Component', () => {
     });
 
     it('navigates to create view when add button is clicked', async () => {
+        loginAsGuest();
         await act(async () => {
             render(<App />);
         });
 
-        const addButton = screen.getByRole('button');
+        const addButton = screen.getByTitle('Add');
         fireEvent.click(addButton);
 
         expect(screen.getByText('New Sprite')).toBeInTheDocument();
@@ -93,6 +113,7 @@ describe('App Component', () => {
     });
 
     it('selects a sprite and shows detail view', async () => {
+        loginAsGuest();
         await act(async () => {
             render(<App />);
         });
@@ -112,6 +133,7 @@ describe('App Component', () => {
     });
 
     it('selects a scene and shows detail view', async () => {
+        loginAsGuest();
         await act(async () => {
             render(<App />);
         });
@@ -127,37 +149,36 @@ describe('App Component', () => {
     });
 
     it('handles fetch errors gracefully', async () => {
+        loginAsGuest();
         const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
-        global.fetch.mockRejectedValueOnce(new Error('Network error'));
+
+        // Success for config, then failure for sprites
+        global.fetch.mockImplementationOnce(() => Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({ storage_mode: 'LOCAL' })
+        })).mockRejectedValueOnce(new Error('Network error'));
 
         await act(async () => {
             render(<App />);
         });
 
         await waitFor(() => {
-            // Should have tried to fetch
+            // Should have been called at least for config and then sprites/scenes
             expect(global.fetch).toHaveBeenCalled();
+            expect(consoleSpy).toHaveBeenCalledWith("Failed to fetch data", expect.any(Error));
         });
-
-        // Should log error (mocked sonner doesn't verify UI appearance easily without more complex mock, 
-        // but we can check if toast.error was called if we exported it, but we didn't export the mock instance easily to check here.
-        // In this setup, checking console error is a proxy or we can spy on the toast object if we imported it in test.)
-
-        // Better way: import toast in test file from sonner and spy on it? 
-        // Since we mocked 'sonner' module, we can re-import it here to check calls?
-        // Actually, we can just check console error for now as the component logs it.
-        expect(consoleSpy).toHaveBeenCalledWith("Failed to fetch data", expect.any(Error));
 
         consoleSpy.mockRestore();
     });
 
     it('Create Sprite form submission', async () => {
+        loginAsGuest();
         await act(async () => {
             render(<App />);
         });
 
         // Go to create view
-        fireEvent.click(screen.getByRole('button'));
+        fireEvent.click(screen.getByTitle('Add'));
 
         // Select "New Sprite" (default)
         const newSpriteTile = screen.getByText('New Sprite');
@@ -203,12 +224,13 @@ describe('App Component', () => {
     });
 
     it('Create Scene Upload form submission', async () => {
+        loginAsGuest();
         await act(async () => {
             render(<App />);
         });
 
         // Go to create
-        const addButton = screen.getByRole('button');
+        const addButton = screen.getByTitle('Add');
         fireEvent.click(addButton);
 
         // Click tile
@@ -252,12 +274,13 @@ describe('App Component', () => {
     });
 
     it('Generate Scene form submission', async () => {
+        loginAsGuest();
         await act(async () => {
             render(<App />);
         });
 
         // Go to create
-        const addButton = screen.getByRole('button');
+        const addButton = screen.getByTitle('Add');
         fireEvent.click(addButton);
 
         // Click tile
@@ -298,6 +321,40 @@ describe('App Component', () => {
         await waitFor(() => {
             expect(screen.getByTestId('detail-view-scene')).toBeInTheDocument();
         }, { timeout: 3000 });
+    });
+
+    it('renders LoginView when STORAGE_MODE is CLOUD and not authenticated', async () => {
+        // Mock config to be CLOUD
+        global.fetch.mockImplementation((url) => {
+            if (url.endsWith('/config')) {
+                return Promise.resolve({
+                    ok: true,
+                    json: () => Promise.resolve({ storage_mode: 'CLOUD' })
+                });
+            }
+            return Promise.reject(new Error('Unknown URL'));
+        });
+
+        await act(async () => {
+            render(<App />);
+        });
+
+        await waitFor(() => {
+            expect(screen.getByText('Cloud Theater')).toBeInTheDocument();
+        });
+    });
+
+    it('can logout', async () => {
+        loginAsGuest();
+        await act(async () => {
+            render(<App />);
+        });
+
+        const logoutButton = screen.getByTitle('Logout');
+        fireEvent.click(logoutButton);
+
+        expect(screen.getByText('Cloud Theater')).toBeInTheDocument();
+        expect(localStorage.getItem('papeterie-user')).toBe(null);
     });
 
 });

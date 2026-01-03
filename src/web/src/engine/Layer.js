@@ -128,13 +128,14 @@ class BackgroundRuntime extends EventRuntime {
 class LocationRuntime extends EventRuntime {
     constructor(config) {
         super(config);
-        this.isKeyframe = config.time_offset !== undefined && config.time_offset > 0;
+        // Any defined time_offset (including 0) makes it a keyframe
+        this.isKeyframe = config.time_offset !== undefined;
     }
 
     apply(layer, dt, transform) {
         if (!this.active) return;
 
-        // For non-keyframe location behaviors (time_offset = 0 or undefined), apply immediately
+        // For non-keyframe location behaviors (time_offset undefined), apply immediately
         if (!this.isKeyframe) {
             if (this.config.x !== undefined) transform.x += this.config.x;
             if (this.config.y !== undefined) transform.y += this.config.y;
@@ -143,7 +144,7 @@ class LocationRuntime extends EventRuntime {
     }
 
     // Static method to apply time-based location behaviors
-    static applyKeyframes(layer, elapsedTime, transform) {
+    static applyKeyframes(layer, elapsedTime, transform, screenH) {
         // Get all location behaviors sorted by time
         const locationBehaviors = layer.eventRuntimes
             .filter(rt => rt instanceof LocationRuntime && rt.isKeyframe)
@@ -182,10 +183,23 @@ class LocationRuntime extends EventRuntime {
                 const interpolatedY = prevKeyframe.y + (nextKeyframe.y - prevKeyframe.y) * smoothT;
                 transform.y += interpolatedY;
             }
+            if (prevKeyframe.vertical_percent !== undefined && nextKeyframe.vertical_percent !== undefined) {
+                const interpolatedVP = prevKeyframe.vertical_percent + (nextKeyframe.vertical_percent - prevKeyframe.vertical_percent) * smoothT;
+                // Recalculate base_y
+                const newBaseY = layer._calculateBaseY(screenH, interpolatedVP);
+                transform.base_y = newBaseY + layer.y_offset;
+            } else if (prevKeyframe.vertical_percent !== undefined) {
+                const newBaseY = layer._calculateBaseY(screenH, prevKeyframe.vertical_percent);
+                transform.base_y = newBaseY + layer.y_offset;
+            }
         } else if (prevKeyframe) {
             // Use the most recent keyframe
             if (prevKeyframe.x !== undefined) transform.x += prevKeyframe.x;
             if (prevKeyframe.y !== undefined) transform.y += prevKeyframe.y;
+            if (prevKeyframe.vertical_percent !== undefined) {
+                const newBaseY = layer._calculateBaseY(screenH, prevKeyframe.vertical_percent);
+                transform.base_y = newBaseY + layer.y_offset;
+            }
         }
     }
 }
@@ -196,17 +210,28 @@ export class Layer {
         this.config = config;
         this.image = image;
 
-        // Basic props
-        this.z_depth = config.z_depth ?? 1;
-        this.vertical_percent = config.vertical_percent ?? 0.5;
+        // Find initial LocationBehavior (ONLY undefined time_offset considered static base)
+        const behaviors = config.behaviors || config.events || [];
+        const initialLocation = behaviors.find(
+            b => b.type === 'location' && b.time_offset === undefined
+        );
+
+        // Read positioning from LocationBehavior first, fall back to flat config
+        this.z_depth = initialLocation?.z_depth ?? config.z_depth ?? 1;
+        this.vertical_percent = initialLocation?.vertical_percent ?? config.vertical_percent ?? 0.5;
+        this.x_offset = initialLocation?.x ?? config.x_offset ?? 0;
+        this.y_offset = initialLocation?.y ?? config.y_offset ?? 0;
+
+        // Scale from LocationBehavior (used as base scale, behaviors may modify)
+        this._baseScale = initialLocation?.scale ?? config.scale ?? 1.0;
+
+        // Other props (not in LocationBehavior)
         this.scroll_speed = config.scroll_speed ?? 0.0;
         this.is_background = config.is_background ?? false;
         this.tile_horizontal = config.tile_horizontal ?? false;
         this.tile_border = config.tile_border ?? 0;
         this.fill_down = config.fill_down ?? false;
         this.vertical_anchor = config.vertical_anchor ?? "center";
-        this.x_offset = config.x_offset ?? 0;
-        this.y_offset = config.y_offset ?? 0;
         this.height_scale = config.height_scale;
 
         // Process Image
@@ -396,13 +421,17 @@ export class Layer {
         return { width: imgW, height: imgH };
     }
 
-    _getBaseY(screenH) {
+    _calculateBaseY(screenH, verticalPercent) {
         const { height } = this._getBaseDimensions(screenH);
-        const baseY = screenH * this.vertical_percent;
+        const baseY = screenH * verticalPercent;
 
         if (this.vertical_anchor === "bottom") return baseY - height;
         else if (this.vertical_anchor === "top") return baseY;
         else return baseY - (height / 2);
+    }
+
+    _getBaseY(screenH) {
+        return this._calculateBaseY(screenH, this.vertical_percent);
     }
 
     getTransform(screenH, dt, elapsedTime = 0) {
@@ -410,7 +439,7 @@ export class Layer {
             x: 0.0,
             y: 0.0,
             base_y: this._getBaseY(screenH) + this.y_offset,
-            scale: 1.0,
+            scale: this._baseScale ?? 1.0,
             rotation: 0.0,
             opacity: 1.0
         };
@@ -421,7 +450,7 @@ export class Layer {
         });
 
         // Apply time-based location keyframes
-        LocationRuntime.applyKeyframes(this, elapsedTime, transform);
+        LocationRuntime.applyKeyframes(this, elapsedTime, transform, screenH);
 
         return transform;
     }

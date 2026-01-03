@@ -3,13 +3,15 @@ import os
 from pathlib import Path
 from typing import List
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from src.compiler.models import BehaviorConfig
+from src.server.dependencies import get_user_assets
 
 router = APIRouter(prefix="/behaviors", tags=["behaviors"])
 
+# Behaviors are currently global for the system, but we can scope them if needed.
 BEHAVIOR_DIR = Path("assets/behaviors")
 BEHAVIOR_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -20,7 +22,7 @@ class BehaviorPreset(BaseModel):
 
 
 @router.get("", response_model=List[BehaviorPreset])
-async def list_behaviors():
+async def list_behaviors(user_assets=Depends(get_user_assets)):
     presets = []
     if not BEHAVIOR_DIR.exists():
         return []
@@ -29,8 +31,6 @@ async def list_behaviors():
         try:
             with open(f, "r") as file:
                 data = json.load(file)
-                # Ensure it matches schema? Or just raw dict?
-                # Ideally we validate.
                 presets.append(BehaviorPreset(name=f.stem, behavior=data))
         except Exception as e:
             print(f"Error loading behavior {f}: {e}")
@@ -39,20 +39,19 @@ async def list_behaviors():
 
 
 @router.post("")
-async def create_behavior(preset: BehaviorPreset):
+async def create_behavior(preset: BehaviorPreset, user_assets=Depends(get_user_assets)):
     # Sanitize name
     safe_name = "".join([c for c in preset.name if c.isalnum() or c in ("-", "_")])
     file_path = BEHAVIOR_DIR / f"{safe_name}.json"
 
     with open(file_path, "w") as f:
-        # Dump the behavior config part
         f.write(preset.behavior.model_dump_json(indent=2))
 
     return preset
 
 
 @router.delete("/{name}")
-async def delete_behavior(name: str):
+async def delete_behavior(name: str, user_assets=Depends(get_user_assets)):
     safe_name = "".join([c for c in name if c.isalnum() or c in ("-", "_")])
     file_path = BEHAVIOR_DIR / f"{safe_name}.json"
 

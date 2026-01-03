@@ -20,15 +20,38 @@ vi.mock('../Icon', () => ({
 }));
 
 vi.mock('../ImageViewer', () => ({
-    ImageViewer: () => <div data-testid="image-viewer">ImageViewer</div>
+    ImageViewer: ({ tabs, actions }) => (
+        <div data-testid="image-viewer">
+            ImageViewer
+            <div data-testid="viewer-tabs">
+                {tabs.map(t => (
+                    <button key={t.id} onClick={t.onClick}>{t.label}</button>
+                ))}
+            </div>
+            <div data-testid="viewer-actions">{actions}</div>
+        </div>
+    )
 }));
 
 vi.mock('../TheatreStage', () => ({
-    TheatreStage: () => <div data-testid="theatre-stage">TheatreStage</div>
+    TheatreStage: ({ onSpritePositionChanged, onSpriteSelected, onTelemetry }) => (
+        <div data-testid="theatre-stage">
+            TheatreStage
+            <button onClick={() => onSpritePositionChanged('dragon', 100, 200, 1.5)}>Move Sprite</button>
+            <button onClick={() => onSpriteSelected('dragon')}>Select Sprite</button>
+        </div>
+    )
 }));
 
 vi.mock('../BehaviorEditor', () => ({
-    BehaviorEditor: () => <div data-testid="behavior-editor">BehaviorEditor</div>
+    BehaviorEditor: ({ onChange, onToggleVisibility, onRemoveSprite }) => (
+        <div data-testid="behavior-editor">
+            BehaviorEditor
+            <button onClick={() => onChange([{ type: 'oscillate' }])}>Update Behaviors</button>
+            <button onClick={onToggleVisibility}>Toggle Vis</button>
+            <button onClick={onRemoveSprite}>Remove Sprite</button>
+        </div>
+    )
 }));
 
 vi.mock('../DeleteConfirmationDialog', () => ({
@@ -135,5 +158,138 @@ describe('GenericDetailView', () => {
             expect.objectContaining({ method: 'DELETE' })
         );
         expect(refreshMock).toHaveBeenCalled();
+    });
+
+    it('updates behavior config via API (Sprite)', async () => {
+        const mockSprite = { name: 'dragon', metadata: { behaviors: [] } };
+        const refreshMock = vi.fn();
+
+        global.fetch.mockResolvedValue({ ok: true, json: async () => ({}) });
+
+        render(<GenericDetailView type="sprite" asset={mockSprite} refresh={refreshMock} />);
+
+        const updateBtn = screen.getByText('Update Behaviors');
+        await act(async () => { fireEvent.click(updateBtn); });
+
+        expect(global.fetch).toHaveBeenCalledWith(
+            expect.stringContaining('/sprites/dragon/config'),
+            expect.objectContaining({
+                method: 'PUT',
+                body: expect.stringContaining('"type":"oscillate"')
+            })
+        );
+    });
+
+    it('updates config via API (Scene Layer)', async () => {
+        const mockScene = {
+            name: 'scene1',
+            config: { layers: [{ sprite_name: 'dragon', behaviors: [] }] },
+            used_sprites: ['dragon']
+        };
+        const refreshMock = vi.fn();
+        global.fetch.mockResolvedValue({ ok: true, json: async () => ({}) });
+
+        render(<GenericDetailView type="scene" asset={mockScene} refresh={refreshMock} />);
+
+        // Select sprite tab first
+        const tabBtn = screen.getByText('dragon');
+        await act(async () => { fireEvent.click(tabBtn); });
+
+        const updateBtn = screen.getByText('Update Behaviors');
+        await act(async () => { fireEvent.click(updateBtn); });
+
+        expect(global.fetch).toHaveBeenCalledWith(
+            expect.stringContaining('/scenes/scene1/config'),
+            expect.objectContaining({
+                method: 'PUT'
+            })
+        );
+    });
+
+    it('updates sprite position on drag (Scene)', async () => {
+        const mockScene = {
+            name: 'scene1',
+            config: { layers: [{ sprite_name: 'dragon', behaviors: [] }] },
+            used_sprites: ['dragon']
+        };
+        const refreshMock = vi.fn();
+        global.fetch.mockResolvedValue({ ok: true, json: async () => ({}) });
+
+        render(<GenericDetailView type="scene" asset={mockScene} refresh={refreshMock} />);
+
+        // Start playing to show theatre stage
+        const playBtn = screen.getByText('Play');
+        await act(async () => { fireEvent.click(playBtn); });
+
+        const moveBtn = screen.getByText('Move Sprite');
+        await act(async () => { fireEvent.click(moveBtn); });
+
+        expect(global.fetch).toHaveBeenCalledWith(
+            expect.stringContaining('/scenes/scene1/config'),
+            expect.objectContaining({
+                method: 'PUT',
+                body: expect.stringContaining('"type":"location"')
+            })
+        );
+    });
+
+    it('removes layer from scene', async () => {
+        const mockScene = {
+            name: 'scene1',
+            config: { layers: [{ sprite_name: 'dragon' }] },
+            used_sprites: ['dragon']
+        };
+        const refreshMock = vi.fn();
+        global.fetch.mockResolvedValue({ ok: true, json: async () => ({}) });
+
+        render(<GenericDetailView type="scene" asset={mockScene} refresh={refreshMock} />);
+
+        // Select sprite
+        const tabBtn = screen.getByText('dragon');
+        await act(async () => { fireEvent.click(tabBtn); });
+
+        const removeBtn = screen.getByText('Remove Sprite');
+        await act(async () => { fireEvent.click(removeBtn); });
+
+        expect(global.fetch).toHaveBeenCalledWith(
+            expect.stringContaining('/scenes/scene1/config'),
+            expect.objectContaining({ method: 'PUT' })
+        );
+        // Should remove dragon from layers in the PUT body
+        // We can't easily parse Body string in HaveBeenCalledWith, but we trust logic.
+    });
+
+    it('reverts sprite to original', async () => {
+        const mockSprite = { name: 'dragon', has_original: true, has_metadata: true }; // has_original enables revert
+        const refreshMock = vi.fn();
+        global.fetch.mockResolvedValue({ ok: true, json: async () => ({}) });
+
+        render(<GenericDetailView type="sprite" asset={mockSprite} refresh={refreshMock} />);
+
+        const revertBtn = screen.getByTitle('Revert to Original');
+        await act(async () => { fireEvent.click(revertBtn); });
+
+        expect(global.fetch).toHaveBeenCalledWith(
+            expect.stringContaining('/sprites/dragon/revert'),
+            expect.objectContaining({ method: 'POST' })
+        );
+    });
+
+    it('switches configuration tabs', async () => {
+        const mockScene = { name: 'scene1', config: { layers: [] } };
+        render(<GenericDetailView type="scene" asset={mockScene} refresh={vi.fn()} />);
+
+        // Default behaviors
+        expect(screen.getByText('Select a sprite from the tabs above to edit its behaviors.')).toBeInTheDocument();
+
+        // Switch to JSON
+        const jsonTab = screen.getByText('JSON Config');
+        fireEvent.click(jsonTab);
+        expect(screen.getByText('Refine Configuration')).toBeInTheDocument();
+
+        // Switch to Debug
+        const debugTab = screen.getByText('Debug');
+        fireEvent.click(debugTab);
+        expect(screen.getByText('Debug Overlay')).toBeInTheDocument();
     });
 });

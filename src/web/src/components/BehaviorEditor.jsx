@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Icon } from './Icon';
 
 const BehaviorTypes = {
@@ -6,7 +6,8 @@ const BehaviorTypes = {
     DRIFT: "drift",
     PULSE: "pulse",
     BACKGROUND: "background",
-    LOCATION: "location"
+    LOCATION: "location",
+    SOUND: "sound"
 };
 
 const CoordinateTypes = ["y", "x", "scale", "rotation", "opacity"];
@@ -30,6 +31,24 @@ export function BehaviorEditor({ behaviors = [], onChange, readOnly = false, spr
         const newBehaviors = behaviors.filter((_, i) => i !== index);
         onChange(newBehaviors);
     };
+
+    const TABS = ['Motion', 'Sound']; // Environment & Timeline logic managed by parent or future/other components usually, but per design doc:
+    // Design doc says: Motion, Sound, Environment, Timeline.
+    // Timeline is now a separate component. Environment is complex. 
+    // Let's stick to Motion and Sound for now in this list, or add Environment if we want to move it here.
+    // The previous implementation didn't fully handle Environment editing in this component.
+    // Let's implement Tabs for filtering.
+
+    const [activeTab, setActiveTab] = useState('Motion');
+
+    const filteredBehaviors = behaviors.filter(b => {
+        if (activeTab === 'Motion') {
+            return [BehaviorTypes.OSCILLATE, BehaviorTypes.DRIFT, BehaviorTypes.PULSE, BehaviorTypes.BACKGROUND, BehaviorTypes.LOCATION].includes(b.type);
+        } else if (activeTab === 'Sound') {
+            return b.type === BehaviorTypes.SOUND;
+        }
+        return true;
+    });
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', height: '100%' }}>
@@ -70,7 +89,10 @@ export function BehaviorEditor({ behaviors = [], onChange, readOnly = false, spr
                                 background: '#252525', border: '1px solid #444', borderRadius: '4px',
                                 boxShadow: '0 4px 12px rgba(0,0,0,0.5)', minWidth: '120px'
                             }}>
-                                {Object.values(BehaviorTypes).map(type => (
+                                {Object.values(BehaviorTypes).filter(t =>
+                                    (activeTab === 'Motion' && [BehaviorTypes.OSCILLATE, BehaviorTypes.DRIFT, BehaviorTypes.PULSE, BehaviorTypes.BACKGROUND, BehaviorTypes.LOCATION].includes(t)) ||
+                                    (activeTab === 'Sound' && t === BehaviorTypes.SOUND)
+                                ).map(type => (
                                     <div
                                         key={type}
                                         style={{ padding: '8px 12px', cursor: 'pointer', fontSize: '0.85rem' }}
@@ -86,22 +108,44 @@ export function BehaviorEditor({ behaviors = [], onChange, readOnly = false, spr
                 )}
             </div>
 
+            {/* Tabs */}
+            <div style={{ display: 'flex', borderBottom: '1px solid #333', marginBottom: '8px' }}>
+                {TABS.map(tab => (
+                    <button
+                        key={tab}
+                        className={`btn`}
+                        style={{
+                            borderBottom: activeTab === tab ? '2px solid var(--primary)' : 'none',
+                            borderRadius: 0, padding: '4px 12px', color: activeTab === tab ? 'white' : '#888',
+                            fontSize: '0.8rem'
+                        }}
+                        onClick={() => setActiveTab(tab)}
+                    >
+                        {tab}
+                    </button>
+                ))}
+            </div>
+
             <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {behaviors.length === 0 && (
+                {filteredBehaviors.length === 0 && (
                     <div style={{ padding: '20px', textAlign: 'center', opacity: 0.5, fontStyle: 'italic', fontSize: '0.9rem' }}>
-                        No behaviors defined. Animation is static.
+                        No {activeTab.toLowerCase()} behaviors defined.
                     </div>
                 )}
 
-                {behaviors.map((b, idx) => (
-                    <BehaviorCard
-                        key={idx}
-                        behavior={b}
-                        onChange={updated => handleUpdate(idx, updated)}
-                        onRemove={() => handleRemove(idx)}
-                        readOnly={readOnly}
-                    />
-                ))}
+                {filteredBehaviors.map((b, idx) => {
+                    // We need the original index to update/remove correctly
+                    const originalIndex = behaviors.indexOf(b);
+                    return (
+                        <BehaviorCard
+                            key={originalIndex}
+                            behavior={b}
+                            onChange={updated => handleUpdate(originalIndex, updated)}
+                            onRemove={() => handleRemove(originalIndex)}
+                            readOnly={readOnly}
+                        />
+                    );
+                })}
             </div>
         </div >
     );
@@ -109,6 +153,17 @@ export function BehaviorEditor({ behaviors = [], onChange, readOnly = false, spr
 
 function BehaviorCard({ behavior, onChange, onRemove, readOnly }) {
     const [expanded, setExpanded] = useState(true);
+    const [soundOptions, setSoundOptions] = useState([]);
+
+    // Fetch sound files for dropdown
+    useEffect(() => {
+        if (behavior.type === 'sound') {
+            fetch('http://localhost:8000/api/sounds')
+                .then(res => res.json())
+                .then(data => setSoundOptions(data.sounds || []))
+                .catch(() => setSoundOptions([]));
+        }
+    }, [behavior.type]);
 
     const updateParam = (key, value) => {
         const newParams = { ...behavior };
@@ -128,6 +183,7 @@ function BehaviorCard({ behavior, onChange, onRemove, readOnly }) {
         [BehaviorTypes.PULSE]: '#f59e0b',
         [BehaviorTypes.BACKGROUND]: '#8b5cf6',
         [BehaviorTypes.LOCATION]: '#ec4899',
+        [BehaviorTypes.SOUND]: '#eab308'
     }[behavior.type] || '#888';
 
     return (
@@ -154,7 +210,7 @@ function BehaviorCard({ behavior, onChange, onRemove, readOnly }) {
                 <div style={{ padding: '12px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
 
                     {/* Common Fields */}
-                    {behavior.type !== BehaviorTypes.LOCATION && (
+                    {behavior.type !== BehaviorTypes.LOCATION && behavior.type !== BehaviorTypes.SOUND && (
                         <Field label="Coordinate" value={behavior.coordinate} options={CoordinateTypes} onChange={v => updateParam('coordinate', v)} readOnly={readOnly} />
                     )}
 
@@ -198,6 +254,42 @@ function BehaviorCard({ behavior, onChange, onRemove, readOnly }) {
                         <>
                             <Field label="X Offset" value={behavior.x} type="number" onChange={v => updateParam('x', v)} readOnly={readOnly} />
                             <Field label="Y Offset" value={behavior.y} type="number" onChange={v => updateParam('y', v)} readOnly={readOnly} />
+                        </>
+                    )}
+
+                    {/* Sound Fields */}
+                    {behavior.type === BehaviorTypes.SOUND && (
+                        <>
+                            <div style={{ gridColumn: 'span 2' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                    <label style={{ fontSize: '0.75rem', opacity: 0.7 }}>Sound File</label>
+                                    <select
+                                        className="input"
+                                        value={behavior.sound_file || ''}
+                                        onChange={e => updateParam('sound_file', e.target.value)}
+                                        disabled={readOnly}
+                                        style={{ padding: '4px 8px', fontSize: '0.8rem' }}
+                                    >
+                                        <option value="">Select a sound...</option>
+                                        {soundOptions.map(s => (
+                                            <option key={s.filename} value={s.filename}>{s.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+                            <Field label="Volume" value={behavior.volume} type="number" step="0.1" onChange={v => updateParam('volume', v)} readOnly={readOnly} />
+                            <Field label="Time Offset (s)" value={behavior.time_offset} type="number" step="0.1" onChange={v => updateParam('time_offset', v)} readOnly={readOnly} />
+                            <Field label="Fade In (s)" value={behavior.fade_in} type="number" step="0.1" onChange={v => updateParam('fade_in', v)} readOnly={readOnly} />
+                            <Field label="Fade Out (s)" value={behavior.fade_out} type="number" step="0.1" onChange={v => updateParam('fade_out', v)} readOnly={readOnly} />
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <input
+                                    type="checkbox"
+                                    checked={behavior.loop || false}
+                                    onChange={e => updateParam('loop', e.target.checked)}
+                                    disabled={readOnly}
+                                />
+                                <label style={{ fontSize: '0.8rem' }}>Loop</label>
+                            </div>
                         </>
                     )}
                 </div>
@@ -246,6 +338,8 @@ function createDefaultBehavior(type) {
         return { type, enabled: true, scroll_speed: 0.0, coordinate: "y" };
     } else if (type === BehaviorTypes.LOCATION) {
         return { type, enabled: true, x: 0, y: 0 };
+    } else if (type === BehaviorTypes.SOUND) {
+        return { type, enabled: true, sound_file: "splash.mp3", volume: 1.0, time_offset: 0 };
     }
     return { type, enabled: true };
 }

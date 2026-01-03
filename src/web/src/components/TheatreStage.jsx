@@ -11,7 +11,9 @@ export function TheatreStage({
     layerVisibility = {},
     onSpriteSelected,
     onSpritePositionChanged,
-    selectedSprite
+    selectedSprite,
+    currentTime,
+    onTimeUpdate
 }) {
     const canvasRef = useRef(null);
     const theatreRef = useRef(null);
@@ -36,6 +38,13 @@ export function TheatreStage({
         }
     }, [selectedSprite]);
 
+    // Sync time (seek)
+    useEffect(() => {
+        if (theatreRef.current && currentTime !== undefined && Math.abs(theatreRef.current.elapsedTime - currentTime) > 0.1) {
+            theatreRef.current.setTime(currentTime);
+        }
+    }, [currentTime]);
+
     useEffect(() => {
         if (!canvasRef.current || !scene) return;
 
@@ -50,7 +59,9 @@ export function TheatreStage({
 
         // Wire up interaction callbacks
         theatre.onSpriteSelected = onSpriteSelected;
+        theatre.onSpriteSelected = onSpriteSelected;
         theatre.onSpritePositionChanged = onSpritePositionChanged;
+        theatre.onTimeUpdate = onTimeUpdate;
 
         theatreRef.current = theatre;
 

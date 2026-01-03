@@ -147,6 +147,27 @@ class LocationRuntime(BehaviorRuntime):
         transform["x"] += self.config.x
         transform["y"] += self.config.y
 
+        if self.config.scale is not None:
+            transform["scale"] *= self.config.scale
+
+        if self.config.vertical_percent is not None:
+            screen_h = transform.get("_screen_h")
+            if screen_h is not None:
+                # Recalculate base_y based on new vertical_percent
+                # Mimic logic from ParallaxLayer._get_base_y
+                pos_h = layer.original_image_size[1]
+                base = screen_h * self.config.vertical_percent
+
+                new_base_y = 0.0
+                if layer.vertical_anchor == "bottom":
+                    new_base_y = base - pos_h
+                elif layer.vertical_anchor == "top":
+                    new_base_y = base
+                else:
+                    new_base_y = base - (pos_h / 2)
+
+                transform["base_y"] = new_base_y + layer.y_offset
+
 
 class BackgroundRuntime(BehaviorRuntime):
     def apply(self, layer, dt, transform):
@@ -344,6 +365,7 @@ class ParallaxLayer:
             "scale": 1.0,
             "rotation": 0.0,
             "opacity": 1.0,
+            "_screen_h": screen_h,  # Internal context for behaviors
         }
 
         # Apply Behaviors
@@ -700,7 +722,20 @@ class ParallaxLayer:
 
     def _draw_background(self, screen):
         if self.image:
-            screen.blit(self.image, (0, 0))
+            screen_w, screen_h = screen.get_size()
+            img_w = self.image.get_width()
+
+            # Tile horizontally with 1px overlap to prevent gaps
+            if img_w > 0:
+                # Calculate number of tiles needed, ensure coverage
+                import math
+
+                num_tiles = math.ceil(screen_w / img_w) + 1
+
+                for i in range(num_tiles):
+                    # Overlap by 1 pixel
+                    x = i * (img_w - 1)
+                    screen.blit(self.image, (x, 0))
 
 
 class Theatre:
