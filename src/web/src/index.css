@@ -4,20 +4,175 @@
   font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-
-  --color-bg-base: #0f172a;
-  --color-bg-surface: #1e293b;
-  --color-bg-surface-glass: rgba(30, 41, 59, 0.7);
-  
-  --color-primary: #8b5cf6; /* Violet */
-  --color-primary-glow: rgba(139, 92, 246, 0.5);
-  
-  --color-text-main: #f8fafc;
-  --color-text-muted: #94a3b8;
-  
-  --color-border: #334155;
-  
   color-scheme: dark;
+  --color-text-on-primary-base: #ffffff;
+  --contrast-factor: 0.60;
+  --contrast-intensity: calc((1 - var(--contrast-factor)) / 0.40);
+  /* 0.60 maps to Intensity 1.0 (Natural), 1.0 maps to Intensity 0.0 (Full) */
+}
+
+/* Font Size Scaling */
+:root[data-font-size="small"] {
+  font-size: 87.5%;
+}
+
+/* 14px base */
+:root[data-font-size="medium"] {
+  font-size: 100%;
+}
+
+/* 16px base */
+:root[data-font-size="large"] {
+  font-size: 112.5%;
+}
+
+/* 18px base */
+:root[data-font-size="xl"] {
+  font-size: 125%;
+}
+
+/* 20px base */
+
+/* Purple Theme (Default) - Deep violet accent */
+:root,
+[data-theme="purple"] {
+  --color-bg-elevated-raw: #334155;
+  --theme-softening-limit: 0.10;
+  /* Purple now responds to contrast */
+  --softening: calc(var(--theme-softening-limit) * var(--contrast-intensity));
+
+  --color-bg-base: color-mix(in srgb, var(--color-bg-base-raw), white calc(var(--softening) * 100%));
+  --color-bg-surface: color-mix(in srgb, var(--color-bg-surface-raw), white calc(var(--softening) * 100%));
+  --color-bg-surface-glass: color-mix(in srgb, rgba(30, 41, 59, 0.7), white calc(var(--softening) * 100%));
+  --color-bg-elevated: color-mix(in srgb, var(--color-bg-elevated-raw), white calc(var(--softening) * 100%));
+
+  --color-primary: #8b5cf6;
+  --color-primary-glow: rgba(139, 92, 246, 0.5);
+
+  --color-text-main-base: #f8fafc;
+  --color-text-muted-base: #94a3b8;
+  --color-text-subtle-base: #64748b;
+
+  --color-text-main: color-mix(in srgb, var(--color-text-main-base), transparent calc(var(--softening) * 100%));
+  --color-text-muted: color-mix(in srgb, var(--color-text-muted-base), transparent calc(var(--softening) * 100%));
+  --color-text-subtle: color-mix(in srgb, var(--color-text-subtle-base), transparent calc(var(--softening) * 100%));
+
+  --color-border: #334155;
+  --color-border-muted: #1e293b;
+
+  --color-danger: #ef4444;
+  --color-danger-muted: rgba(239, 68, 68, 0.15);
+
+  color: var(--color-text-main);
+  background-color: var(--color-bg-base);
+}
+
+/* Dark Theme - True dark with minimal accent */
+[data-theme="dark"] {
+  --color-bg-base-raw: #000000;
+  --color-bg-surface-raw: #0a0a0a;
+  --color-bg-elevated-raw: #161616;
+  --theme-softening-limit: 0.10;
+  /* Dark natural at 90% */
+  --softening: calc(var(--theme-softening-limit) * var(--contrast-intensity));
+
+  --color-bg-base: color-mix(in srgb, var(--color-bg-base-raw), white calc(var(--softening) * 100%));
+  --color-bg-surface: color-mix(in srgb, var(--color-bg-surface-raw), white calc(var(--softening) * 100%));
+  --color-bg-surface-glass: color-mix(in srgb, rgba(10, 10, 10, 0.85), white calc(var(--softening) * 100%));
+  --color-bg-elevated: color-mix(in srgb, var(--color-bg-elevated-raw), white calc(var(--softening) * 100%));
+
+  --color-primary: #666666;
+  --color-primary-glow: rgba(100, 100, 100, 0.3);
+
+  --color-text-main-base: #e5e5e5;
+  --color-text-muted-base: #737373;
+  --color-text-subtle-base: #525252;
+
+  --color-text-main: color-mix(in srgb, var(--color-text-main-base), transparent calc(var(--softening) * 100%));
+  --color-text-muted: color-mix(in srgb, var(--color-text-muted-base), transparent calc(var(--softening) * 100%));
+  --color-text-subtle: color-mix(in srgb, var(--color-text-subtle-base), transparent calc(var(--softening) * 100%));
+
+  --color-border: #262626;
+  --color-border-muted: #171717;
+
+  --color-danger: #dc2626;
+  --color-danger-muted: rgba(220, 38, 38, 0.15);
+
+  color: var(--color-text-main);
+  background-color: var(--color-bg-base);
+}
+
+/* Light Theme */
+[data-theme="light"] {
+  --color-bg-base-raw: #f1f5f9;
+  /* Slate 100 - Provides structure without washing out dark text */
+  --color-bg-surface-raw: #ffffff;
+  --color-bg-elevated-raw: #f1f5f9;
+  --theme-softening-limit: 0.10;
+  /* Tightened limit to ensure WCAG compliance */
+  --softening: calc(var(--theme-softening-limit) * var(--contrast-intensity));
+
+  --color-bg-base: color-mix(in srgb, var(--color-bg-base-raw), black calc(var(--softening) * 100%));
+  --color-bg-surface: color-mix(in srgb, var(--color-bg-surface-raw), black calc(var(--softening) * 100%));
+  --color-bg-surface-glass: color-mix(in srgb, rgba(255, 255, 255, 0.9), black calc(var(--softening) * 100%));
+  --color-bg-elevated: color-mix(in srgb, var(--color-bg-elevated-raw), black calc(var(--softening) * 100%));
+
+  --color-primary: #2563eb;
+  --color-primary-glow: rgba(37, 99, 235, 0.3);
+
+  --color-text-main-base: #0f172a;
+  --color-text-muted-base: #475569;
+  --color-text-subtle-base: #64748b;
+
+  --color-text-main: color-mix(in srgb, var(--color-text-main-base), transparent calc(var(--softening) * 100%));
+  --color-text-muted: color-mix(in srgb, var(--color-text-muted-base), transparent calc(var(--softening) * 100%));
+  --color-text-subtle: color-mix(in srgb, var(--color-text-subtle-base), transparent calc(var(--softening) * 100%));
+
+  --color-border: #cbd5e1;
+  --color-border-muted: #e2e8f0;
+
+  --color-danger: #dc2626;
+  --color-danger-muted: rgba(220, 38, 38, 0.1);
+
+  color-scheme: light;
+  color: var(--color-text-main);
+  background-color: var(--color-bg-base);
+}
+
+/* Stark Theme (formerly High Contrast) */
+[data-theme="stark"] {
+  --color-bg-base-raw: #000000;
+  --color-bg-surface-raw: #000000;
+  --color-bg-elevated-raw: #1a1a1a;
+  --theme-softening-limit: 0.10;
+  /* Normalized to 0.10 for full WCAG compliance */
+  --softening: calc(var(--theme-softening-limit) * var(--contrast-intensity));
+
+  --color-bg-base: color-mix(in srgb, var(--color-bg-base-raw), white calc(var(--softening) * 100%));
+  --color-bg-surface: color-mix(in srgb, var(--color-bg-surface-raw), white calc(var(--softening) * 100%));
+  --color-bg-surface-glass: color-mix(in srgb, rgba(0, 0, 0, 0.95), white calc(var(--softening) * 100%));
+  --color-bg-elevated: color-mix(in srgb, var(--color-bg-elevated-raw), white calc(var(--softening) * 100%));
+
+  --color-primary: #ffcc00;
+  --color-primary-glow: rgba(255, 204, 0, 0.4);
+
+  --color-text-main-base: #ffffff;
+  --color-text-muted-base: #e5e5e5;
+  --color-text-subtle-base: #cccccc;
+  --color-text-on-primary-base: #000000;
+  --color-text-on-primary: var(--color-text-on-primary-base);
+  /* Don't dim black text on yellow */
+
+  --color-text-main: color-mix(in srgb, var(--color-text-main-base), transparent calc(var(--softening) * 100%));
+  --color-text-muted: color-mix(in srgb, var(--color-text-muted-base), transparent calc(var(--softening) * 100%));
+  --color-text-subtle: color-mix(in srgb, var(--color-text-subtle-base), transparent calc(var(--softening) * 100%));
+
+  --color-border: #ffffff;
+  --color-border-muted: #666666;
+
+  --color-danger: #ff4444;
+  --color-danger-muted: rgba(255, 68, 68, 0.2);
+
   color: var(--color-text-main);
   background-color: var(--color-bg-base);
 }
@@ -28,7 +183,7 @@ body {
   place-items: center;
   min-width: 320px;
   min-height: 100vh;
-  background: radial-gradient(circle at 50% 0%, #1e1b4b 0%, var(--color-bg-base) 100%);
+  background: radial-gradient(circle at 50% 0%, var(--color-bg-elevated) 0%, var(--color-bg-base) 100%);
 }
 
 #root {
@@ -36,6 +191,17 @@ body {
   height: 100vh;
   display: flex;
   flex-direction: column;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  color: var(--color-text-main);
+  /* Match main text contrast but keep weight */
+  font-weight: 700;
 }
 
 /* Utilities */
@@ -49,48 +215,60 @@ body {
 
 .btn {
   border-radius: 8px;
-  border: 1px solid transparent;
+  border: 1px solid var(--color-border);
   padding: 0.6em 1.2em;
   font-size: 1em;
   font-weight: 500;
   font-family: inherit;
   background-color: var(--color-bg-surface);
   cursor: pointer;
-  transition: all 0.25s;
+  transition: all 0.2s;
   color: var(--color-text-main);
-  border: 1px solid var(--color-border);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .btn:hover {
   border-color: var(--color-primary);
-  box-shadow: 0 0 15px var(--color-primary-glow);
+  background-color: var(--color-bg-elevated);
 }
 
 .btn-primary {
   background-color: var(--color-primary);
-  color: white;
-  border-color: var(--color-primary);
+  color: var(--color-text-on-primary);
+  border: 1px solid var(--color-primary);
 }
 
 .btn-primary:hover {
-  background-color: #7c3aed;
+  filter: brightness(1.1);
+}
+
+.btn-secondary {
+  background-color: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
 }
 
 .input {
-  background: rgba(15, 23, 42, 0.5);
+  background: var(--color-bg-elevated);
   border: 1px solid var(--color-border);
   border-radius: 6px;
   padding: 8px 12px;
-  color: white;
+  color: var(--color-text-main);
   font-family: inherit;
   width: 100%;
   box-sizing: border-box;
+  transition: border-color 0.2s;
 }
 
 .input:focus {
   outline: none;
   border-color: var(--color-primary);
   box-shadow: 0 0 0 2px var(--color-primary-glow);
+}
+
+.selected-ring {
+  box-shadow: 0 0 0 2px var(--color-primary-glow), 0 0 0 4px var(--color-primary);
 }
 
 /* Layout */
@@ -107,7 +285,8 @@ body {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  overflow: hidden; /* Ensure inner scroll works */
+  overflow: hidden;
+  /* Ensure inner scroll works */
 }
 
 .main-content {
@@ -123,13 +302,25 @@ body {
   padding: 24px;
 }
 
-h1, h2, h3 {
+h1,
+h2,
+h3 {
   margin-top: 0;
   font-weight: 600;
 }
 
-h1 { font-size: 2rem; background: linear-gradient(to right, #fff, #94a3b8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-h2 { font-size: 1.5rem; color: var(--color-primary); }
+h1 {
+  font-size: 2rem;
+  background: linear-gradient(to right, var(--color-text-main-base), var(--color-text-subtle-base));
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+h2 {
+  font-size: 1.5rem;
+}
 
 .preview-grid {
   display: grid;
@@ -139,8 +330,13 @@ h2 { font-size: 1.5rem; color: var(--color-primary); }
 }
 
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .animate-spin {

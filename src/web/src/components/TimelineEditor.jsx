@@ -74,8 +74,8 @@ export function TimelineEditor({
 
     return (
         <div style={{
-            background: '#1e1e1e',
-            borderTop: '1px solid #333',
+            background: 'var(--color-bg-surface)',
+            borderTop: '1px solid var(--color-border)',
             height: '200px',
             display: 'flex',
             flexDirection: 'column',
@@ -84,16 +84,20 @@ export function TimelineEditor({
             {/* Toolbar */}
             <div style={{
                 height: '32px',
-                borderBottom: '1px solid #333',
+                borderBottom: '1px solid var(--color-border)',
                 display: 'flex',
                 alignItems: 'center',
                 padding: '0 12px',
                 gap: '8px',
-                background: '#252525'
+                background: 'var(--color-bg-elevated)'
             }}>
-                <button className="btn-icon" onClick={onPlayPause}>
-                    <Icon name={isPlaying ? "delete" : "generate"} size={14} />
-                    {isPlaying ? "Pause" : "Play"}
+                <button
+                    className="btn-icon"
+                    onClick={onPlayPause}
+                    style={{ padding: '4px', display: 'flex' }}
+                    aria-label={isPlaying ? "Pause" : "Play"}
+                >
+                    <Icon name={isPlaying ? "pause" : "play"} size={14} />
                 </button>
                 <span style={{ fontSize: '0.8rem', fontFamily: 'monospace', minWidth: '60px' }}>
                     {currentTime.toFixed(2)}s / {duration}s
@@ -114,13 +118,13 @@ export function TimelineEditor({
                 {/* Labels Column */}
                 <div style={{
                     width: '100px',
-                    borderRight: '1px solid #333',
-                    background: '#222',
+                    borderRight: '1px solid var(--color-border)',
+                    background: 'var(--color-bg-surface)',
                     display: 'flex',
                     flexDirection: 'column',
                     overflowY: 'hidden' // Sync scroll later?
                 }}>
-                    <div style={{ height: '24px', borderBottom: '1px solid #444' }}></div> {/* Ruler header spacer */}
+                    <div style={{ height: '24px', borderBottom: '1px solid var(--color-border)' }}></div> {/* Ruler header spacer */}
                     {layers.map((l) => (
                         <div key={l.sprite_name} style={{
                             height: '28px',
@@ -128,9 +132,9 @@ export function TimelineEditor({
                             alignItems: 'center',
                             padding: '0 8px',
                             fontSize: '0.75rem',
-                            background: selectedLayer === l.sprite_name ? 'rgba(139, 92, 246, 0.2)' : 'transparent',
-                            borderBottom: '1px solid #333',
-                            color: '#ccc',
+                            background: selectedLayer === l.sprite_name ? 'var(--color-primary-glow)' : 'transparent',
+                            borderBottom: '1px solid var(--color-border)',
+                            color: 'var(--color-text-muted)',
                             whiteSpace: 'nowrap',
                             overflow: 'hidden',
                             textOverflow: 'ellipsis'
@@ -159,7 +163,7 @@ export function TimelineEditor({
                             top: 0,
                             bottom: 0,
                             width: '2px',
-                            background: '#ef4444',
+                            background: 'var(--color-danger)',
                             zIndex: 10,
                             pointerEvents: 'none'
                         }}>
@@ -169,19 +173,19 @@ export function TimelineEditor({
                                 left: '-4px',
                                 width: '10px',
                                 height: '10px',
-                                background: '#ef4444',
+                                background: 'var(--color-danger)',
                                 transform: 'rotate(45deg)'
                             }}></div>
                         </div>
 
                         {/* Ruler */}
                         <div
-                            style={{ height: '24px', borderBottom: '1px solid #444', position: 'sticky', top: 0, background: '#1e1e1e', zIndex: 5 }}
+                            style={{ height: '24px', borderBottom: '1px solid var(--color-border)', position: 'sticky', top: 0, background: 'var(--color-bg-surface)', zIndex: 5 }}
                             onMouseDown={handleMouseDown}
                         >
                             {Array.from({ length: Math.ceil(duration) + 1 }).map((_, sec) => (
-                                <div key={sec} style={{ position: 'absolute', left: sec * zoom, top: 12, fontSize: '0.6rem', color: '#666' }}>
-                                    <div style={{ position: 'absolute', top: -12, left: 0, height: '6px', borderLeft: '1px solid #666' }}></div>
+                                <div key={sec} style={{ position: 'absolute', left: sec * zoom, top: 12, fontSize: '0.6rem', color: 'var(--color-text-subtle)' }}>
+                                    <div style={{ position: 'absolute', top: -12, left: 0, height: '6px', borderLeft: '1px solid var(--color-text-subtle)' }}></div>
                                     {sec}s
                                 </div>
                             ))}
@@ -191,9 +195,9 @@ export function TimelineEditor({
                         {layers.map((l) => (
                             <div key={l.sprite_name} style={{
                                 height: '28px',
-                                borderBottom: '1px solid #333',
+                                borderBottom: '1px solid var(--color-border)',
                                 position: 'relative',
-                                background: selectedLayer === l.sprite_name ? 'rgba(139, 92, 246, 0.05)' : 'transparent'
+                                background: selectedLayer === l.sprite_name ? 'var(--color-primary-glow)' : 'transparent'
                             }}>
                                 {/* Render keyframes if any */}
                                 {(l.behaviors || []).filter(b => b.type === 'location' && b.time_offset !== undefined).map((b, idx) => {
@@ -207,14 +211,14 @@ export function TimelineEditor({
                                                 top: '8px',
                                                 width: '12px',
                                                 height: '12px',
-                                                background: '#ec4899',
+                                                background: 'var(--color-primary)',
                                                 borderRadius: '50%',
                                                 zIndex: 2,
                                                 transform: 'translateX(-50%)',
-                                                border: '2px solid #fff',
+                                                border: '2px solid var(--color-text-on-primary)',
                                                 cursor: 'grab',
                                                 boxShadow: draggingKeyframe?.layerName === l.sprite_name && draggingKeyframe?.behaviorIndex === behaviorIndex
-                                                    ? '0 0 8px rgba(236, 72, 153, 0.8)'
+                                                    ? '0 0 10px var(--color-primary-glow)'
                                                     : 'none'
                                             }}
                                             title={`Keyframe at ${b.time_offset.toFixed(2)}s (drag to move)`}

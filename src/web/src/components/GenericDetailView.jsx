@@ -10,7 +10,7 @@ import { TimelineEditor } from './TimelineEditor';
 
 const API_BASE = "http://localhost:8000/api";
 
-export function GenericDetailView({ type, asset, refresh, isExpanded, toggleExpand, onOpenSprite }) {
+export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, toggleExpand, onOpenSprite }) {
     const {
         logs,
         isOptimizing,
@@ -45,7 +45,7 @@ export function GenericDetailView({ type, asset, refresh, isExpanded, toggleExpa
         handleSpriteSelected,
         handleSpritePositionChanged,
         handleKeyframeMove
-    } = useAssetController(type, asset, refresh);
+    } = useAssetController(type, asset, refresh, onDelete);
 
     // ... (keep existing useState/useEffect) ...
     const [currentTime, setCurrentTime] = useState(0);
@@ -143,7 +143,7 @@ export function GenericDetailView({ type, asset, refresh, isExpanded, toggleExpa
                             <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 10, background: 'black', display: 'flex', flexDirection: 'column' }}>
                                 <div style={{ flex: 1, position: 'relative' }}>
                                     <TheatreStage
-                                        scene={asset.config}
+                                        scene={asset.config || { layers: [] }}
                                         sceneName={asset.name}
                                         style={{ width: '100%', height: '100%' }}
                                         onTelemetry={handleTelemetry}
@@ -171,9 +171,9 @@ export function GenericDetailView({ type, asset, refresh, isExpanded, toggleExpa
                                     </button>
                                 </div>
                                 <TimelineEditor
-                                    duration={asset.config.duration_sec || 30}
+                                    duration={asset.config?.duration_sec || 30}
                                     currentTime={currentTime}
-                                    layers={asset.config.layers}
+                                    layers={asset.config?.layers || []}
                                     selectedLayer={selectedImage}
                                     onTimeChange={setCurrentTime}
                                     onKeyframeMove={handleKeyframeMove}
@@ -194,12 +194,12 @@ export function GenericDetailView({ type, asset, refresh, isExpanded, toggleExpa
                 configContent={
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', height: '100%' }}>
                         {/* Tab Switcher for Right Pane */}
-                        <div style={{ display: 'flex', borderBottom: '1px solid #333', marginBottom: '8px' }}>
+                        <div style={{ display: 'flex', borderBottom: '1px solid var(--color-border)', marginBottom: '8px' }}>
                             <button
                                 className={`btn ${activeConfigTab === 'behaviors' ? 'active-tab' : ''}`}
                                 style={{
-                                    borderBottom: activeConfigTab === 'behaviors' ? '2px solid var(--primary)' : 'none',
-                                    borderRadius: 0, padding: '8px 16px', color: activeConfigTab === 'behaviors' ? 'white' : '#888'
+                                    borderBottom: activeConfigTab === 'behaviors' ? '2px solid var(--color-primary)' : 'none',
+                                    borderRadius: 0, padding: '8px 16px', color: activeConfigTab === 'behaviors' ? 'var(--color-text-main)' : 'var(--color-text-muted)'
                                 }}
                                 onClick={() => setActiveConfigTab('behaviors')}
                             >
@@ -208,8 +208,8 @@ export function GenericDetailView({ type, asset, refresh, isExpanded, toggleExpa
                             <button
                                 className={`btn ${activeConfigTab === 'json' ? 'active-tab' : ''}`}
                                 style={{
-                                    borderBottom: activeConfigTab === 'json' ? '2px solid var(--primary)' : 'none',
-                                    borderRadius: 0, padding: '8px 16px', color: activeConfigTab === 'json' ? 'white' : '#888'
+                                    borderBottom: activeConfigTab === 'json' ? '2px solid var(--color-primary)' : 'none',
+                                    borderRadius: 0, padding: '8px 16px', color: activeConfigTab === 'json' ? 'var(--color-text-main)' : 'var(--color-text-muted)'
                                 }}
                                 onClick={() => setActiveConfigTab('json')}
                             >
@@ -219,8 +219,8 @@ export function GenericDetailView({ type, asset, refresh, isExpanded, toggleExpa
                                 <button
                                     className={`btn ${activeConfigTab === 'debug' ? 'active-tab' : ''}`}
                                     style={{
-                                        borderBottom: activeConfigTab === 'debug' ? '2px solid var(--primary)' : 'none',
-                                        borderRadius: 0, padding: '8px 16px', color: activeConfigTab === 'debug' ? 'white' : '#888'
+                                        borderBottom: activeConfigTab === 'debug' ? '2px solid var(--color-primary)' : 'none',
+                                        borderRadius: 0, padding: '8px 16px', color: activeConfigTab === 'debug' ? 'var(--color-text-main)' : 'var(--color-text-muted)'
                                     }}
                                     onClick={() => setActiveConfigTab('debug')}
                                 >
@@ -267,14 +267,14 @@ export function GenericDetailView({ type, asset, refresh, isExpanded, toggleExpa
                                     </div>
                                 </div>
 
-                                <div style={{ background: 'rgba(255,0,255,0.1)', padding: '10px', borderRadius: '4px', border: '1px solid rgba(255,0,255,0.3)' }}>
-                                    <h4 style={{ margin: '0 0 8px 0', fontSize: '0.9rem', color: '#ff00ff' }}>Live Telemetry</h4>
+                                <div style={{ background: 'var(--color-bg-elevated)', padding: '10px', borderRadius: '4px', border: '1px solid var(--color-border)' }}>
+                                    <h4 style={{ margin: '0 0 8px 0', fontSize: '0.9rem', color: 'var(--color-primary)' }}>Live Telemetry</h4>
                                     {!telemetry ? (
                                         <div style={{ opacity: 0.5, fontSize: '0.8rem' }}>Play the scene to see live data.</div>
                                     ) : (
                                         <table style={{ width: '100%', fontSize: '0.75rem', borderCollapse: 'collapse' }}>
                                             <thead>
-                                                <tr style={{ textAlign: 'left', opacity: 0.6, borderBottom: '1px solid #333' }}>
+                                                <tr style={{ textAlign: 'left', opacity: 0.6, borderBottom: '1px solid var(--color-border)' }}>
                                                     <th style={{ paddingBottom: '4px', width: '24px' }}></th>
                                                     <th style={{ paddingBottom: '4px' }}>Layer</th>
                                                     <th style={{ paddingBottom: '4px' }}>X</th>
@@ -284,7 +284,7 @@ export function GenericDetailView({ type, asset, refresh, isExpanded, toggleExpa
                                             </thead>
                                             <tbody>
                                                 {telemetry.map(t => (
-                                                    <tr key={t.name} style={{ borderBottom: '1px solid #222' }}>
+                                                    <tr key={t.name} style={{ borderBottom: '1px solid var(--color-border-muted)' }}>
                                                         <td style={{ padding: '4px 0' }}>
                                                             <input
                                                                 type="checkbox"
@@ -349,7 +349,7 @@ export function GenericDetailView({ type, asset, refresh, isExpanded, toggleExpa
 }
 
 // Hook to encapsulate logic
-function useAssetController(type, asset, refresh) {
+function useAssetController(type, asset, refresh, onDelete) {
     const [logs, setLogs] = useState('');
     const [isOptimizing, setIsOptimizing] = useState(false);
     const [selectedImage, setSelectedImage] = useState(type === 'sprite' ? 'current' : 'original');
@@ -362,7 +362,9 @@ function useAssetController(type, asset, refresh) {
         if (type === 'sprite') {
             setSelectedImage('current');
         } else {
-            setSelectedImage('original');
+            // Default to first sprite if available, otherwise original
+            const hasSprites = asset.used_sprites && asset.used_sprites.length > 0;
+            setSelectedImage(hasSprites ? asset.used_sprites[0] : 'original');
         }
 
         // Load persisted prompt
@@ -435,8 +437,9 @@ function useAssetController(type, asset, refresh) {
                     return;
                 }
 
+                if (!asset.config) return;
                 const updatedConfig = JSON.parse(JSON.stringify(asset.config)); // Deep clone
-                const layer = updatedConfig.layers.find(l => l.sprite_name === selectedImage);
+                const layer = updatedConfig.layers?.find(l => l.sprite_name === selectedImage);
                 if (layer) {
                     layer.behaviors = newBehaviors;
                     const res = await fetch(`${API_BASE}/scenes/${asset.name}/config`, {
@@ -547,8 +550,11 @@ function useAssetController(type, asset, refresh) {
                 toast.success(`${type} processed: ${mode}`);
             }
 
-            refresh();
-            refresh();
+            if (onDelete) {
+                onDelete();
+            } else {
+                refresh();
+            }
         } catch (e) {
             toast.error(`Action failed: ${e.message}`);
         }
@@ -557,8 +563,9 @@ function useAssetController(type, asset, refresh) {
     const handleRemoveLayer = async (spriteName) => {
         if (!confirm(`Are you sure you want to remove sprite '${spriteName}' from this scene?`)) return;
 
+        if (!asset.config) return;
         const updatedConfig = JSON.parse(JSON.stringify(asset.config));
-        updatedConfig.layers = updatedConfig.layers.filter(l => l.sprite_name !== spriteName);
+        updatedConfig.layers = (updatedConfig.layers || []).filter(l => l.sprite_name !== spriteName);
 
         try {
             const res = await fetch(`${API_BASE}/scenes/${asset.name}/config`, {
@@ -588,8 +595,9 @@ function useAssetController(type, asset, refresh) {
         if (type !== 'scene') return;
 
         try {
+            if (!asset.config) return;
             const updatedConfig = JSON.parse(JSON.stringify(asset.config));
-            const layer = updatedConfig.layers.find(l => l.sprite_name === spriteName);
+            const layer = (updatedConfig.layers || []).find(l => l.sprite_name === spriteName);
 
             if (!layer) {
                 toast.error(`Layer ${spriteName} not found`);
@@ -651,8 +659,9 @@ function useAssetController(type, asset, refresh) {
         if (type !== 'scene' || !commit) return; // Only commit=true saves
 
         try {
+            if (!asset.config) return;
             const updatedConfig = JSON.parse(JSON.stringify(asset.config));
-            const layer = updatedConfig.layers.find(l => l.sprite_name === layerName);
+            const layer = (updatedConfig.layers || []).find(l => l.sprite_name === layerName);
 
             if (!layer || !layer.behaviors || !layer.behaviors[behaviorIndex]) {
                 toast.error(`Keyframe not found`);

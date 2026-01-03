@@ -344,15 +344,24 @@ describe('App Component', () => {
         });
     });
 
-    it('can logout', async () => {
+    it('can logout via settings menu', async () => {
         loginAsGuest();
         await act(async () => {
             render(<App />);
         });
 
-        const logoutButton = screen.getByTitle('Logout');
-        fireEvent.click(logoutButton);
+        // Wait for app to load
+        await waitFor(() => screen.getByText('Papeterie'));
 
+        // Click settings button to open menu
+        const settingsButton = screen.getByRole('button', { name: /settings/i });
+        fireEvent.click(settingsButton);
+
+        // Click sign out in the menu
+        const signOutButton = await screen.findByText(/sign out/i);
+        fireEvent.click(signOutButton);
+
+        // Should show login view
         expect(screen.getByText('Cloud Theater')).toBeInTheDocument();
         expect(localStorage.getItem('papeterie-user')).toBe(null);
     });

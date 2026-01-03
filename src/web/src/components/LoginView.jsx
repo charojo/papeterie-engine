@@ -51,7 +51,7 @@ export function LoginView({ onLogin }) {
             alignItems: 'center',
             justifyContent: 'center',
             height: '100vh',
-            background: 'radial-gradient(circle at center, #1a1a2e 0%, #0f0f1a 100%)',
+            background: 'var(--color-bg-base)',
             padding: '24px',
             overflow: 'hidden'
         }}>
@@ -92,8 +92,8 @@ export function LoginView({ onLogin }) {
                         <Icon name="scenes" size={42} color="var(--color-text-muted)" />
                     </div>
                     <div>
-                        <h2 style={{ fontSize: '28px', fontWeight: '800', margin: '0 0 12px', color: 'var(--color-text-main)' }}>Local Theater</h2>
-                        <p style={{ opacity: 0.6, fontSize: '15px', lineHeight: '1.6', maxWidth: '300px' }}>
+                        <h2 style={{ fontSize: '1.75rem', fontWeight: '800', margin: '0 0 12px', color: 'var(--color-text-main)' }}>Local Theater</h2>
+                        <p style={{ opacity: 0.6, fontSize: '0.95rem', lineHeight: '1.6', maxWidth: '300px' }}>
                             Work offline. Your assets stay safely stored on your machine in the local workspace.
                         </p>
                     </div>
@@ -103,7 +103,7 @@ export function LoginView({ onLogin }) {
                         style={{
                             height: '56px',
                             minWidth: '220px',
-                            fontSize: '16px',
+                            fontSize: '1rem',
                             fontWeight: '600',
                             marginTop: '12px',
                             background: 'rgba(255,255,255,0.05)',
@@ -125,10 +125,10 @@ export function LoginView({ onLogin }) {
                     gap: '24px'
                 }}>
                     <div>
-                        <h2 style={{ fontSize: '28px', fontWeight: '800', margin: '0 0 12px' }}>
+                        <h2 style={{ fontSize: '1.75rem', fontWeight: '800', margin: '0 0 12px' }}>
                             {isRegistering ? 'New Playwright' : 'Cloud Theater'}
                         </h2>
-                        <p style={{ opacity: 0.6, fontSize: '15px' }}>
+                        <p style={{ opacity: 0.6, fontSize: '0.95rem' }}>
                             {isRegistering ? 'Create an account to sync your work.' : 'Sign in to access your remote assets and collaborate.'}
                         </p>
                     </div>
@@ -136,7 +136,7 @@ export function LoginView({ onLogin }) {
                     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                         {isRegistering && (
                             <div style={{ animation: 'slideDown 0.3s ease-out' }}>
-                                <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', letterSpacing: '0.05em', opacity: 0.5, marginBottom: '8px' }}>USERNAME</label>
+                                <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: '700', letterSpacing: '0.05em', opacity: 0.5, marginBottom: '8px' }}>USERNAME</label>
                                 <input
                                     className="input"
                                     placeholder="The Playwright"
@@ -148,7 +148,7 @@ export function LoginView({ onLogin }) {
                             </div>
                         )}
                         <div>
-                            <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', letterSpacing: '0.05em', opacity: 0.5, marginBottom: '8px' }}>EMAIL ADDRESS</label>
+                            <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: '700', letterSpacing: '0.05em', opacity: 0.5, marginBottom: '8px' }}>EMAIL ADDRESS</label>
                             <input
                                 type="email"
                                 className="input"
@@ -160,7 +160,7 @@ export function LoginView({ onLogin }) {
                             />
                         </div>
                         <div>
-                            <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', letterSpacing: '0.05em', opacity: 0.5, marginBottom: '8px' }}>PASSWORD</label>
+                            <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: '700', letterSpacing: '0.05em', opacity: 0.5, marginBottom: '8px' }}>PASSWORD</label>
                             <input
                                 type="password"
                                 className="input"
@@ -175,7 +175,7 @@ export function LoginView({ onLogin }) {
                         <button type="submit" className="btn btn-primary" disabled={loading} style={{
                             marginTop: '12px',
                             height: '56px',
-                            fontSize: '16px',
+                            fontSize: '1rem',
                             fontWeight: '600',
                             borderRadius: '16px',
                             display: 'flex',
@@ -189,7 +189,7 @@ export function LoginView({ onLogin }) {
                     </form>
 
                     <div style={{ textAlign: 'center', marginTop: '8px' }}>
-                        <span style={{ fontSize: '14px', opacity: 0.6 }}>
+                        <span style={{ fontSize: '0.875rem', opacity: 0.6 }}>
                             {isRegistering ? 'Already have an account?' : "Don't have an account?"}
                         </span>
                         <button
@@ -199,7 +199,7 @@ export function LoginView({ onLogin }) {
                                 marginLeft: '8px',
                                 color: 'var(--color-primary)',
                                 fontWeight: '700',
-                                fontSize: '14px',
+                                fontSize: '0.875rem',
                                 background: 'transparent',
                                 border: 'none',
                                 cursor: 'pointer',

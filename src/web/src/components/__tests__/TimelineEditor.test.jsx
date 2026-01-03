@@ -26,7 +26,7 @@ describe('TimelineEditor', () => {
     describe('rendering', () => {
         it('renders timeline component', () => {
             render(<TimelineEditor {...defaultProps} />);
-            expect(screen.getByText(/Play/)).toBeInTheDocument();
+            expect(screen.getByLabelText(/Play/)).toBeInTheDocument();
         });
 
         it('displays current time and duration', () => {
@@ -36,7 +36,7 @@ describe('TimelineEditor', () => {
 
         it('shows Pause when playing', () => {
             render(<TimelineEditor {...defaultProps} isPlaying={true} />);
-            expect(screen.getByText(/Pause/)).toBeInTheDocument();
+            expect(screen.getByLabelText(/Pause/)).toBeInTheDocument();
         });
 
         it('renders zoom slider', () => {
@@ -111,7 +111,7 @@ describe('TimelineEditor', () => {
             const onPlayPause = vi.fn();
             render(<TimelineEditor {...defaultProps} onPlayPause={onPlayPause} />);
 
-            fireEvent.click(screen.getByText(/Play/));
+            fireEvent.click(screen.getByLabelText(/Play/));
             expect(onPlayPause).toHaveBeenCalled();
         });
 
@@ -146,7 +146,7 @@ describe('TimelineEditor', () => {
             const { container } = render(<TimelineEditor {...defaultProps} currentTime={5} />);
 
             // Playhead is a red div with position absolute
-            const playhead = container.querySelector('div[style*="background: rgb(239, 68, 68)"]');
+            const playhead = container.querySelector('div[style*="background: var(--color-danger)"]');
             expect(playhead).toBeInTheDocument();
         });
     });

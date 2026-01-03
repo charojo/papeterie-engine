@@ -60,4 +60,9 @@ sleep 1
 
 # Run coverage analysis and append to log (and show on screen)
 echo "" | tee -a logs/validate.log
+echo "Running Contrast Standards Check..." | tee -a logs/validate.log
+./scripts/check_contrast.py --output logs/contrast_report.log
+cat logs/contrast_report.log | tee -a logs/validate.log
+
+echo "" | tee -a logs/validate.log
 ./scripts/analyze.sh logs/validate.log | tee -a logs/validate.log

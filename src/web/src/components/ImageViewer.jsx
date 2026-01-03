@@ -169,7 +169,7 @@ export const ImageViewer = ({
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    background: '#0a0a0a',
+                    background: 'var(--color-bg-base)',
                     cursor: isDragging ? 'grabbing' : (scale > 1 ? 'grab' : 'default'),
                     userSelect: 'none'
                 }}
@@ -220,7 +220,7 @@ export const ImageViewer = ({
                         style={{
                             background: isExpanded ? 'var(--color-primary)' : 'rgba(0,0,0,0.6)',
                             border: 'none', borderRadius: '4px',
-                            color: 'white', padding: '6px', cursor: 'pointer',
+                            color: isExpanded ? 'var(--color-text-on-primary)' : 'white', padding: '6px', cursor: 'pointer',
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                         }}
                         title={isExpanded ? "Minimize" : "Maximize (Zen Mode)"}
@@ -236,7 +236,7 @@ export const ImageViewer = ({
                         style={{
                             position: 'absolute', bottom: '12px', left: '50%', transform: 'translateX(-50%)',
                             background: 'rgba(0,0,0,0.6)', border: 'none', borderRadius: '20px',
-                            color: 'white', padding: '4px 12px', fontSize: '12px', cursor: 'pointer', zIndex: 10
+                            color: 'var(--color-text-main)', padding: '4px 12px', fontSize: '0.75rem', cursor: 'pointer', zIndex: 10
                         }}
                     >
                         Reset View
@@ -262,10 +262,11 @@ export const ImageViewer = ({
                                 cursor: 'pointer',
                                 padding: '4px 8px',
                                 borderRadius: '4px',
-                                background: tab.isActive ? 'var(--color-primary)' : 'rgba(255,255,255,0.1)',
-                                fontSize: '12px',
+                                background: tab.isActive ? 'var(--color-primary)' : 'var(--color-bg-elevated)',
+                                color: tab.isActive ? 'var(--color-text-on-primary)' : 'var(--color-text-main)',
+                                fontSize: '0.75rem',
                                 fontWeight: tab.isActive ? '600' : '400',
-                                border: tab.isActive ? '1px solid var(--color-primary)' : '1px solid transparent'
+                                border: tab.isActive ? '1px solid var(--color-primary)' : '1px solid var(--color-border)'
                             }}
                         >
                             {tab.label}

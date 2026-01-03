@@ -75,7 +75,7 @@ export function BehaviorEditor({ behaviors = [], onChange, readOnly = false, spr
                         title="Remove Sprite from Scene"
                         style={{ marginLeft: '8px', opacity: 0.7 }}
                     >
-                        <Icon name="delete" size={14} color="#ef4444" />
+                        <Icon name="delete" size={14} color="var(--color-danger)" />
                     </button>
                 )}
                 {!readOnly && (
@@ -86,7 +86,7 @@ export function BehaviorEditor({ behaviors = [], onChange, readOnly = false, spr
                         {isAdding && (
                             <div style={{
                                 position: 'absolute', top: '100%', right: 0, zIndex: 10,
-                                background: '#252525', border: '1px solid #444', borderRadius: '4px',
+                                background: 'var(--color-bg-surface)', border: '1px solid var(--color-border)', borderRadius: '4px',
                                 boxShadow: '0 4px 12px rgba(0,0,0,0.5)', minWidth: '120px'
                             }}>
                                 {Object.values(BehaviorTypes).filter(t =>
@@ -109,14 +109,14 @@ export function BehaviorEditor({ behaviors = [], onChange, readOnly = false, spr
             </div>
 
             {/* Tabs */}
-            <div style={{ display: 'flex', borderBottom: '1px solid #333', marginBottom: '8px' }}>
+            <div style={{ display: 'flex', borderBottom: '1px solid var(--color-border)', marginBottom: '8px' }}>
                 {TABS.map(tab => (
                     <button
                         key={tab}
                         className={`btn`}
                         style={{
-                            borderBottom: activeTab === tab ? '2px solid var(--primary)' : 'none',
-                            borderRadius: 0, padding: '4px 12px', color: activeTab === tab ? 'white' : '#888',
+                            borderBottom: activeTab === tab ? '2px solid var(--color-primary)' : 'none',
+                            borderRadius: 0, padding: '4px 12px', color: activeTab === tab ? 'var(--color-text-main)' : 'var(--color-text-muted)',
                             fontSize: '0.8rem'
                         }}
                         onClick={() => setActiveTab(tab)}
@@ -178,20 +178,20 @@ function BehaviorCard({ behavior, onChange, onRemove, readOnly }) {
     };
 
     const typeColor = {
-        [BehaviorTypes.OSCILLATE]: '#3b82f6',
-        [BehaviorTypes.DRIFT]: '#10b981',
-        [BehaviorTypes.PULSE]: '#f59e0b',
-        [BehaviorTypes.BACKGROUND]: '#8b5cf6',
-        [BehaviorTypes.LOCATION]: '#ec4899',
-        [BehaviorTypes.SOUND]: '#eab308'
-    }[behavior.type] || '#888';
+        [BehaviorTypes.OSCILLATE]: '#60a5fa', // Blue
+        [BehaviorTypes.DRIFT]: '#34d399',      // Emerald
+        [BehaviorTypes.PULSE]: '#fbbf24',      // Amber
+        [BehaviorTypes.BACKGROUND]: '#a78bfa', // Violet
+        [BehaviorTypes.LOCATION]: '#f472b6',   // Pink
+        [BehaviorTypes.SOUND]: '#facc15'        // Yellow
+    }[behavior.type] || 'var(--color-text-subtle)';
 
     return (
-        <div style={{ background: '#1e1e1e', borderRadius: '6px', border: '1px solid #333', overflow: 'hidden' }}>
+        <div style={{ background: 'var(--color-bg-surface)', borderRadius: '6px', border: '1px solid var(--color-border)', overflow: 'hidden' }}>
             <div
                 style={{
-                    padding: '8px 12px', background: '#252525', display: 'flex', alignItems: 'center', gap: '8px',
-                    borderBottom: expanded ? '1px solid #333' : 'none', cursor: 'pointer'
+                    padding: '8px 12px', background: 'var(--color-bg-elevated)', display: 'flex', alignItems: 'center', gap: '8px',
+                    borderBottom: expanded ? '1px solid var(--color-border)' : 'none', cursor: 'pointer'
                 }}
                 onClick={() => setExpanded(!expanded)}
             >

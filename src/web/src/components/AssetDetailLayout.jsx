@@ -32,7 +32,7 @@ export const AssetDetailLayout = ({
             {!isExpanded && (
                 <header style={{
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    paddingRight: '8px', flexShrink: 0, borderBottom: '1px solid rgba(255,255,255,0.05)',
+                    paddingRight: '8px', flexShrink: 0, borderBottom: '1px solid var(--color-border)',
                     paddingBottom: '12px'
                 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
@@ -95,7 +95,7 @@ export const AssetDetailLayout = ({
                         </span>
                         <button
                             className="btn"
-                            style={{ padding: 0, lineHeight: 0, color: copyFeedback ? '#4ade80' : '#9ca3af', background: 'transparent', border: 'none', fontSize: '0.75rem' }}
+                            style={{ padding: 0, lineHeight: 0, color: copyFeedback ? 'var(--color-primary)' : 'var(--color-text-muted)', background: 'transparent', border: 'none', fontSize: '0.75rem' }}
                             onClick={() => {
                                 navigator.clipboard.writeText(logs || "");
                                 setCopyFeedback(true);
@@ -107,7 +107,7 @@ export const AssetDetailLayout = ({
                     </div>
                     <pre ref={logRef} style={{
                         flex: 1, margin: 0, fontSize: '0.75rem', overflowY: 'auto',
-                        fontFamily: 'monospace', color: '#94a3b8', whiteSpace: 'pre-wrap'
+                        fontFamily: 'monospace', color: 'var(--color-text-muted)', whiteSpace: 'pre-wrap'
                     }}>
                         {logs || "Waiting for activity..."}
                     </pre>

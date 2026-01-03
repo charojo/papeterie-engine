@@ -3,22 +3,28 @@ import React, { useState } from 'react';
 const DELETE_MODES = {
     scene: [
         {
+            id: 'reset',
+            label: 'Reset Scene',
+            description: 'Deletes configuration and generated sprites. Keeps original image.',
+            danger: false,
+            icon: '⚡',
+            dangerLevel: 1
+        },
+        {
             id: 'delete_scene',
             label: 'Delete Scene Only',
             description: 'Removes the scene folder. Keeps all created sprites.',
-            danger: true
+            danger: true,
+            icon: '⚠️',
+            dangerLevel: 2
         },
         {
             id: 'delete_all',
             label: 'Delete Scene & Sprites',
             description: 'Removes the scene and all its sprites (unless used elsewhere).',
-            danger: true
-        },
-        {
-            id: 'reset',
-            label: 'Reset Scene',
-            description: 'Deletes configuration and generated sprites. Keeps original image.',
-            danger: false
+            danger: true,
+            icon: '☢️',
+            dangerLevel: 3
         }
     ],
     sprite: [
@@ -26,20 +32,24 @@ const DELETE_MODES = {
             id: 'reset',
             label: 'Reset Sprite',
             description: 'Deletes optimized versions and metadata. Keeps original image.',
-            danger: false
+            danger: false,
+            icon: '⚡',
+            dangerLevel: 1
         },
         {
             id: 'delete',
             label: 'Delete Completely',
             description: 'Permanently removes the sprite and all its files.',
-            danger: true
+            danger: true,
+            icon: '☢️',
+            dangerLevel: 3
         }
     ]
 };
 
 export function DeleteConfirmationDialog({ isOpen, onClose, onConfirm, type, assetName }) {
     const modes = DELETE_MODES[type] || [];
-    const [selectedMode, setSelectedMode] = useState(modes[modes.length - 1]?.id);
+    const [selectedMode, setSelectedMode] = useState(modes[0]?.id);
 
     if (!isOpen) return null;
 
@@ -55,61 +65,86 @@ export function DeleteConfirmationDialog({ isOpen, onClose, onConfirm, type, ass
             display: 'flex', alignItems: 'center', justifyContent: 'center'
         }}>
             <div style={{
-                backgroundColor: '#1e1e1e', padding: '24px', borderRadius: '8px',
-                width: '400px', maxWidth: '90%', border: '1px solid #333',
+                backgroundColor: 'var(--color-bg-surface)', padding: '24px', borderRadius: '8px',
+                width: '400px', maxWidth: '90%', border: '1px solid var(--color-border)',
                 boxShadow: '0 4px 20px rgba(0,0,0,0.5)'
             }}>
-                <h3 style={{ marginTop: 0, color: '#ef4444' }}>Delete {type === 'scene' ? 'Scene' : 'Sprite'}?</h3>
-                <p>You are about to modify <strong>{assetName}</strong>.</p>
+                <h3 style={{ marginTop: 0, color: 'var(--color-text-muted)' }}>Delete {type === 'scene' ? 'Scene' : 'Sprite'}?</h3>
+                <p style={{ color: 'var(--color-text-muted)' }}>Choose how to handle <strong style={{ color: 'var(--color-text-main)' }}>{assetName}</strong>:</p>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', margin: '20px 0' }}>
-                    {modes.map(mode => (
-                        <label key={mode.id} style={{
-                            display: 'flex', gap: '10px', padding: '10px',
-                            border: selectedMode === mode.id ? '1px solid #646cff' : '1px solid #333',
-                            borderRadius: '6px', cursor: 'pointer',
-                            backgroundColor: selectedMode === mode.id ? 'rgba(100,108,255,0.1)' : 'transparent'
-                        }}>
-                            <input
-                                type="radio"
-                                name="deleteMode"
-                                value={mode.id}
-                                checked={selectedMode === mode.id}
-                                onChange={() => setSelectedMode(mode.id)}
-                            />
-                            <div>
-                                <div style={{ fontWeight: 'bold' }}>{mode.label}</div>
-                                <div style={{ fontSize: '0.8rem', opacity: 0.7 }}>{mode.description}</div>
-                            </div>
-                        </label>
-                    ))}
+                    {modes.map(mode => {
+                        const intensity = mode.dangerLevel * 0.33;
+                        const isSelected = selectedMode === mode.id;
+
+                        return (
+                            <label key={mode.id} style={{
+                                display: 'flex', gap: '12px', padding: '12px',
+                                border: isSelected ? '1px solid var(--color-border)' : '1px solid var(--color-border-muted)',
+                                borderRadius: '8px', cursor: 'pointer',
+                                backgroundColor: isSelected
+                                    ? 'var(--color-bg-elevated)'
+                                    : 'transparent',
+                                transition: 'all 0.2s ease'
+                            }}>
+                                <input
+                                    type="radio"
+                                    name="deleteMode"
+                                    value={mode.id}
+                                    checked={isSelected}
+                                    onChange={() => setSelectedMode(mode.id)}
+                                    style={{ display: 'none' }}
+                                />
+                                <span style={{
+                                    fontSize: '1.3rem',
+                                    display: 'flex', alignItems: 'center',
+                                    opacity: 0.4 + (intensity * 0.3)
+                                }}>{mode.icon}</span>
+                                <div style={{ flex: 1 }}>
+                                    <div style={{
+                                        fontWeight: 500,
+                                        color: 'var(--color-text-main)'
+                                    }}>{mode.label}</div>
+                                    <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginTop: '2px' }}>
+                                        {mode.description}
+                                    </div>
+                                </div>
+                                {isSelected && (
+                                    <span style={{ color: 'var(--color-text-subtle)', fontSize: '1rem' }}>●</span>
+                                )}
+                            </label>
+                        );
+                    })}
                 </div>
 
                 {type === 'scene' && selectedMode === 'delete_all' && (
                     <div style={{
-                        padding: '10px', backgroundColor: 'rgba(234, 179, 8, 0.1)',
-                        border: '1px solid rgba(234, 179, 8, 0.5)', borderRadius: '6px',
-                        marginBottom: '20px', fontSize: '0.85rem', color: '#fbbf24'
+                        padding: '10px', backgroundColor: 'var(--color-bg-elevated)',
+                        border: '1px solid var(--color-border)', borderRadius: '6px',
+                        marginBottom: '20px', fontSize: '0.85rem', color: 'var(--color-text-muted)'
                     }}>
-                        <strong>Warning:</strong> Sprites shared with other scenes will be preserved.
+                        Note: Sprites shared with other scenes will be preserved.
                     </div>
                 )}
 
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
                     <button className="btn" onClick={onClose}>Cancel</button>
                     <button
-                        className="btn"
+                        className="btn btn-primary"
                         onClick={handleConfirm}
                         style={{
-                            backgroundColor: '#ef4444',
+                            backgroundColor: 'var(--color-danger)',
                             color: 'white',
-                            borderColor: '#adc6ff' // Using a contrasting border just in case
+                            borderColor: 'var(--color-danger)',
+                            padding: '10px 24px',
+                            fontWeight: '600'
                         }}
                     >
-                        Confirm
+                        Delete
                     </button>
                 </div>
             </div>
         </div>
     );
 }
+

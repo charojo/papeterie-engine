@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Toaster, toast } from 'sonner';
 import { GenericDetailView } from './components/GenericDetailView';
 import { Icon } from './components/Icon';
+import { SettingsMenu } from './components/SettingsMenu';
 import { usePersistentState } from './hooks/usePersistentState';
 import { LoginView } from './components/LoginView';
 
@@ -15,8 +16,25 @@ function App() {
   const [isExpanded, setIsExpanded] = usePersistentState('papeterie-is-expanded', false);
 
   const [user, setUser] = usePersistentState('papeterie-user', null);
-  const [storageMode, setStorageMode] = useState('LOCAL'); // Default to LOCAL until loaded
+  const [theme, setTheme] = usePersistentState('papeterie-theme', 'purple');
+  const [contrast, setContrast] = usePersistentState('papeterie-contrast', 0.60); // 0.0 - 1.0, 0.60 is "Natural" pivot
+  const [fontSize, setFontSize] = usePersistentState('papeterie-font-size', 'medium'); // small, medium, large, xl
+  const [storageMode, setStorageMode] = useState('LOCAL');
   const [isInitializing, setIsInitializing] = useState(true);
+
+  // Apply theme to document
+  useEffect(() => {
+    // Migrate old contrast theme to stark
+    const activeTheme = theme === 'contrast' ? 'stark' : theme;
+    document.documentElement.setAttribute('data-theme', activeTheme);
+    document.documentElement.style.colorScheme = activeTheme === 'light' ? 'light' : 'dark';
+    document.documentElement.style.setProperty('--contrast-factor', contrast);
+  }, [theme, contrast]);
+
+  // Apply font size to document
+  useEffect(() => {
+    document.documentElement.setAttribute('data-font-size', fontSize);
+  }, [fontSize]);
 
   const fetchData = async () => {
     if (!user && storageMode !== 'LOCAL') return;
@@ -75,7 +93,7 @@ function App() {
 
   if (isInitializing) {
     return (
-      <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0f0f1a' }}>
+      <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--color-bg-base)' }}>
         <div className="animate-spin"><Icon name="generate" size={48} color="var(--color-primary)" /></div>
       </div>
     );
@@ -85,27 +103,30 @@ function App() {
     return <LoginView onLogin={(userData) => setUser(userData)} storageMode={storageMode} />;
   }
 
+  const handleLogout = () => {
+    setUser(null);
+    setSelectedItem(null);
+  };
+
   return (
     <div className="app-container">
       <aside className="sidebar glass">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <h3 style={{ margin: 0 }}>Papeterie</h3>
-            {user && (
-              <span style={{ fontSize: '10px', padding: '2px 6px', background: 'rgba(255,255,255,0.1)', borderRadius: '10px', opacity: 0.6 }}>
-                {user.user.username} {user.type === 'local' ? '(Local)' : ''}
-              </span>
-            )}
-          </div>
+          <h3 style={{ margin: 0 }}>Papeterie</h3>
           <div style={{ display: 'flex', gap: '4px' }}>
-            {user && (
-              <button className="btn btn-secondary" style={{ padding: '4px 8px' }} onClick={() => setUser(null)} title="Logout">
-                <Icon name="chevronRight" size={16} />
-              </button>
-            )}
             <button className="btn btn-primary" style={{ padding: '4px 8px' }} onClick={() => setView('create')} title="Add">
               <Icon name="add" size={16} />
             </button>
+            <SettingsMenu
+              theme={theme}
+              onThemeChange={setTheme}
+              fontSize={fontSize}
+              onFontSizeChange={setFontSize}
+              contrast={contrast}
+              onContrastChange={setContrast}
+              onLogout={handleLogout}
+              user={user}
+            />
           </div>
         </div>
 
@@ -116,7 +137,7 @@ function App() {
               <div
                 key={scene.name}
                 className={`btn ${selectedItem?.name === scene.name && view === 'scene-detail' ? 'btn-primary' : ''}`}
-                style={{ textAlign: 'left', border: 'none', background: selectedItem?.name === scene.name && view === 'scene-detail' ? 'var(--color-primary)' : 'transparent', paddingLeft: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}
+                style={{ textAlign: 'left', border: 'none', background: selectedItem?.name === scene.name && view === 'scene-detail' ? 'var(--color-primary)' : 'transparent', color: selectedItem?.name === scene.name && view === 'scene-detail' ? 'var(--color-text-on-primary)' : 'var(--color-text-main)', paddingLeft: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}
                 onClick={() => { setSelectedItem(scene); setView('scene-detail'); }}
               >
                 <Icon name="scenes" size={14} /> {scene.name}
@@ -130,13 +151,13 @@ function App() {
               <div
                 key={sprite.name}
                 className={`btn ${selectedItem?.name === sprite.name && view === 'sprite-detail' ? 'btn-primary' : ''}`}
-                style={{ textAlign: 'left', border: 'none', background: selectedItem?.name === sprite.name && view === 'sprite-detail' ? 'var(--color-primary)' : 'transparent', paddingLeft: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}
+                style={{ textAlign: 'left', border: 'none', background: selectedItem?.name === sprite.name && view === 'sprite-detail' ? 'var(--color-primary)' : 'transparent', color: selectedItem?.name === sprite.name && view === 'sprite-detail' ? 'var(--color-text-on-primary)' : 'var(--color-text-main)', paddingLeft: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}
                 onClick={() => { setSelectedItem(sprite); setView('sprite-detail'); }}
               >
                 <span title={sprite.name} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
                   <Icon name="sprites" size={14} style={{ marginRight: '8px', verticalAlign: 'middle' }} />{sprite.name}
                 </span>
-                {sprite.has_metadata && <span style={{ fontSize: '10px', opacity: 0.7 }}>✨</span>}
+                {sprite.has_metadata && <span style={{ fontSize: '0.625rem', opacity: 0.7 }}>✨</span>}
               </div>
             ))}
           </CollapsibleSection>
@@ -168,6 +189,7 @@ function App() {
             type="sprite"
             asset={selectedItem}
             refresh={fetchData}
+            onDelete={() => { setSelectedItem(null); setView('list'); }}
             isExpanded={isExpanded}
             toggleExpand={() => setIsExpanded(!isExpanded)}
           />
@@ -178,6 +200,7 @@ function App() {
             type="scene"
             asset={selectedItem}
             refresh={fetchData}
+            onDelete={() => { setSelectedItem(null); setView('list'); }}
             isExpanded={isExpanded}
             toggleExpand={() => setIsExpanded(!isExpanded)}
             onOpenSprite={(spriteName) => {
