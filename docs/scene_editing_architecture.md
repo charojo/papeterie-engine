@@ -114,7 +114,7 @@ High-level user scenarios that drive the scene editing system design.
 
 ## 3. Data Model
 
-The data model is defined in [`src/compiler/models.py`](file:///home/chacker/projects/papeterie-engine/src/compiler/models.py) using Pydantic.
+The data model is defined in [`src/compiler/models.py`](../src/compiler/models.py) using Pydantic.
 
 ### SceneConfig
 
@@ -177,7 +177,7 @@ python scripts/migrate_legacy_behaviors.py --scenes-only
 python scripts/migrate_legacy_behaviors.py
 ```
 
-See [`scripts/migrate_legacy_behaviors.py`](file:///home/chacker/projects/papeterie-engine/scripts/migrate_legacy_behaviors.py) for implementation.
+See [`scripts/migrate_legacy_behaviors.py`](../scripts/migrate_legacy_behaviors.py) for implementation.
 
 ### SpriteMetadata
 
@@ -337,9 +337,9 @@ App
 
 | Component | File | Purpose |
 |-----------|------|---------|
-| `GenericDetailView` | [`GenericDetailView.jsx`](file:///home/chacker/projects/papeterie-engine/src/web/src/components/GenericDetailView.jsx) | Main detail view for scenes/sprites |
-| `BehaviorEditor` | [`BehaviorEditor.jsx`](file:///home/chacker/projects/papeterie-engine/src/web/src/components/BehaviorEditor.jsx) | Add/edit/remove behaviors |
-| `TheatreStage` | [`TheatreStage.jsx`](file:///home/chacker/projects/papeterie-engine/src/web/src/components/TheatreStage.jsx) | Live canvas preview |
+| `GenericDetailView` | [`GenericDetailView.jsx`](../src/web/src/components/GenericDetailView.jsx) | Main detail view for scenes/sprites |
+| `BehaviorEditor` | [`BehaviorEditor.jsx`](../src/web/src/components/BehaviorEditor.jsx) | Add/edit/remove behaviors |
+| `TheatreStage` | [`TheatreStage.jsx`](../src/web/src/components/TheatreStage.jsx) | Live canvas preview |
 
 ### 4.2 Engine Layer
 
@@ -347,8 +347,8 @@ The animation engine runs in JavaScript.
 
 | File | Purpose |
 |------|---------|
-| [`Theatre.js`](file:///home/chacker/projects/papeterie-engine/src/web/src/engine/Theatre.js) | Scene orchestration, render loop, sprite selection |
-| [`Layer.js`](file:///home/chacker/projects/papeterie-engine/src/web/src/engine/Layer.js) | Layer rendering, behavior runtime classes |
+| [`Theatre.js`](../src/web/src/engine/Theatre.js) | Scene orchestration, render loop, sprite selection |
+| [`Layer.js`](../src/web/src/engine/Layer.js) | Layer rendering, behavior runtime classes |
 
 **Runtime Classes** (in `Layer.js`):
 - `OscillateRuntime` - Sine-wave animation
@@ -432,11 +432,11 @@ Visualized via `StatusStepper`:
 
 ### Adding a New Behavior Type
 
-1. Add to `BehaviorType` enum in [`models.py`](file:///home/chacker/projects/papeterie-engine/src/compiler/models.py)
+1. Add to `BehaviorType` enum in [`models.py`](../src/compiler/models.py)
 2. Create Pydantic model extending `BaseBehavior`
 3. Add to `BehaviorConfig` union
-4. Create runtime class in [`Layer.js`](file:///home/chacker/projects/papeterie-engine/src/web/src/engine/Layer.js)
-5. Add UI fields in [`BehaviorEditor.jsx`](file:///home/chacker/projects/papeterie-engine/src/web/src/components/BehaviorEditor.jsx)
+4. Create runtime class in [`Layer.js`](../src/web/src/engine/Layer.js)
+5. Add UI fields in [`BehaviorEditor.jsx`](../src/web/src/components/BehaviorEditor.jsx)
 
 ---
 
@@ -446,56 +446,9 @@ This section provides detailed UI design specifications for implementing advance
 
 ### 7.1 Component Architecture
 
-```plantuml
-@startuml Scene Editor Components
-skinparam componentStyle rectangle
-skinparam backgroundColor #1e1e1e
-skinparam component {
-  BackgroundColor #2d2d2d
-  BorderColor #8b5cf6
-  FontColor #e0e0e0
-}
+![Scene Editor Components](assets/diagrams/scene_editor_components.png)
 
-package "Scene Editor" {
-  [GenericDetailView] as GDV
-  
-  package "Left Panel" {
-    [TheatreStage] as TS
-    [TimelineEditor] as TL #3b82f6
-    note right of TL : NEW COMPONENT
-  }
-  
-  package "Right Panel" {
-    [BehaviorEditor] as BE
-    [SoundEditor] as SE #3b82f6
-    note right of SE : NEW COMPONENT
-    [LayerList] as LL
-  }
-  
-  GDV --> TS
-  GDV --> TL
-  GDV --> BE
-  GDV --> SE
-  GDV --> LL
-  
-  TS --> TL : playhead sync
-  TL --> BE : keyframe selection
-  BE --> SE : sound triggers
-}
-
-package "Engine" {
-  [Theatre.js] as TH
-  [Layer.js] as LY
-  [AudioManager.js] as AM #3b82f6
-  note right of AM : NEW MODULE
-  
-  TH --> LY
-  TH --> AM
-}
-
-TS --> TH : render loop
-@enduml
-```
+[Source Diagram (.dot)](assets/diagrams/scene_editor_components.dot)
 
 ### 7.2 Timeline Editor Component
 
@@ -614,45 +567,9 @@ class SoundBehavior(BaseBehavior):
 
 ### 7.5 State Flow
 
-```plantuml
-@startuml Behavior Edit Flow
-skinparam backgroundColor #1e1e1e
-skinparam state {
-  BackgroundColor #2d2d2d
-  BorderColor #8b5cf6
-  FontColor #e0e0e0
-}
+![Behavior Edit Flow](assets/diagrams/behavior_edit_flow.png)
 
-[*] --> Idle
-
-state "Idle" as Idle {
-  Idle : No sprite selected
-}
-
-state "Selected" as Selected {
-  Selected : Sprite selected
-  Selected : Behaviors loaded
-}
-
-state "Editing" as Editing {
-  Editing : Behavior parameter changed
-  Editing : Pending save
-}
-
-state "Saving" as Saving {
-  Saving : POST /api/scenes/{name}
-}
-
-Idle --> Selected : Click sprite
-Selected --> Editing : Modify behavior
-Editing --> Editing : More edits
-Editing --> Saving : Auto-save (debounced)
-Saving --> Selected : Save complete
-Selected --> Idle : Click elsewhere
-Editing --> Selected : Undo / Cancel
-
-@enduml
-```
+[Source Diagram (.dot)](assets/diagrams/behavior_edit_flow.dot)
 
 ### 7.6 API Endpoints
 

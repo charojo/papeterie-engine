@@ -1,0 +1,52 @@
+digraph G {
+    rankdir=TB;
+    node [shape=rectangle, style=filled, fillcolor="#2d2d2d", fontcolor="#e0e0e0", color="#8b5cf6"];
+    compound=true;
+    bgcolor="#1e1e1e";
+
+    subgraph cluster_scene_editor {
+        label = "Scene Editor";
+        fontcolor="#e0e0e0";
+        color="#8b5cf6";
+
+        GDV [label="GenericDetailView"];
+
+        subgraph cluster_left_panel {
+            label = "Left Panel";
+            TS [label="TheatreStage"];
+            TL [label="TimelineEditor", fillcolor="#3b82f6"];
+        }
+
+        subgraph cluster_right_panel {
+            label = "Right Panel";
+            BE [label="BehaviorEditor"];
+            SE [label="SoundEditor", fillcolor="#3b82f6"];
+            LL [label="LayerList"];
+        }
+
+        GDV -> TS;
+        GDV -> TL;
+        GDV -> BE;
+        GDV -> SE;
+        GDV -> LL;
+
+        TS -> TL [label="playhead sync", fontcolor="#e0e0e0", color="#e0e0e0"];
+        TL -> BE [label="keyframe selection", fontcolor="#e0e0e0", color="#e0e0e0"];
+        BE -> SE [label="sound triggers", fontcolor="#e0e0e0", color="#e0e0e0"];
+    }
+
+    subgraph cluster_engine {
+        label = "Engine";
+        fontcolor="#e0e0e0";
+        color="#8b5cf6";
+
+        TH [label="Theatre.js"];
+        LY [label="Layer.js"];
+        AM [label="AudioManager.js", fillcolor="#3b82f6"];
+
+        TH -> LY;
+        TH -> AM;
+    }
+
+    TS -> TH [label="render loop", fontcolor="#e0e0e0", color="#e0e0e0", ltail=cluster_scene_editor];
+}

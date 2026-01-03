@@ -15,7 +15,8 @@ wheels/
 .env.local
 
 # IDE and OS
-.vscode/
+.vscode/*
+!.vscode/settings.json
 .DS_Store
 .aider*
 *.orig
@@ -38,7 +39,27 @@ yarn-debug.log*
 yarn-error.log*
 
 # Assets (User Content)
-assets/
+assets/*
 !assets/prompts/
+!assets/scenes/
+assets/scenes/*
+!assets/scenes/sailboat/
+!assets/sprites/
+assets/sprites/*
+!assets/sprites/boat/
+!assets/sprites/clouds/
+!assets/sprites/stars/
+!assets/sprites/wave1/
+!assets/sprites/wave2/
+!assets/sprites/wave3/
+!assets/sprites/wave4/
+!assets/sprites/wave5/
+!assets/sprites/wave6/
+!assets/story/
+assets/story/*
+!assets/behaviors/
+assets/behaviors/*
+!assets/users/
+assets/users/*
+!assets/users/.gitkeep
 !docs/assets/
-

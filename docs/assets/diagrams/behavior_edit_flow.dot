@@ -1,0 +1,21 @@
+digraph G {
+    bgcolor="#1e1e1e";
+    fontcolor="#e0e0e0";
+    node [shape=rectangle, style=filled, fillcolor="#2d2d2d", fontcolor="#e0e0e0", color="#8b5cf6"];
+    edge [fontcolor="#e0e0e0", color="#e0e0e0"];
+
+    start [shape=point, color="#e0e0e0"];
+    Idle [label="Idle\n(No sprite selected)"];
+    Selected [label="Selected\n(Sprite selected, behaviors loaded)"];
+    Editing [label="Editing\n(Parameter changed, pending save)"];
+    Saving [label="Saving\n(POST /api/scenes/{name})"];
+
+    start -> Idle;
+    Idle -> Selected [label="Click sprite"];
+    Selected -> Editing [label="Modify behavior"];
+    Editing -> Editing [label="More edits"];
+    Editing -> Saving [label="Auto-save (debounced)"];
+    Saving -> Selected [label="Save complete"];
+    Selected -> Idle [label="Click elsewhere"];
+    Editing -> Selected [label="Undo / Cancel"];
+}

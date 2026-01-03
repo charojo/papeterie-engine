@@ -52,21 +52,21 @@ def process_batch_assets():
     """
     base_dir = "assets/sprites"
 
-    # --- Starbuilders (Original) ---
-    base_path = "/home/chacker/.gemini/antigravity/brain/31af0f52-6884-42c5-bd76-329b3559cd0d"
-    vibe_img = f"{base_path}/starbuilders_enhanced_vibe_1767135852882.png"
-    villagers_gs = f"{base_path}/starbuilders_villagers_sprite_1767135874753.png"
-    lantern_gs = f"{base_path}/starbuilders_lantern_sprite_1767135892759.png"
-    background_img = f"{base_path}/starbuilders_background_lake_sky_1767135912592.png"
+    # To run batch processing, set the path to where your generated assets are located
+    base_path = os.getenv("ASSET_STAGING_DIR", "temp_assets")
+
+    # Example paths (update to your actual files)
+    vibe_img = f"{base_path}/starbuilders_enhanced_vibe.png"
+    villagers_gs = f"{base_path}/starbuilders_villagers_sprite.png"
+    lantern_gs = f"{base_path}/starbuilders_lantern_sprite.png"
+    background_img = f"{base_path}/starbuilders_background_lake_sky.png"
 
     # --- Starbuilders (Charcoal) ---
-    bg_charcoal = f"{base_path}/starbuild_bg_charcoal_sketch_1767139596099.png"
-    lantern_charcoal = f"{base_path}/starbuild_lantern_charcoal_sketch_1767139608283.png"
-    watching_charcoal = f"{base_path}/starbuild_villager_watching_charcoal_sketch_1767139621513.png"
-    sitting_charcoal = f"{base_path}/starbuild_villager_sitting_charcoal_sketch_1767139637257.png"
-    releasing_charcoal = (
-        f"{base_path}/starbuild_villager_releasing_charcoal_sketch_1767139668225.png"
-    )
+    bg_charcoal = f"{base_path}/starbuild_bg_charcoal_sketch.png"
+    lantern_charcoal = f"{base_path}/starbuild_lantern_charcoal_sketch.png"
+    watching_charcoal = f"{base_path}/starbuild_villager_watching_charcoal_sketch.png"
+    sitting_charcoal = f"{base_path}/starbuild_villager_sitting_charcoal_sketch.png"
+    releasing_charcoal = f"{base_path}/starbuild_villager_releasing_charcoal_sketch.png"
 
     asset_operations = [
         ("starbuild_villagers", villagers_gs, "transparent"),
