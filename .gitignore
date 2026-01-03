@@ -40,4 +40,5 @@ yarn-error.log*
 # Assets (User Content)
 assets/
 !assets/prompts/
+!docs/assets/
 

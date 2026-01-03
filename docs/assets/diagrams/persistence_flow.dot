@@ -1,0 +1,25 @@
+digraph PersistenceFlow {
+    rankdir=LR;
+    node [fontname="Arial", fontsize=12, shape=box, style=filled, fillcolor="#F3E5F5", color="#7B1FA2"];
+    edge [fontname="Arial", fontsize=10, color="#4A148C"];
+    
+    User [label="User", shape=ellipse, fillcolor="#E1F5FE", color="#01579B"];
+    Frontend [label="React Frontend\n(AppState)"];
+    Backend [label="FastAPI Backend\n(Logic)"];
+    Storage [label="Storage Provider\n(Filesystem/Cloud)"];
+    LocalStorage [label="Browser\nlocalStorage", shape=note, fillcolor="#FFF9C4", color="#FBC02D"];
+
+    User -> Frontend [label="Refresh/Open"];
+    Frontend -> LocalStorage [label="1. Read session"];
+    LocalStorage -> Frontend [label="2. Restore keys"];
+    
+    Frontend -> Backend [label="3. GET /api/me"];
+    Backend -> Frontend [label="4. User Scope"];
+    
+    Frontend -> Backend [label="5. GET assets"];
+    Backend -> Storage [label="6. Map to user dir"];
+    Storage -> Backend [label="7. Asset files"];
+    Backend -> Frontend [label="8. Assets list"];
+    
+    Frontend -> Frontend [label="9. Re-select Asset"];
+}

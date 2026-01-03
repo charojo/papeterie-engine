@@ -82,10 +82,12 @@ To ensure the environment activates on restart:
 ### Branch Protection
 The `main` branch is protected. To contribute:
 1. `git checkout -b feature/your-feature-name`
-2. Commit changes and `git push origin feature/your-feature-name`
-3. Open a Pull Request on GitHub. 
+1.  `git checkout -b feature/your-feature-name`
+2.  Commit changes and `git push origin feature/your-feature-name`
+3.  Open a Pull Request on GitHub. 
 
 ### Environment Troubleshooting
-* **Asyncio Warnings**: Ensure `pytest-asyncio` is installed via `uv add pytest-asyncio` and that `pyproject.toml` contains `asyncio_default_fixture_loop_scope = "function"`.
-* **VS Code Sync**: If the `(.venv)` prompt is missing, kill the terminal and open a new one after selecting the correct interpreter.
-* **Git Auth**: If terminal push fails, use the VS Code Source Control sidebar to "Publish Branch."
+*   **Asyncio Warnings**: Ensure `pytest-asyncio` is installed via `uv add pytest-asyncio` and that `pyproject.toml` contains `asyncio_default_fixture_loop_scope = "function"`.
+*   **VS Code Sync**: If the `(.venv)` prompt is missing, kill the terminal and open a new one after selecting the correct interpreter.
+*   **WSL Mouse/Input Lag**: If the mouse becomes unresponsive or requires double-clicks to register in Pygame windows, the WSL graphics/input state might be stale. Run `wsl --shutdown` from a Windows PowerShell/CMD and then restart WSL.
+*   **Git Auth**: If terminal push fails, use the VS Code Source Control sidebar to "Publish Branch."

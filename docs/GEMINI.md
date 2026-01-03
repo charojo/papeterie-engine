@@ -93,6 +93,12 @@ The project uses `uv` for dependency management.
     *   All changes must be made on branches prefixed with `feature/` or `fix/`.
     *   Merges to `master` occur only via GitHub Pull Requests, and `uv run pytest` must pass for integration.
 
+## Known Issues & Troubleshooting
+
+*   **WSL Input Capture Lock**: Occasionally, the WSL environment (especially when using WSLg for Pygame) can enter a stale state where mouse events are delayed,Require double-clicks, or are "grabbed" by a background ghost process.
+    *   **Symptoms**: `Theatre` window doesn't respond to close button, mouse clicks require focus switch, debug controls feel sluggish.
+    *   **Resolution**: Run `wsl --shutdown` in a Windows terminal and restart the environment. This reset is more effective than standard process killing for driver-level focus issues.
+
 ## Project Backlog
 
 Future features, improvements, and bugs are tracked in `docs/BACKLOG.md`. This file serves as a reference for unprioritized tasks and ideas that Gemini can consult for potential future work. When presenting new ideas or tasks for later implementation, please add them to `docs/BACKLOG.md`.

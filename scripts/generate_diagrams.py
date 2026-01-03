@@ -21,7 +21,7 @@ def compile_dot_to_png(dot_file):
 
     try:
         subprocess.run(
-            ["dot", "-Tpng", str(dot_file), "-o", str(png_file)],
+            ["dot", "-Tpng", "-Gbgcolor=white", str(dot_file), "-o", str(png_file)],
             check=True,
             capture_output=True,
             text=True,

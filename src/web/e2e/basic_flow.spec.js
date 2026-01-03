@@ -19,7 +19,7 @@ test.describe('Basic Flow', () => {
         }
 
         // 2. Open first scene found (e.g. sailboat)
-        const sceneCard = page.getByTestId('scene-item-sailboat').first();
+        // const sceneCard = page.getByTestId('scene-item-sailboat').first();
         // If not found, fall back to any scene item
         const anyScene = page.locator('[data-testid^="scene-item-"]').first();
 

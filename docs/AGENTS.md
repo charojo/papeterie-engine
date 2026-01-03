@@ -33,5 +33,12 @@ You are a Senior Python Architect building a "Toy Theatre" (Papeterie) animation
 - **Integration**: Merges to `master` only happen via GitHub Pull Requests after `uv run pytest` passes.
 
 ## Diagrams & Visuals
-- **Source of Truth**: The `.dot` files in `docs/assets/diagrams/` are the authoritative source for system architecture visuals. Always read the `.dot` file to understand the system structure.
-- **Generation**: After modifying any `.dot` file, you MUST run `python scripts/generate_diagrams.py` to update the corresponding `.png` images.
+> [!IMPORTANT]
+> **Strict Workflow for Diagrams**:
+> 1.  Create/Edit the `.dot` file in `docs/assets/diagrams/`.
+> 2.  Run `python scripts/generate_diagrams.py`.
+> 3.  Embed the generated `.png` in your markdown: `![Description](path/to/image.png)`.
+> 4.  Link the source `.dot` below the image: `(Source: [filename.dot](path/to/file.dot))`.
+
+- **Source of Truth**: The `.dot` files in `docs/assets/diagrams/` are the authoritative source.
+- **NEVER** use inline PlantUML or Mermaid unless for trivial, temporary explanations.

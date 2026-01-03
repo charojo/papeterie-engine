@@ -53,4 +53,13 @@ export default defineConfig([
       'react-refresh/only-export-components': 'off',
     },
   },
+  // Config files and E2E tests get Node.js globals
+  {
+    files: ['*.config.js', 'e2e/**/*.{js,ts}'],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+      },
+    },
+  },
 ])

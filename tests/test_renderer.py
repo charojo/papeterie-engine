@@ -163,8 +163,8 @@ def test_environmental_reaction_pivot_on_crest(mocker):
     boat_layer.draw(
         mock_screen, scroll_x=0, elapsed_time=0, dt=0.016, env_y=None, env_layer=wave_layer
     )
-    pygame.transform.rotate.assert_called_with(mocker.ANY, 0.0)
-    pygame.transform.rotate.reset_mock()
+    # Optimization: rotate is skipped when angle is near zero (abs < 0.1)
+    pygame.transform.rotate.assert_not_called()
 
     # Test 2: Rising wave (bow up)
     # With hull_length_factor=0.5 and img_w=100, sampling +/- 25px from center.

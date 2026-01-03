@@ -234,8 +234,13 @@ class ParallaxLayer:
         self.original_image_size = (0, 0)
         self.image = None
         self.mask = None
+        self.height_map: List[int] = []  # Pre-calculated for fast physics
         # Physics state
         self.current_tilt = 0.0
+
+        # Scaling cache to prevent expensive per-frame transformation
+        self._last_scale_used = -1.0
+        self._scaled_image_cache: Optional[pygame.Surface] = None
         self._load_image()
 
     def _load_image(self):
@@ -277,6 +282,41 @@ class ParallaxLayer:
                     self.fill_color = processed_image.get_at((w // 2, h - 1))
                 except Exception as e:
                     logging.warning(f"Could not sample fill color: {e}")
+
+            # Always pre-calculate height map for efficient physics sampling
+            self._precalculate_height_map()
+
+    def _precalculate_height_map(self):
+        """Pre-calculate the first non-transparent pixel in each column."""
+        if self.image is None:
+            self.height_map = []
+            return
+
+        # Get dimensions first - works with both real Surface and mocks
+        w, h = self.image.get_size()
+
+        # Only create mask if self.image is a real Surface (not a mock)
+        # Note: MagicMock(spec=Surface) passes isinstance checks, so we use try/except
+        if self.mask is None:
+            try:
+                self.mask = pygame.mask.from_surface(self.image)
+            except TypeError:
+                # self.image is a mock, skip mask creation
+                self.height_map = [h] * w
+                return
+
+        self.height_map = [h] * w
+
+        for x in range(w):
+            # Scan top-down for the first cluster of solid pixels (3px deep to avoid noise)
+            for y in range(h - 3):
+                if (
+                    self.mask.get_at((x, y))
+                    and self.mask.get_at((x, y + 1))
+                    and self.mask.get_at((x, y + 2))
+                ):
+                    self.height_map[x] = y
+                    break
 
     @classmethod
     def from_sprite_dir(cls, sprite_dir_path: str, overrides: Optional[Dict[str, Any]] = None):
@@ -429,44 +469,18 @@ class ParallaxLayer:
         # original_x = local_x / final_scale ?
         # Wait, img_w above IS the scaled width.
 
+        # Scale back to original image coordinates for pixel lookup
         ratio = self.image.get_width() / img_w
         orig_x = int(local_x * ratio)
         orig_x = max(0, min(self.image.get_width() - 1, orig_x))
 
-        # Scan vertical column in original image for first non-transparent pixel
-        # This is expensive if done every frame for every point.
-        # Optimization: Use mask?
-        if self.mask is None:
-            self.mask = pygame.mask.from_surface(self.image)
-
-        # Mask scan
-        try:
-            # Find first set bit in column orig_x
-            # pygame mask doesn't have 'get_at_x' column scan directly efficient?
-            # We iterate Y?
-            h_orig = self.image.get_height()
-
-            if "wave1" in str(self.asset_path):
-                logging.info(f"W1: sx={x_coord:.0f} ox={orig_x} by={base_y:.1f}")
-
-            for y in range(h_orig - 3):
-                if (
-                    self.mask.get_at((orig_x, y))
-                    and self.mask.get_at((orig_x, y + 1))
-                    and self.mask.get_at((orig_x, y + 2))
-                ):
-                    # Found it.
-                    # Map back to screen Y
-                    # ScreenY = base_y + (y * 1/ratio) ?
-                    # inverse ratio = img_h / original_h
-                    y_scaled = y / ratio
-                    if "wave1" in str(self.asset_path):
-                        logging.info(
-                            f"W1 HIT: y={y} y_scaled={y_scaled:.1f} result={base_y + y_scaled:.1f}"
-                        )
-                    return base_y + y_scaled
-        except IndexError:
-            pass
+        # Use pre-calculated height map for O(1) vertical lookup instead of O(H) scan
+        if orig_x < len(self.height_map):
+            y = self.height_map[orig_x]
+            if y < self.image.get_height():
+                # Map back to screen Y
+                y_scaled = y / ratio
+                return base_y + y_scaled
 
         return screen_h
 
@@ -525,12 +539,17 @@ class ParallaxLayer:
         if self.image is None:
             return
 
-        img_to_draw = self.image
-
-        if abs(final_scale - 1.0) > 0.001:
-            w, h = img_to_draw.get_size()
+        # Optimization: Caching scaled image
+        if abs(final_scale - self._last_scale_used) > 0.001:
+            w, h = self.image.get_size()
             new_size = (int(w * final_scale), int(h * final_scale))
-            img_to_draw = pygame.transform.smoothscale(img_to_draw, new_size)
+            if new_size[0] > 0 and new_size[1] > 0:
+                self._scaled_image_cache = pygame.transform.smoothscale(self.image, new_size)
+                self._last_scale_used = final_scale
+            else:
+                self._scaled_image_cache = self.image  # Fallback for tiny scales
+
+        img_to_draw = self._scaled_image_cache
 
         # Environmental Reaction Logic
         if self.environmental_reaction and env_layer:
@@ -604,19 +623,11 @@ class ParallaxLayer:
                 self._current_y_phys += (desired_y - self._current_y_phys) * 0.1
                 final_y = self._current_y_phys
 
-            if self.asset_path.name == "boat.png":
-                logging.info(
-                    "BOAT PHYSICS: y_stern=%s y_bow=%s target_y=%s tilt=%s",
-                    y_stern,
-                    y_bow,
-                    final_y,
-                    self.current_tilt,
-                )
-
         # Always rotate if there is a value (or test expects it even if 0)
-        # Optimization: only if abs(final_rot) > 0.001
-        # But test expects 0.0 call.
-        img_to_draw = pygame.transform.rotate(img_to_draw, final_rot)
+        # Optimization: only if abs(final_rot) > 0.1
+        if abs(final_rot) > 0.1:
+            img_to_draw = pygame.transform.rotate(img_to_draw, final_rot)
+        # Note: If rot is tiny, we skip to save significant CPU cycles
 
         if final_alpha < 1.0:
             img_to_draw.set_alpha(int(final_alpha * 255))
@@ -640,6 +651,22 @@ class ParallaxLayer:
 
         # Tiling vs Single
         if self.tile_horizontal:
+            # Safety check: prevent infinite loop if width is zero
+            if scaled_unrotated_w < 0.5:
+                return
+
+            # Optimization: Create fill surface once outside the loop
+            fill_surf = None
+            frw, frh = 0, 0
+            if self.fill_down and self.fill_color:
+                fill_w = scaled_unrotated_w
+                fill_h = screen_h
+                fill_surf = pygame.Surface((int(fill_w), int(fill_h)), pygame.SRCALPHA)
+                fill_surf.fill(self.fill_color)
+                if abs(final_rot) > 0.1:
+                    fill_surf = pygame.transform.rotate(fill_surf, final_rot)
+                    frw, frh = fill_surf.get_size()
+
             # Calculate logical tiling start based on unrotated width
             start_x = (parallax_x + final_x) % scaled_unrotated_w
             if start_x > 0:
@@ -656,23 +683,9 @@ class ParallaxLayer:
 
                 screen.blit(img_to_draw, (draw_x, draw_y))
 
-                if self.fill_down and self.fill_color:
-                    # Create a fill surface that covers the screen below the sprite
-                    # We need to handle rotation for the fill as well if we want it to match Web
-                    # For Pygame simplicity, if not rotated, we can just fill rect.
-                    # If rotated, we'd need a more complex polygon or a large surface.
-                    # To match Layer.js: 'fillRect(-imgW / 2, imgH / 2, imgW, screenH)'
-                    fill_w = scaled_unrotated_w
-                    fill_h = screen_h  # Enough to cover
-                    fill_surf = pygame.Surface((int(fill_w), int(fill_h)), pygame.SRCALPHA)
-                    fill_surf.fill(self.fill_color)
+                if fill_surf:
                     if abs(final_rot) > 0.1:
-                        fill_surf = pygame.transform.rotate(fill_surf, final_rot)
-                        # Re-center rotated fill
-                        frw, frh = fill_surf.get_size()
                         # Position below the sprite center
-                        # This is tricky in Pygame. Let's stick to the simpler unrotated
-                        # till we verify. Actually, better to just blit a large enough rect.
                         screen.blit(
                             fill_surf,
                             (
@@ -687,6 +700,9 @@ class ParallaxLayer:
         else:
             # Wrap around screen using logical unrotated width for the boundary
             wrapper_w = screen_w + scaled_unrotated_w
+            if wrapper_w < 0.5:
+                return
+
             x = (parallax_x + final_x) % wrapper_w
 
             # logical_x is the left edge of the unrotated image
@@ -774,6 +790,12 @@ class Theatre:
         self.debug_target_layer_index = 0
         self.show_debug_menu = True
         self.debug_menu_rect = pygame.Rect(10, 40, 320, 420)
+        self._frame_counter = 0
+
+        # Cache fonts for performance
+        self.font_header = pygame.font.SysFont(None, 28, bold=True)
+        self.font_item = pygame.font.SysFont(None, 24)
+        self.font_small = pygame.font.SysFont(None, 24)  # Reuse or specific small
 
         self.load_scene()
         logging.info("Theatre initialized. Main loop starting.")
@@ -830,8 +852,14 @@ class Theatre:
                 return
 
             for event in pygame.event.get():
+                # Debug: Log all events to understand what's happening
+                if event.type not in (pygame.MOUSEMOTION,):  # Skip noisy motion events
+                    logging.info(f"Event received: type={event.type}, {event}")
+
                 if event.type == pygame.QUIT:
-                    return
+                    logging.info("QUIT event - exiting")
+                    pygame.display.quit()
+                    os._exit(0)
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_TAB:
                         self.debug_target_layer_index = (self.debug_target_layer_index + 1) % len(
@@ -844,12 +872,17 @@ class Theatre:
                         self.show_debug_menu = not self.show_debug_menu
                         logging.info(f"Debug menu {'opened' if self.show_debug_menu else 'closed'}")
 
-                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:  # Left click
-                    if self.show_debug_menu:
-                        mouse_pos = pygame.mouse.get_pos()
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    mouse_pos = pygame.mouse.get_pos()
+                    logging.info(
+                        f"Mouse click at {mouse_pos}, button={event.button}, "
+                        f"debug_menu={self.show_debug_menu}"
+                    )
+                    if event.button == 1 and self.show_debug_menu:
                         if self.debug_menu_rect.collidepoint(mouse_pos):
-                            # Calculate index based on click Y relative to menu top
-                            relative_y = mouse_pos[1] - (self.debug_menu_rect.y + 40)  # 40px header
+                            # Calculate index based on click Y relative to menu entries
+                            # (start at +45)
+                            relative_y = mouse_pos[1] - (self.debug_menu_rect.y + 45)
                             if relative_y >= 0:
                                 clicked_idx = relative_y // 25  # 25px per item
                                 if 0 <= clicked_idx < len(self.layers):
@@ -866,12 +899,21 @@ class Theatre:
                                         target_name = layer.asset_path.parent.name
                                         msg = f"Toggle: {target_name} -> {layer.visible}"
                                         logging.info(msg)
+                            # Consume the event since it was in the menu
+                            continue
 
-            if os.path.getmtime(self.scene_path) != self.last_modified_time:
-                logging.info(f"Detected change in {self.scene_path}. Reloading...")
-                self.load_scene()
-                # Ensure index still valid after reload
-                self.debug_target_layer_index %= len(self.layers) if self.layers else 1
+            # Throttle file integrity check (every 60 frames)
+            self._frame_counter += 1
+            if self._frame_counter % 60 == 0:
+                has_changed = (
+                    os.path.exists(self.scene_path)
+                    and os.path.getmtime(self.scene_path) != self.last_modified_time
+                )
+                if has_changed:
+                    logging.info(f"Detected change in {self.scene_path}. Reloading...")
+                    self.load_scene()
+                    # Ensure index still valid after reload
+                    self.debug_target_layer_index %= len(self.layers) if self.layers else 1
 
             dt = self.clock.tick(60) / 1000.0
             self.elapsed_time += dt
@@ -917,7 +959,6 @@ class Theatre:
             elif self.layers and self.debug_target_layer_index < len(self.layers):
                 # Simple overlay when menu is closed
                 if pygame.font.get_init():
-                    font = pygame.font.SysFont(None, 24)
                     sampled_layer = self.layers[self.debug_target_layer_index]
                     mx, my = pygame.mouse.get_pos()
                     physics_y = sampled_layer.get_y_at_x(
@@ -927,7 +968,7 @@ class Theatre:
                         f"Sampling Layer: {sampled_layer.asset_path.parent.name} | "
                         f"Surface Y: {int(physics_y)}"
                     )
-                    text = font.render(msg, True, (255, 0, 0))
+                    text = self.font_small.render(msg, True, (255, 0, 0))
                     self.screen.blit(text, (10, 10))
 
             pygame.display.flip()
@@ -937,8 +978,6 @@ class Theatre:
         if not pygame.font.get_init():
             return
 
-        font_header = pygame.font.SysFont(None, 28, bold=True)
-        font_item = pygame.font.SysFont(None, 24)
         mx, my = pygame.mouse.get_pos()
         screen_h = self.screen.get_height()
 
@@ -951,7 +990,7 @@ class Theatre:
         pygame.draw.rect(self.screen, (255, 255, 255), self.debug_menu_rect, 2)
 
         # 2. Header
-        header_text = font_header.render("Debug Menu: Select Layer", True, (255, 255, 0))
+        header_text = self.font_header.render("Debug Menu: Select Layer", True, (255, 255, 0))
         self.screen.blit(header_text, (self.debug_menu_rect.x + 10, self.debug_menu_rect.y + 10))
 
         # 3. Layer list
@@ -964,13 +1003,13 @@ class Theatre:
                 prefix = "[x] "
 
             layer_name = layer.asset_path.parent.name
-            item_text = font_item.render(f"{prefix}{layer_name}", True, color)
+            item_text = self.font_item.render(f"{prefix}{layer_name}", True, color)
             self.screen.blit(item_text, (self.debug_menu_rect.x + 20, y_offset))
 
             # Visibility toggle
             vis_char = "[V]" if layer.visible else "[H]"
             vis_color = (0, 255, 0) if layer.visible else (150, 150, 150)
-            vis_text = font_item.render(vis_char, True, vis_color)
+            vis_text = self.font_item.render(vis_char, True, vis_color)
             self.screen.blit(vis_text, (self.debug_menu_rect.right - 40, y_offset))
 
             y_offset += 25
@@ -994,14 +1033,14 @@ class Theatre:
             self.screen.get_width(), screen_h, self.scroll, self.elapsed_time
         )
 
-        report_mouse = font_item.render(f"Mouse X: {mx}  Y: {my}", True, (200, 200, 200))
-        report_pink = font_item.render(
+        report_mouse = self.font_item.render(f"Mouse X: {mx}  Y: {my}", True, (200, 200, 200))
+        report_pink = self.font_item.render(
             f"Pink Dot X: {mx}  Y: {int(physics_y)}", True, (255, 0, 255)
         )
-        report_sprite = font_item.render(
+        report_sprite = self.font_item.render(
             f"Sprite X: {int(sprite_x)}  Y: {int(sprite_y)}", True, (255, 255, 0)
         )
-        report_layer = font_item.render(
+        report_layer = self.font_item.render(
             f"Target: {sampled_layer.asset_path.parent.name}", True, (0, 255, 255)
         )
 
@@ -1019,3 +1058,5 @@ def run_theatre(scene_path: str = "assets/scenes/sailboat/scene.json"):
 if __name__ == "__main__":
     scene = sys.argv[1] if len(sys.argv) > 1 else "assets/scenes/sailboat/scene.json"
     run_theatre(scene)
+    pygame.display.quit()
+    os._exit(0)
