@@ -1,12 +1,38 @@
 #!/bin/bash
 set -eo pipefail
 
+# Store the project root directory
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT_DIR"
+
+# Parse arguments
+FIX_MODE=true
+for arg in "$@"; do
+    case $arg in
+        --nofix)
+            FIX_MODE=false
+            ;;
+    esac
+done
+
 # Ensure logs directory exists
 mkdir -p logs
 
 {
     echo "Starting Verification at $(date)"
     echo "----------------------------------------"
+
+    if [ "$FIX_MODE" = true ]; then
+        echo "Auto-fixing Backend code style..."
+        uv run ruff check --fix .
+        uv run ruff format .
+        echo ""
+        echo "Auto-fixing Frontend code style..."
+        pushd src/web > /dev/null
+        npm run lint -- --fix || true  # Don't fail on unfixable issues
+        popd > /dev/null
+        echo ""
+    fi
 
     echo "Running Backend Linters..."
     uv run ruff check .
@@ -15,12 +41,15 @@ mkdir -p logs
     echo "Running Backend Tests..."
     uv run pytest --cov=src --cov-report=term-missing
 
-    # echo "Running Frontend Linters..."
-    # cd src/web
-    # npm run lint
+    echo "Running Frontend Linters..."
+    pushd src/web > /dev/null
+    npm run lint
+    popd > /dev/null
     
     echo "Running Frontend Tests (with Coverage)..."
-    cd src/web && npm run test:coverage && cd ../..
+    pushd src/web > /dev/null
+    npm run test:coverage
+    popd > /dev/null
     
     echo "----------------------------------------"
     echo "All tests passed!"

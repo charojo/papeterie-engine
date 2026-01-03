@@ -76,7 +76,7 @@ export class Theatre {
             try {
                 image = await this._loadImage(globalUrl);
                 // console.log(`Loaded global sprite: ${spriteName}`);
-            } catch (e) {
+            } catch {
                 console.warn(`Failed to load sprite '${spriteName}' from ${globalUrl}`);
                 return null;
             }
@@ -101,7 +101,7 @@ export class Theatre {
                     // Merge: Scene overrides Metadata
                     config = { ...meta, ...config };
                 }
-            } catch (e) {
+            } catch {
                 console.warn("Could not load metadata for", spriteName);
             }
 
@@ -230,7 +230,7 @@ export class Theatre {
 
             // Collect telemetry
             const currentY = layer._currentYPhys !== undefined ? layer._currentYPhys : (layer._getBaseY(height) + layer.y_offset);
-            const currentX = layer._currentXPhys !== undefined ? layer._currentXPhys : (layer.x_offset); // Approximation, need exact render X?
+            // layer._currentXPhys tracking for telemetry X position
             // Actually Layer.js getTransform returns 'x' offset. 
             // In draw(), finalX = tf.x. And parallaxX = (scrollX * speed) + x_offset.
             // Let's get the visual X (screen X not including scroll?). 

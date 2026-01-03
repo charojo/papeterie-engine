@@ -61,7 +61,7 @@ describe('TimelineEditor', () => {
             render(<TimelineEditor {...defaultProps} layers={layers} selectedLayer="boat" />);
             // The boat label parent should have a tinted background
             const boatLabel = screen.getByText('boat');
-            const style = boatLabel.parentElement.style;
+            const _style = boatLabel.parentElement.style;
             // Just verify it renders without error when selectedLayer is set
             expect(boatLabel).toBeInTheDocument();
         });

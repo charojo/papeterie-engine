@@ -1,4 +1,3 @@
-import io
 import logging
 import shutil
 from typing import List, Optional
@@ -9,8 +8,8 @@ from pydantic import BaseModel, constr
 
 from src.compiler.engine import SpriteCompiler
 from src.config import PROJECT_ROOT
+from src.server import image_processing as img_proc
 from src.server.dependencies import asset_logger, get_user_assets
-from src.server.image_processing import optimize_image, remove_green_screen
 
 logger = logging.getLogger("papeterie")
 router = APIRouter(tags=["sprites"])
@@ -118,15 +117,13 @@ async def upload_sprite(
             logger.info(f"Saved original for {safe_name} to {original_path}")
             processing_method = "upload_processed"
 
-        image = Image.open(io.BytesIO(contents))
-
+        image = img_proc.image_from_bytes(contents)
         if remove_background:
             logger.info(f"Removing background for sprite {safe_name}")
-            image = remove_green_screen(image)
-
+            image = img_proc.remove_green_screen(image)
         if optimize:
             logger.info(f"Optimizing image for sprite {safe_name}")
-            image = optimize_image(image)
+            image = img_proc.optimize_image(image)
 
         if image.mode != "RGBA":
             image = image.convert("RGBA")
@@ -189,11 +186,11 @@ def process_sprite(name: str, request: ProcessRequest, user_assets=Depends(get_u
                         system_instruction=system_prompt,
                     )
 
-                    image = Image.open(io.BytesIO(img_data))
+                    image = img_proc.image_from_bytes(img_data)
                     logger.info("AI Generation successful, proceeding to remove green screen")
                     processing_method = "ai_gemini"
 
-                    image = remove_green_screen(image)
+                    image = img_proc.remove_green_screen(image)
 
                 except Exception as e:
                     import traceback
@@ -205,20 +202,20 @@ def process_sprite(name: str, request: ProcessRequest, user_assets=Depends(get_u
                     )
 
                     image = Image.open(original_path)
-                    image = remove_green_screen(image)
+                    image = img_proc.remove_green_screen(image)
                     processing_method = "fallback_manual"
                     error_msg = f"{str(e)}\nTraceback: {tb}"
 
             except Exception as e:
                 logger.error(f"Optimization flow error: {e}")
                 image = Image.open(original_path)
-                image = remove_green_screen(image)
+                image = img_proc.remove_green_screen(image)
                 processing_method = "fallback_error"
                 error_msg = str(e)
 
         else:
             if request.remove_background:
-                image = remove_green_screen(image)
+                image = img_proc.remove_green_screen(image)
 
         if image.mode != "RGBA":
             image = image.convert("RGBA")

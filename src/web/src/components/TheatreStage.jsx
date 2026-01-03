@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Theatre } from '../engine/Theatre';
 
 export function TheatreStage({
@@ -18,7 +18,7 @@ export function TheatreStage({
     const canvasRef = useRef(null);
     const theatreRef = useRef(null);
     const containerRef = useRef(null);
-    const isDraggingRef = useRef(false);
+    const [isDragging, setIsDragging] = useState(false);
 
     // Sync debugMode and layerVisibility
     useEffect(() => {
@@ -86,6 +86,7 @@ export function TheatreStage({
                 theatreRef.current.stop();
             }
         };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [scene, sceneName, assetBaseUrl]);
 
     // Handle Resizing
@@ -120,7 +121,7 @@ export function TheatreStage({
         const y = e.clientY - rect.top;
 
         if (theatreRef.current.handleDragStart(x, y)) {
-            isDraggingRef.current = true;
+            setIsDragging(true);
         } else {
             theatreRef.current.handleCanvasClick(x, y);
         }
@@ -134,16 +135,16 @@ export function TheatreStage({
 
         theatreRef.current.setMousePosition(x, y);
 
-        if (isDraggingRef.current) {
+        if (isDragging) {
             theatreRef.current.handleDragMove(x, y);
         }
     };
 
     const handleMouseUp = () => {
         if (!theatreRef.current) return;
-        if (isDraggingRef.current) {
+        if (isDragging) {
             theatreRef.current.handleDragEnd();
-            isDraggingRef.current = false;
+            setIsDragging(false);
         }
     };
 
@@ -151,7 +152,7 @@ export function TheatreStage({
         <div ref={containerRef} style={{ width: '100%', height: '100%', position: 'relative', overflow: 'hidden', ...style }}>
             <canvas
                 ref={canvasRef}
-                style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', cursor: isDraggingRef.current ? 'grabbing' : 'pointer' }}
+                style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', cursor: isDragging ? 'grabbing' : 'pointer' }}
                 onMouseDown={handleMouseDown}
                 onMouseMove={handleMouseMove}
                 onMouseUp={handleMouseUp}

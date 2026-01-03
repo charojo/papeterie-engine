@@ -34,7 +34,7 @@ vi.mock('../ImageViewer', () => ({
 }));
 
 vi.mock('../TheatreStage', () => ({
-    TheatreStage: ({ onSpritePositionChanged, onSpriteSelected, onTelemetry }) => (
+    TheatreStage: ({ onSpritePositionChanged, onSpriteSelected, onTelemetry: _onTelemetry }) => (
         <div data-testid="theatre-stage">
             TheatreStage
             <button onClick={() => onSpritePositionChanged('dragon', 100, 200, 1.5)}>Move Sprite</button>
@@ -104,7 +104,7 @@ describe('GenericDetailView', () => {
         let resolveFetch;
         const fetchPromise = new Promise(r => { resolveFetch = r });
 
-        global.fetch.mockImplementation((url, options = {}) => {
+        global.fetch.mockImplementation((url, _options = {}) => {
             if (url.endsWith('/process')) return fetchPromise.then(() => ({ ok: true, json: async () => ({}) }));
             if (url.includes('/logs')) return Promise.resolve({ ok: true, json: async () => ({ content: 'logs' }) });
             return Promise.resolve({ ok: true, json: async () => [] });

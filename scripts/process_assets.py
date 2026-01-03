@@ -1,29 +1,25 @@
 import argparse
 import os
 import shutil
+import sys
+from pathlib import Path
 
 from PIL import Image
+
+# Add project root to path
+sys.path.append(str(Path(__file__).parent.parent))
+
+from src.server.image_processing import remove_green_screen as central_remove_green
 
 
 def remove_green_screen(image_path, output_path, threshold=50):
     """
-    Process an image to remove green screen background.
+    Process an image to remove green screen background using centralized logic.
     """
     try:
-        img = Image.open(image_path).convert("RGBA")
-        datas = img.getdata()
-
-        newData = []
-        for item in datas:
-            r, g, b, a = item
-            # Check if green is dominant
-            if g > r + threshold and g > b + threshold:
-                newData.append((255, 255, 255, 0))
-            else:
-                newData.append(item)
-
-        img.putdata(newData)
-        img.save(output_path, "PNG")
+        img = Image.open(image_path)
+        processed_img = central_remove_green(img, threshold)
+        processed_img.save(output_path, "PNG")
         print(f"Processed: {output_path}")
     except Exception as e:
         print(f"Error processing {image_path}: {e}")

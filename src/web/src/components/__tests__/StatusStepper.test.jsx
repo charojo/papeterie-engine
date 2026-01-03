@@ -4,7 +4,7 @@ import { StatusStepper } from '../StatusStepper';
 
 describe('StatusStepper', () => {
     it('renders all steps', () => {
-        const { container } = render(<StatusStepper currentStatus="Raw Scene" />);
+        const { container: _container } = render(<StatusStepper currentStatus="Raw Scene" />);
 
         expect(screen.getByText('Import')).toBeInTheDocument();
         expect(screen.getByText('Optimize')).toBeInTheDocument();
@@ -13,35 +13,35 @@ describe('StatusStepper', () => {
     });
 
     it('highlights Import step for Raw Scene status', () => {
-        const { container } = render(<StatusStepper currentStatus="Raw Scene" />);
+        const { container: _container } = render(<StatusStepper currentStatus="Raw Scene" />);
 
         const importStep = screen.getByText('Import').parentElement;
         expect(importStep).toHaveStyle({ color: 'var(--color-primary)' });
     });
 
     it('highlights Import step for Raw Sprite status', () => {
-        const { container } = render(<StatusStepper currentStatus="Raw Sprite" />);
+        const { container: _container } = render(<StatusStepper currentStatus="Raw Sprite" />);
 
         const importStep = screen.getByText('Import').parentElement;
         expect(importStep).toHaveStyle({ color: 'var(--color-primary)' });
     });
 
     it('highlights Optimize step for Optimizing status', () => {
-        const { container } = render(<StatusStepper currentStatus="Optimizing" />);
+        const { container: _container } = render(<StatusStepper currentStatus="Optimizing" />);
 
         const optimizeStep = screen.getByText('Optimize').parentElement;
         expect(optimizeStep).toHaveStyle({ color: 'var(--color-primary)' });
     });
 
     it('highlights Ready step for Configured status', () => {
-        const { container } = render(<StatusStepper currentStatus="Configured" />);
+        const { container: _container } = render(<StatusStepper currentStatus="Configured" />);
 
         const readyStep = screen.getByText('Ready').parentElement;
         expect(readyStep).toHaveStyle({ color: 'var(--color-primary)' });
     });
 
     it('makes current step bold', () => {
-        const { container } = render(<StatusStepper currentStatus="Optimizing" />);
+        const { container: _container } = render(<StatusStepper currentStatus="Optimizing" />);
 
         const optimizeLabel = screen.getByText('Optimize');
         expect(optimizeLabel).toHaveStyle({ fontWeight: '600' });
@@ -56,7 +56,7 @@ describe('StatusStepper', () => {
     });
 
     it('activates all steps up to current status', () => {
-        const { container } = render(<StatusStepper currentStatus="Configured" />);
+        const { container: _container } = render(<StatusStepper currentStatus="Configured" />);
 
         // All steps should be active (colored) for Configured status
         const importStep = screen.getByText('Import').parentElement;

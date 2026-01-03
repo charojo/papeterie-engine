@@ -9,14 +9,18 @@ We employ a comprehensive testing strategy covering both the Python backend (Com
 The primary entry point for running all verification checks is:
 
 ```bash
-./scripts/validate.sh
+./scripts/validate.sh          # Auto-fixes formatting, then validates
+./scripts/validate.sh --nofix  # Validate only (for CI)
 ```
 
 This script runs:
-1.  Backend tests with coverage.
-2.  Frontend tests with coverage.
+1.  **Auto-fix** code style issues (import sorting, formatting) — unless `--nofix` is passed.
+2.  **Backend linting** via `ruff check` and `ruff format --check`.
+3.  **Backend tests** with coverage.
+4.  **Frontend linting** via ESLint.
+5.  **Frontend tests** with coverage.
 
-Output is automatically logged to `logs/verification.log`.
+Output is automatically logged to `logs/validate.log`.
 
 ## Backend Verification
 
@@ -55,12 +59,17 @@ Improvements planned for the verification system:
 
 | Area | Coverage |
 |------|----------|
-| **Backend (Python)** | 64% |
-| **Frontend (React)** | 58% |
-| **Total** | 61% |
+| **Backend (Python)** | 78% |
+| **Frontend (React)** | 72.52% |
+| **Total** | 75.26% |
 
 ### Recent Improvements
+- Full ESLint cleanup: reduced 229 errors to 0
+- Fixed hooks rules violation in `DeleteConfirmationDialog.jsx`
+- Added missing ignores for `.vite`, `node_modules`, `coverage` directories
+- Disabled `react-hooks/set-state-in-effect` rule (intentional reset patterns)
 - Added tests for `AudioManager.js` (21% → 52%)
 - Added tests for `BehaviorEditor.jsx` (0% → 56%)
 - Added tests for `TimelineEditor.jsx` (0% → 43%)
 - Added tests for `sounds.py` router (44% → 100%)
+

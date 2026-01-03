@@ -133,7 +133,7 @@ export function BehaviorEditor({ behaviors = [], onChange, readOnly = false, spr
                     </div>
                 )}
 
-                {filteredBehaviors.map((b, idx) => {
+                {filteredBehaviors.map((b, _idx) => {
                     // We need the original index to update/remove correctly
                     const originalIndex = behaviors.indexOf(b);
                     return (

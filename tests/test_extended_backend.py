@@ -92,7 +92,7 @@ def test_upload_sprite_raw(clean_assets):
     assert not (sprite_dir / "test_sprite_upload.original.png").exists()
 
 
-@patch("src.server.routers.sprites.remove_green_screen")
+@patch("src.server.routers.sprites.img_proc.remove_green_screen")
 def test_upload_sprite_remove_bg(mock_remove_bg, clean_assets):
     """Test sprite upload with background removal."""
     # Mock return value to be a valid image
@@ -161,9 +161,14 @@ def test_generate_scene_success(mock_gen_image, clean_assets):
 
 
 @patch("src.compiler.gemini_client.GeminiCompilerClient.edit_image")
-@patch("src.server.routers.sprites.remove_green_screen")
-def test_process_sprite_ai(mock_remove_bg, mock_edit_image, clean_assets):
+@patch("src.server.routers.sprites.img_proc.image_from_bytes")
+@patch("src.server.routers.sprites.img_proc.remove_green_screen")
+def test_process_sprite_ai(mock_remove_bg, mock_img_from_bytes, mock_edit_image, clean_assets):
     """Test sprite processing with AI optimization."""
+    # Setup mocks
+    mock_img_from_bytes.return_value = Image.new("RGBA", (50, 50), "green")
+    mock_remove_bg.return_value = Image.new("RGBA", (50, 50), (0, 0, 0, 0))
+
     # Setup sprite
     name = "test_sprite_upload"
     sprite_dir = SPRITES_DIR / name
@@ -191,9 +196,14 @@ def test_process_sprite_ai(mock_remove_bg, mock_edit_image, clean_assets):
 # --- Scene Optimization Tests ---
 
 
+@patch("src.server.routers.scenes.img_proc.image_from_bytes")
+@patch("src.server.routers.scenes.img_proc.remove_green_screen")
 @patch("src.server.routers.scenes.GeminiCompilerClient")
-def test_optimize_scene_mocked(MockGemini, clean_assets):
+def test_optimize_scene_mocked(MockGemini, mock_remove, mock_img_from_bytes, clean_assets):
     """Mock full scene optimization flow."""
+    # Setup mocks
+    mock_img_from_bytes.return_value = Image.new("RGBA", (10, 10), "green")
+    mock_remove.return_value = Image.new("RGBA", (10, 10), (0, 0, 0, 0))
     # Setup scene
     name = "test_scene_optim"
     scene_dir = SCENES_DIR / name
@@ -208,8 +218,13 @@ def test_optimize_scene_mocked(MockGemini, clean_assets):
         {"sprites": [{"name": "test_obj", "description": "desc", "location_hint": "center"}]}
     )
 
-    # Mock 2: Extract BG & Sprites (return dummy bytes)
-    client_instance.extract_element_image.return_value = b"dummy_image_bytes"
+    # Mock 2: Extract BG & Sprites (return valid PNG bytes)
+    img = Image.new("RGBA", (10, 10), "green")
+    img_byte_arr = io.BytesIO()
+    img.save(img_byte_arr, format="PNG")
+    valid_png_bytes = img_byte_arr.getvalue()
+
+    client_instance.extract_element_image.return_value = valid_png_bytes
 
     response = client.post(f"/api/scenes/{name}/optimize", json={"prompt_guidance": "Test"})
 
@@ -220,7 +235,7 @@ def test_optimize_scene_mocked(MockGemini, clean_assets):
     # Verify sprite creation
     sprite_dir = SPRITES_DIR / "test_obj"
     assert sprite_dir.exists()
-    assert (sprite_dir / "test_obj.png").read_bytes() == b"dummy_image_bytes"
+    assert (sprite_dir / "test_obj.png").exists()
 
     # Verify scene config updated
     with open(scene_dir / "scene.json") as f:

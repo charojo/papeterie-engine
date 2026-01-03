@@ -15,7 +15,7 @@ export function GenericDetailView({ type, asset, refresh, isExpanded, toggleExpa
         logs,
         isOptimizing,
         selectedImage,
-        setSelectedImage,
+        setSelectedImage: _setSelectedImage,
         visualPrompt,
         setVisualPrompt,
         configPrompt,
@@ -51,6 +51,7 @@ export function GenericDetailView({ type, asset, refresh, isExpanded, toggleExpa
     const [currentTime, setCurrentTime] = useState(0);
 
     const [isPlaying, setIsPlaying] = useState(false);
+
 
     useEffect(() => {
         setIsPlaying(false);
@@ -156,7 +157,7 @@ export function GenericDetailView({ type, asset, refresh, isExpanded, toggleExpa
                                         onSpritePositionChanged={handleSpritePositionChanged}
                                         currentTime={currentTime}
                                         onTimeUpdate={setCurrentTime}
-                                        onInitialize={(theatre) => {
+                                        onInitialize={(_theatre) => {
                                             // Restore visibility settings if any
                                             // This is a bit tricky since theatre is recreated on scene change
                                         }}

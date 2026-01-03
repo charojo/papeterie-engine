@@ -1,8 +1,21 @@
+import io
 import logging
 
 from PIL import Image
 
 logger = logging.getLogger("papeterie.image_processing")
+
+
+def image_from_bytes(data: bytes) -> Image.Image:
+    """Helper to convert bytes to a PIL Image without requiring io in the caller."""
+    return Image.open(io.BytesIO(data))
+
+
+def bytes_from_image(image: Image.Image, format: str = "PNG") -> bytes:
+    """Helper to convert a PIL Image to bytes without requiring io in the caller."""
+    buf = io.BytesIO()
+    image.save(buf, format=format)
+    return buf.getvalue()
 
 
 def remove_green_screen(image: Image.Image, threshold: int = 50) -> Image.Image:

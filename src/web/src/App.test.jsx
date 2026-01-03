@@ -120,7 +120,7 @@ describe('App Component', () => {
 
         await waitFor(() => screen.getByText('dragon'));
 
-        const spriteButton = screen.getByText('dragon').closest('div');
+        const _spriteButton = screen.getByText('dragon').closest('div');
         // The text 'dragon' is inside a span inside the div which has the onClick.
         // However, the div has class 'btn'. Let's find by text and verify parent.
 

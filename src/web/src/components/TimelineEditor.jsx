@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { Icon } from './Icon';
 
 export function TimelineEditor({
@@ -121,7 +121,7 @@ export function TimelineEditor({
                     overflowY: 'hidden' // Sync scroll later?
                 }}>
                     <div style={{ height: '24px', borderBottom: '1px solid #444' }}></div> {/* Ruler header spacer */}
-                    {layers.map((l, i) => (
+                    {layers.map((l) => (
                         <div key={l.sprite_name} style={{
                             height: '28px',
                             display: 'flex',
@@ -188,7 +188,7 @@ export function TimelineEditor({
                         </div>
 
                         {/* Tracks */}
-                        {layers.map((l, i) => (
+                        {layers.map((l) => (
                             <div key={l.sprite_name} style={{
                                 height: '28px',
                                 borderBottom: '1px solid #333',

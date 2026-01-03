@@ -24,12 +24,14 @@ export const ImageViewer = ({
     }, [scale]);
 
     // Reset Scale (Fit) when toggling view mode
+
     useEffect(() => {
         setScale(1);
         setPosition({ x: 0, y: 0 });
     }, [isExpanded]);
 
     // Reset Position (but preserve Scale) when image changes
+
     useEffect(() => {
         setPosition({ x: 0, y: 0 });
     }, [mainSrc]);

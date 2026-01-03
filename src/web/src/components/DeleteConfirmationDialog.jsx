@@ -38,10 +38,10 @@ const DELETE_MODES = {
 };
 
 export function DeleteConfirmationDialog({ isOpen, onClose, onConfirm, type, assetName }) {
-    if (!isOpen) return null;
-
     const modes = DELETE_MODES[type] || [];
     const [selectedMode, setSelectedMode] = useState(modes[modes.length - 1]?.id);
+
+    if (!isOpen) return null;
 
     const handleConfirm = () => {
         onConfirm(selectedMode);

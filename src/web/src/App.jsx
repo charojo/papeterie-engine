@@ -70,6 +70,7 @@ function App() {
     if (!isInitializing) {
       fetchData();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isInitializing, user]);
 
   if (isInitializing) {

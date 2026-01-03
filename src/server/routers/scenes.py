@@ -11,8 +11,14 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, constr
 
 from src.compiler.gemini_client import GeminiCompilerClient
-from src.compiler.models import SceneConfig, SceneDecomposition, SceneLayer, SpriteMetadata
+from src.compiler.models import (
+    SceneConfig,
+    SceneDecomposition,
+    SceneLayer,
+    SpriteMetadata,
+)
 from src.config import PROJECT_ROOT
+from src.server import image_processing as img_proc
 from src.server.dependencies import asset_logger, get_user_assets
 
 logger = logging.getLogger("papeterie")
@@ -99,7 +105,9 @@ async def list_scenes(user_assets=Depends(get_user_assets)):
 
 @router.post("/scenes/upload")
 async def upload_scene(
-    name: str = Form(...), file: UploadFile = File(...), user_assets=Depends(get_user_assets)
+    name: str = Form(...),
+    file: UploadFile = File(...),
+    user_assets=Depends(get_user_assets),
 ):
     scenes_dir, _ = user_assets
     safe_name = "".join(c for c in name if c.isalnum() or c in ("_", "-")).strip()
@@ -189,14 +197,20 @@ async def generate_scene(request: GenerateSceneRequest, user_assets=Depends(get_
         raise HTTPException(status_code=500, detail="Scene generation failed. Check server logs.")
 
     asset_logger.log_action(
-        "scenes", safe_name, "CREATE", "Scene generated w/ AI", f"Prompt: {request.prompt[:50]}..."
+        "scenes",
+        safe_name,
+        "CREATE",
+        "Scene generated w/ AI",
+        f"Prompt: {request.prompt[:50]}...",
     )
     return {"name": safe_name, "message": "Scene generated successfully"}
 
 
 @router.post("/scenes/{name}/optimize")
 def optimize_scene(
-    name: str, request: OptimizeRequest = OptimizeRequest(), user_assets=Depends(get_user_assets)
+    name: str,
+    request: OptimizeRequest = OptimizeRequest(),
+    user_assets=Depends(get_user_assets),
 ):
     scenes_dir, sprites_dir = user_assets
     logger.info(f"Starting scene optimization for {name}")
@@ -324,14 +338,16 @@ def optimize_scene(
                     aspect_ratio="1:1",
                 )
 
+                s_img = img_proc.image_from_bytes(sprite_bytes)
+                s_img = img_proc.remove_green_screen(s_img)
+
                 s_dir = sprites_dir / s_name
                 s_dir.mkdir(parents=True, exist_ok=True)
 
-                with open(s_dir / f"{s_name}.png", "wb") as f:
-                    f.write(sprite_bytes)
+                s_img.save(s_dir / f"{s_name}.png", "PNG")
 
-                with open(s_dir / f"{s_name}.original.png", "wb") as f:
-                    f.write(sprite_bytes)
+                # Still save the processed sprite as original for future optimization/revert
+                s_img.save(s_dir / f"{s_name}.original.png", "PNG")
 
                 s_meta = SpriteMetadata(
                     name=s_name,
@@ -365,7 +381,12 @@ def optimize_scene(
         new_layers = []
 
         new_layers.append(
-            SceneLayer(sprite_name=bg_sprite_name, z_depth=1, is_background=True, scroll_speed=0.1)
+            SceneLayer(
+                sprite_name=bg_sprite_name,
+                z_depth=1,
+                is_background=True,
+                scroll_speed=0.1,
+            )
         )
 
         for i, s_name in enumerate(valid_sprites):
@@ -515,7 +536,11 @@ def delete_scene(name: str, mode: str = "delete_scene", user_assets=Depends(get_
             raise HTTPException(status_code=400, detail=f"Unknown mode: {mode}")
 
         asset_logger.log_action(
-            "scenes", name, "DELETE", f"Scene deleted (mode={mode})", f"Kept: {kept_sprites}"
+            "scenes",
+            name,
+            "DELETE",
+            f"Scene deleted (mode={mode})",
+            f"Kept: {kept_sprites}",
         )
 
         return {
@@ -551,7 +576,11 @@ async def update_scene_config(name: str, config: dict, user_assets=Depends(get_u
             f.write(scene_config.model_dump_json(indent=2))
 
         asset_logger.log_action("scenes", name, "UPDATE_CONFIG", "Scene config updated", "")
-        return {"name": name, "message": "Config updated successfully", "config": config}
+        return {
+            "name": name,
+            "message": "Config updated successfully",
+            "config": config,
+        }
     except Exception as e:
         logger.error(f"Failed to update config for {name}: {e}")
         raise HTTPException(status_code=400, detail=f"Invalid config: {str(e)}")

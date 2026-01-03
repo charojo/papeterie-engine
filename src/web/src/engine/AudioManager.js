@@ -12,7 +12,7 @@ export class AudioManager {
     async loadSound(name, filename) {
         if (this.sounds.has(name)) return;
 
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve) => {
             const audio = new Audio(`${this.basePath}${filename}`);
             const soundEntry = { audio, loaded: false };
             this.sounds.set(name, soundEntry);
@@ -68,7 +68,7 @@ export class AudioManager {
         }
     }
 
-    play(name, { volume = 1.0, loop = false, fade_in = 0, fade_out = 0 } = {}) {
+    play(name, { volume = 1.0, loop = false, fade_in: _fade_in = 0, fade_out: _fade_out = 0 } = {}) {
         const entry = this.sounds.get(name);
         if (entry && entry.loaded) {
             const audio = entry.audio;

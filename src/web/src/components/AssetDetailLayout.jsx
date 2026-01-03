@@ -9,7 +9,7 @@ export const AssetDetailLayout = ({
     visualContent, // React node for left column
     configContent, // React node for right column
     logs,
-    onRefreshLogs, // Callback to manually fetch logs (coming soon)
+    _onRefreshLogs, // Callback to manually fetch logs (coming soon)
     isExpanded // Prop passed from parent
 }) => {
 

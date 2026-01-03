@@ -19,7 +19,7 @@ class EventRuntime {
         this.config = config;
         this.active = config.enabled ?? true;
     }
-    apply(layer, dt, transform) { }
+    apply(_layer, _dt, _transform) { }
 }
 
 class OscillateRuntime extends EventRuntime {
@@ -120,7 +120,7 @@ class PulseRuntime extends EventRuntime {
 
 // BackgroundRuntime is a no-op at runtime for transform, but properties are applied in init
 class BackgroundRuntime extends EventRuntime {
-    apply(layer, dt, transform) {
+    apply(_layer, _dt, _transform) {
         // No transform modifications for background
     }
 }
@@ -460,7 +460,7 @@ export class Layer {
 
         // 1. Calculate the actual drawn width (base scaling * transform scale)
         const tf = this.getTransform(screenH, 0, elapsedTime); // No dt for static sample
-        const { width: baseW, height: baseH } = this._getBaseDimensions(screenH);
+        const { width: baseW } = this._getBaseDimensions(screenH);
         const drawnW = baseW * Math.max(0.001, tf.scale);
         const baseY = tf.base_y + tf.y;
 

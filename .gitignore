@@ -25,6 +25,10 @@ wheels/
 htmlcov/
 coverage.xml
 
+# Database
+*.db
+papeterie.db
+
 # Logs
 logs/
 *.log
