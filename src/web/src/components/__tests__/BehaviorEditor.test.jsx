@@ -233,58 +233,13 @@ describe('BehaviorEditor', () => {
         });
     });
 
-    describe('visibility toggle', () => {
-        it('renders visibility button when onToggleVisibility is provided', () => {
-            const mockToggle = vi.fn();
-            render(
-                <BehaviorEditor
-                    behaviors={[]}
-                    onChange={mockOnChange}
-                    spriteName="boat"
-                    isVisible={true}
-                    onToggleVisibility={mockToggle}
-                />
-            );
-
-            expect(screen.getByTitle(/Hide Sprite/)).toBeInTheDocument();
-        });
-
-        it('calls onToggleVisibility when clicked', () => {
-            const mockToggle = vi.fn();
-            render(
-                <BehaviorEditor
-                    behaviors={[]}
-                    onChange={mockOnChange}
-                    spriteName="boat"
-                    isVisible={true}
-                    onToggleVisibility={mockToggle}
-                />
-            );
-
-            fireEvent.click(screen.getByTitle(/Hide Sprite/));
-            expect(mockToggle).toHaveBeenCalled();
-        });
-    });
-
-    describe('remove sprite', () => {
-        it('renders remove button when onRemoveSprite is provided', () => {
-            const mockRemove = vi.fn();
-            render(
-                <BehaviorEditor
-                    behaviors={[]}
-                    onChange={mockOnChange}
-                    onRemoveSprite={mockRemove}
-                />
-            );
-
-            expect(screen.getByTitle(/Remove Sprite/)).toBeInTheDocument();
-        });
-    });
-
     describe('read-only mode', () => {
         it('hides add button in read-only mode', () => {
             render(<BehaviorEditor behaviors={[]} onChange={mockOnChange} readOnly={true} />);
             expect(screen.queryByTitle("Add Behavior")).not.toBeInTheDocument();
         });
     });
+
+    // Note: visibility toggle and remove sprite buttons have been moved to ImageViewer floating controls
 });
+

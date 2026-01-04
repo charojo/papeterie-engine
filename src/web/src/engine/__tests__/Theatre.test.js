@@ -21,12 +21,17 @@ vi.mock('../Layer', () => {
             }
 
             draw = vi.fn();
+            getTransform = vi.fn(() => ({ x: 0, y: 0, scale: 1, rotation: 0, base_x: 0, base_y: 500 }));
             _getBaseY = vi.fn(() => 500);
+            _getBaseDimensions = vi.fn(() => ({ width: 100, height: 100 }));
             containsPoint = vi.fn(() => false);
+            getHandleAtPoint = vi.fn(() => null);
             setPosition = vi.fn(function (x, y) {
                 this.x_offset = x;
                 this.y_offset = y;
             });
+            setRotation = vi.fn();
+            setScale = vi.fn();
         }
     };
 });
@@ -47,6 +52,7 @@ describe('Theatre', () => {
             restore: vi.fn(),
             translate: vi.fn(),
             rotate: vi.fn(),
+            scale: vi.fn(),
             fillText: vi.fn(),
             strokeStyle: '',
             beginPath: vi.fn(),

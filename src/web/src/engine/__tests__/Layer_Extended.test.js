@@ -181,11 +181,23 @@ describe('Layer Extended', () => {
             const ctx = {
                 drawImage: vi.fn(),
                 strokeRect: vi.fn(),
+                save: vi.fn(),
+                restore: vi.fn(),
+                translate: vi.fn(),
+                rotate: vi.fn(),
+                beginPath: vi.fn(),
+                arc: vi.fn(),
+                fill: vi.fn(),
+                moveTo: vi.fn(),
+                lineTo: vi.fn(),
+                stroke: vi.fn(),
                 set strokeStyle(v) { },
                 set lineWidth(v) { },
-                set globalAlpha(v) { }
+                set globalAlpha(v) { },
+                set fillStyle(v) { },
+                setLineDash: vi.fn()
             };
-            layer.draw(ctx, 1000, 1000, 0, 0, 0);
+            layer.draw(ctx, 1000, 1000, 0, 0, 0, null, true);
             expect(ctx.strokeRect).toHaveBeenCalled();
         });
 

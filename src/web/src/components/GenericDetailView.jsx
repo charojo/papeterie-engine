@@ -3,19 +3,20 @@ import { toast } from 'sonner';
 import { AssetDetailLayout } from './AssetDetailLayout';
 import { ImageViewer } from './ImageViewer';
 import { Icon } from './Icon';
-import { TheatreStage } from './TheatreStage';
 import { DeleteConfirmationDialog } from './DeleteConfirmationDialog';
 import { BehaviorEditor } from './BehaviorEditor';
+import { SpriteListEditor } from './SpriteListEditor';
 import { TimelineEditor } from './TimelineEditor';
+import { SpriteLibraryDialog } from './SpriteLibraryDialog';
 
 const API_BASE = "http://localhost:8000/api";
 
-export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, toggleExpand, onOpenSprite }) {
+export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, toggleExpand, _onOpenSprite, sprites }) {
     const {
         logs,
         isOptimizing,
         selectedImage,
-        setSelectedImage: _setSelectedImage,
+        setSelectedImage,
         visualPrompt,
         setVisualPrompt,
         configPrompt,
@@ -25,33 +26,41 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
         handleEventsChange,
         currentBehaviors,   // Added here
         behaviorGuidance,
-        activeConfigTab,
-        setActiveConfigTab,
+        activeTab,
+        handleTabChange,
         handleRevert,
         handleDeleteClick,
-        mainSrc,
-        tabs,
+
         statusLabel,
         configData,
         telemetry,
-        handleTelemetry,
         debugOverlayMode,
         setDebugOverlayMode,
         toggleLayerVisibility,
         layerVisibility,
         handleRemoveLayer,
+        handleDeleteSprite,
         handleSpriteSelected,
         handleSpritePositionChanged,
         handleKeyframeMove,
         handleShare,
         handleSaveRotation,
+        handleSpriteRotationChanged,
+        handleSaveScale,
         showDeleteDialog,
         setShowDeleteDialog,
-        handleConfirmDelete
+        handleConfirmDelete,
+        showSpriteLibrary,
+        setShowSpriteLibrary,
+        handleAddSprite,
+        activeLayer,
+        processingMode,
+        setProcessingMode
     } = useAssetController(type, asset, refresh, onDelete);
 
     // ... (keep existing useState/useEffect) ...
     const [currentTime, setCurrentTime] = useState(0);
+    const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
     const [isPlaying, setIsPlaying] = useState(false);
     const configScrollRef = useRef(null);
@@ -63,6 +72,12 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
 
     return (
         <>
+            <SpriteLibraryDialog
+                isOpen={showSpriteLibrary}
+                onClose={() => setShowSpriteLibrary(false)}
+                sprites={sprites || []}
+                onAdd={handleAddSprite}
+            />
             <DeleteConfirmationDialog
                 isOpen={showDeleteDialog}
                 onClose={() => setShowDeleteDialog(false)}
@@ -92,6 +107,11 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
                             </button>
                         )}
                         {type === 'scene' && (
+                            <button className="btn" title="Search Sprites" onClick={() => setShowSpriteLibrary(true)}>
+                                <Icon name="search" size={16} style={{ opacity: 0.7 }} />
+                            </button>
+                        )}
+                        {type === 'scene' && (
                             <button
                                 className={`btn ${isPlaying ? 'btn-primary' : ''}`}
                                 title={isPlaying ? "Stop Scene" : "Play Scene"}
@@ -110,44 +130,84 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', flex: 1, width: '100%' }}>
                         {/* Unified Prompt Box & Actions for Visuals - Moved to Top */}
                         {!isExpanded && (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                <label style={{ fontSize: '0.8rem', opacity: 0.7 }}>
-                                    {type === 'scene' ? "Optimization Guidance" : "Visual Refinement"}
-                                </label>
-                                <div style={{ display: 'flex', gap: '8px' }}>
-                                    <input
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                                <input
+                                    className="input"
+                                    placeholder={type === 'scene' ? "e.g., 'Make the trees sway gently...'" : "Describe visual changes..."}
+                                    value={visualPrompt}
+                                    onChange={e => setVisualPrompt(e.target.value)}
+                                    style={{ flex: 1 }}
+                                    disabled={type === 'sprite'}
+                                    title={type === 'scene' ? "Optimization Guidance: Describe how sprites should be animated. The AI will use this to generate behaviors for each layer." : "Visual Refinement: Describe changes to the sprite's appearance."}
+                                />
+                                {type === 'scene' && (
+                                    <select
                                         className="input"
-                                        placeholder={type === 'scene' ? "e.g., 'Make the trees sway gently...'" : "Describe visual changes..."}
-                                        value={visualPrompt}
-                                        onChange={e => setVisualPrompt(e.target.value)}
-                                        style={{ flex: 1 }}
-                                        disabled={type === 'sprite'}
-                                    />
-                                    <button
-                                        className="btn btn-primary"
-                                        onClick={handleOptimize}
-                                        disabled={isOptimizing || (type === 'sprite' && selectedImage !== 'current')}
+                                        value={processingMode}
+                                        onChange={e => setProcessingMode(e.target.value)}
+                                        style={{ width: '120px', fontSize: '0.85rem' }}
+                                        title="Processing Mode: Local is free but may have lower quality. LLM uses AI for higher quality but costs API credits."
                                     >
-                                        {isOptimizing ? <Icon name="optimize" className="animate-spin" /> : 'Optimize'}
-                                    </button>
-                                </div>
-                                {type === 'scene' && selectedImage && selectedImage !== 'original' && (
-                                    <button className="btn" onClick={() => onOpenSprite(selectedImage)} style={{ width: '100%', marginTop: '4px' }}>
-                                        Edit Sprite {selectedImage} <Icon name="config" size={12} />
-                                    </button>
+                                        <option value="local">Local (Free)</option>
+                                        <option value="llm">LLM (Quality)</option>
+                                    </select>
                                 )}
+                                <button
+                                    className="btn btn-primary"
+                                    onClick={handleOptimize}
+                                    disabled={isOptimizing || (type === 'sprite' && selectedImage !== asset.name)}
+                                    title="Run AI optimization on this asset"
+                                >
+                                    {isOptimizing ? <Icon name="optimize" className="animate-spin" /> : 'Optimize'}
+                                </button>
                             </div>
                         )}
 
                         <ImageViewer
-                            mainSrc={mainSrc}
-                            alt={asset.name}
+                            scene={type === 'scene' ? asset.config : { layers: [{ sprite_name: asset.name, x_offset: 0, y_offset: 0, scale: activeLayer?.scale || 1, behaviors: currentBehaviors }] }}
+                            sceneName={asset.name}
+                            currentTime={currentTime}
+                            layerVisibility={layerVisibility}
+                            onToggleVisibility={toggleLayerVisibility}
+                            assetBaseUrl={window.API_BASE ? window.API_BASE.replace('/api', '/assets') : undefined} // Explicit pass
+                            isCommunity={asset.is_community}
                             isOptimizing={isOptimizing}
-                            tabs={tabs}
+                            // Tabs removed
                             isExpanded={isExpanded}
                             toggleExpand={toggleExpand}
-                            onSaveRotation={handleSaveRotation}
-                            behaviors={currentBehaviors}
+
+                            onSaveRotation={(name, deg) => type === 'scene' ? handleSpriteRotationChanged(name, deg) : handleSaveRotation(deg)}
+                            onSpriteRotationChanged={handleSpriteRotationChanged}
+                            onSaveScale={handleSaveScale}
+                            onSavePosition={handleSpritePositionChanged}
+                            onSpriteSelected={handleSpriteSelected}
+                            onAddSpriteRequested={() => setShowSpriteLibrary(true)}
+
+                            // Props for sprite controls in TheatreStage Toolbar
+                            hasChanges={hasUnsavedChanges}
+                            activeSprite={selectedImage !== 'original' ? selectedImage : null}
+                            isSpriteVisible={layerVisibility[selectedImage] !== false}
+                            onToggleSpriteVisibility={type === 'scene' && selectedImage !== 'original' ? () => {
+                                toggleLayerVisibility(selectedImage);
+                                setHasUnsavedChanges(true);
+                            } : undefined}
+                            onDeleteSprite={type === 'scene' && selectedImage !== 'original' ? () => {
+                                if (window.confirm(`Are you sure you want to permanently delete sprite "${selectedImage}"? This cannot be undone.`)) {
+                                    handleDeleteSprite(selectedImage);
+                                    setHasUnsavedChanges(true);
+                                }
+                            } : undefined}
+                            onAddBehavior={type === 'scene' && selectedImage !== 'original' ? () => {
+                                handleTabChange('sprites'); // Ensure tab is open
+                                // Ideally we'd scroll to it or auto-expand, but for now just switching tab is enough
+                            } : undefined}
+                            // Placeholder onSave until we have a distinct save action separate from auto-save
+                            onSave={() => {
+                                handleUpdateConfig(JSON.stringify(asset.config, null, 2));
+                                setHasUnsavedChanges(false);
+                                toast.success("Changes saved");
+                            }}
+
                             actions={
                                 type === 'sprite' && asset.has_original && (
                                     <button className="btn" title="Revert to Original" onClick={handleRevert} style={{ padding: '2px 6px' }}>
@@ -157,52 +217,67 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
                             }
                         />
 
-                        {/* Theatre Stage Overlay/Replacement */}
-                        {isPlaying && type === 'scene' && (
-                            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 10, background: 'black', display: 'flex', flexDirection: 'column' }}>
-                                <div style={{ flex: 1, position: 'relative' }}>
-                                    <TheatreStage
-                                        scene={asset.config || { layers: [] }}
-                                        sceneName={asset.name}
-                                        style={{ width: '100%', height: '100%' }}
-                                        onTelemetry={handleTelemetry}
-                                        debugMode={
-                                            debugOverlayMode === 'on' ||
-                                            (debugOverlayMode === 'auto' && activeConfigTab === 'debug')
-                                        }
-                                        layerVisibility={layerVisibility}
-                                        selectedSprite={selectedImage !== 'original' ? selectedImage : null}
-                                        onSpriteSelected={handleSpriteSelected}
-                                        onSpritePositionChanged={handleSpritePositionChanged}
-                                        currentTime={currentTime}
-                                        onTimeUpdate={setCurrentTime}
-                                        assetBaseUrl={`${API_BASE.replace('/api', '')}/assets/users/${asset.is_community ? 'community' : 'default'}`}
-                                        onInitialize={(_theatre) => {
-                                            // Restore visibility settings if any
-                                            // This is a bit tricky since theatre is recreated on scene change
-                                        }}
-                                    />
-                                    <button
-                                        className="btn"
-                                        style={{ position: 'absolute', top: '10px', right: '10px', zIndex: 20 }}
-                                        onClick={() => setIsPlaying(false)}
-                                    >
-                                        <Icon name="delete" size={16} /> Close
-                                    </button>
-                                </div>
+                        {/* Timeline for Scene Playing - Always Visible for Scenes */}
+                        {type === 'scene' && (
+                            <div style={{ position: 'relative', height: '180px', flexShrink: 0 }}>
                                 <TimelineEditor
-                                    duration={asset.config?.duration_sec || 30}
+                                    duration={30}
                                     currentTime={currentTime}
                                     layers={asset.config?.layers || []}
                                     selectedLayer={selectedImage}
                                     onTimeChange={setCurrentTime}
-                                    onKeyframeMove={handleKeyframeMove}
-                                    onPlayPause={() => { /* Theatre handles play loop, maybe pause prop needed? For now just toggle */
-                                        // Actually Theatre.js runs loop if initialized.
-                                        // We might need to control playback state via prop or ref.
-                                        // For now, Timeline doesn't control Engine playback state directly except via time seek.
+                                    layerVisibility={layerVisibility}
+                                    // Layer Update Handler for Timeline Interactions (Z-Reorder)
+                                    onLayerUpdate={async (spriteName, updates) => {
+                                        if (updates.z_depth_delta || updates.z_depth !== undefined) {
+                                            let updatedConfig = JSON.parse(JSON.stringify(asset.config));
+                                            const layer = (updatedConfig.layers || []).find(l => l.sprite_name === spriteName);
+                                            if (layer) {
+                                                if (updates.z_depth !== undefined) {
+                                                    layer.z_depth = updates.z_depth;
+                                                } else {
+                                                    layer.z_depth = (layer.z_depth || 0) + updates.z_depth_delta;
+                                                }
+
+                                                // Handle Global Normalization
+                                                if (updates.dropMode === 'normalize') {
+                                                    // Sort and re-index all layers to 10s
+                                                    updatedConfig.layers.sort((a, b) => (a.z_depth || 0) - (b.z_depth || 0));
+                                                    updatedConfig.layers.forEach((l, idx) => {
+                                                        l.z_depth = idx * 10;
+                                                    });
+                                                    toast.info("Normalizing all layers to 10s place");
+                                                }
+
+                                                const res = await fetch(`${API_BASE}/scenes/${asset.name}/config`, {
+                                                    method: 'PUT',
+                                                    headers: { 'Content-Type': 'application/json' },
+                                                    body: JSON.stringify(updatedConfig)
+                                                });
+                                                if (res.ok) {
+                                                    await refresh();
+                                                    if (updates.dropMode === 'midpoint' || updates.dropMode === 'new_top' || updates.dropMode === 'new_bottom') {
+                                                        toast.success(`Created new layer at Z=${updates.z_depth}`);
+                                                    } else if (updates.dropMode !== 'normalize') {
+                                                        toast.success(`Moved ${spriteName} to Z=${updates.z_depth}`);
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        if (updates.visible !== undefined) {
+                                            const current = layerVisibility[spriteName] !== false;
+                                            if (current !== updates.visible) {
+                                                toggleLayerVisibility(spriteName);
+                                            }
+                                        }
                                     }}
-                                    isPlaying={true} // Theatre is always running in this view
+                                    onKeyframeMove={handleKeyframeMove}
+                                    onSelectLayer={handleSpriteSelected}
+                                    assetBaseUrl={window.API_BASE ? window.API_BASE.replace('/api', '/assets') : undefined}
+                                    onPlayPause={() => {
+                                        // TODO: Control TheatreStage playback via prop if needed
+                                    }}
+                                    isPlaying={isPlaying}
                                 />
                             </div>
                         )}
@@ -216,70 +291,67 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
                         {/* Tab Switcher for Right Pane */}
                         <div style={{ display: 'flex', borderBottom: '1px solid var(--color-border)', marginBottom: '8px' }}>
                             <button
-                                className={`btn ${activeConfigTab === 'behaviors' ? 'active-tab' : ''}`}
+                                className={`btn ${activeTab === 'sprites' ? 'active-tab' : ''}`}
                                 style={{
-                                    borderBottom: activeConfigTab === 'behaviors' ? '2px solid var(--color-primary)' : 'none',
+                                    borderBottom: activeTab === 'sprites' ? '2px solid var(--color-primary)' : 'none',
                                     borderRadius: 0,
                                     padding: '8px 16px',
-                                    color: activeConfigTab === 'behaviors' ? 'var(--color-text-on-primary)' : 'var(--color-text-muted)',
-                                    background: activeConfigTab === 'behaviors' ? 'var(--color-primary)' : 'transparent'
+                                    color: activeTab === 'sprites' ? 'var(--color-text-on-primary)' : 'var(--color-text-muted)',
+                                    background: activeTab === 'sprites' ? 'var(--color-primary)' : 'transparent'
                                 }}
-                                onClick={() => setActiveConfigTab('behaviors')}
+                                onClick={() => handleTabChange('sprites')}
                             >
-                                Behaviors
+                                Sprites
                             </button>
+
                             <button
-                                className={`btn ${activeConfigTab === 'json' ? 'active-tab' : ''}`}
+                                className={`btn ${activeTab === 'json' ? 'active-tab' : ''}`}
                                 style={{
-                                    borderBottom: activeConfigTab === 'json' ? '2px solid var(--color-primary)' : 'none',
+                                    borderBottom: activeTab === 'json' ? '2px solid var(--color-primary)' : 'none',
                                     borderRadius: 0,
                                     padding: '8px 16px',
-                                    color: activeConfigTab === 'json' ? 'var(--color-text-on-primary)' : 'var(--color-text-muted)',
-                                    background: activeConfigTab === 'json' ? 'var(--color-primary)' : 'transparent'
+                                    color: activeTab === 'json' ? 'var(--color-text-on-primary)' : 'var(--color-text-muted)',
+                                    background: activeTab === 'json' ? 'var(--color-primary)' : 'transparent'
                                 }}
-                                onClick={() => setActiveConfigTab('json')}
+                                onClick={() => handleTabChange('json')}
                             >
                                 Config
                             </button>
-                            {type === 'scene' && (
-                                <button
-                                    className={`btn ${activeConfigTab === 'debug' ? 'active-tab' : ''}`}
-                                    style={{
-                                        borderBottom: activeConfigTab === 'debug' ? '2px solid var(--color-primary)' : 'none',
-                                        borderRadius: 0,
-                                        padding: '8px 16px',
-                                        color: activeConfigTab === 'debug' ? 'var(--color-text-on-primary)' : 'var(--color-text-muted)',
-                                        background: activeConfigTab === 'debug' ? 'var(--color-primary)' : 'transparent'
-                                    }}
-                                    onClick={() => setActiveConfigTab('debug')}
-                                >
-                                    Debug
-                                </button>
-                            )}
+                            <button
+                                className={`btn ${activeTab === 'debug' ? 'active-tab' : ''}`}
+                                style={{
+                                    borderBottom: activeTab === 'debug' ? '2px solid var(--color-primary)' : 'none',
+                                    borderRadius: 0,
+                                    padding: '8px 16px',
+                                    color: activeTab === 'debug' ? 'var(--color-text-on-primary)' : 'var(--color-text-muted)',
+                                    background: activeTab === 'debug' ? 'var(--color-primary)' : 'transparent'
+                                }}
+                                onClick={() => handleTabChange('debug')}
+                            >
+                                Debug
+                            </button>
                         </div>
 
-                        {activeConfigTab === 'behaviors' && (
+                        {activeTab === 'sprites' && (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1, minHeight: 0 }}>
-                                {type === 'scene' && selectedImage === 'original' ? (
-                                    <div style={{ padding: '20px', textAlign: 'center', opacity: 0.5 }}>
-                                        Select a sprite from the tabs above to edit its behaviors.
-                                    </div>
-                                ) : (
-                                    <BehaviorEditor
-                                        behaviors={currentBehaviors}
-                                        onChange={handleEventsChange}
-                                        readOnly={false}
-                                        spriteName={selectedImage}
-                                        isVisible={layerVisibility[selectedImage] !== false}
-                                        onToggleVisibility={() => toggleLayerVisibility(selectedImage)}
-                                        onRemoveSprite={type === 'scene' && selectedImage !== 'original' ? (() => handleRemoveLayer(selectedImage)) : null}
-                                        behaviorGuidance={behaviorGuidance}
-                                    />
-                                )}
+                                <SpriteListEditor
+                                    type={type}
+                                    asset={asset}
+                                    selectedSprite={selectedImage}
+                                    onSpriteSelected={setSelectedImage}
+                                    layerVisibility={layerVisibility}
+                                    onToggleVisibility={toggleLayerVisibility}
+                                    onRemoveLayer={handleRemoveLayer}
+                                    onBehaviorsChange={handleEventsChange}
+                                    behaviorGuidance={behaviorGuidance}
+                                    onAddSprite={() => setShowSpriteLibrary(true)}
+                                />
                             </div>
                         )}
 
-                        {activeConfigTab === 'debug' && (
+
+
+                        {activeTab === 'debug' && (
                             <div style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.3)', padding: '8px 12px', borderRadius: '4px' }}>
                                     <span style={{ fontSize: '0.8rem', opacity: 0.8 }}>Debug Overlay</span>
@@ -339,28 +411,27 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
                             </div>
                         )}
 
-                        {activeConfigTab === 'json' && (
+                        {activeTab === 'json' && (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, minHeight: 0, overflow: 'hidden' }}>
-                                {/* Unified Prompt Box & Actions for Config */}
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flexShrink: 0 }}>
-                                    <label style={{ fontSize: '0.8rem', opacity: 0.7 }}>Refine Configuration</label>
-                                    <div style={{ display: 'flex', gap: '8px' }}>
-                                        <textarea
-                                            className="input"
-                                            placeholder="Describe changes to metadata/physics..."
-                                            value={configPrompt}
-                                            onChange={e => setConfigPrompt(e.target.value)}
-                                            style={{ flex: 1, height: '38px', minHeight: '38px', resize: 'none' }}
-                                        />
-                                        <button
-                                            className="btn btn-primary"
-                                            onClick={handleUpdateConfig}
-                                            disabled={isOptimizing || !configPrompt.trim()}
-                                            style={{ height: 'auto' }}
-                                        >
-                                            <Icon name="config" size={14} />
-                                        </button>
-                                    </div>
+                                {/* Prompt Box for Config Refinement */}
+                                <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+                                    <textarea
+                                        className="input"
+                                        placeholder="Describe changes to metadata/physics..."
+                                        value={configPrompt}
+                                        onChange={e => setConfigPrompt(e.target.value)}
+                                        style={{ flex: 1, height: '38px', minHeight: '38px', resize: 'none' }}
+                                        title="Refine Configuration: Describe changes to metadata, physics parameters, or behaviors. The AI will update the JSON accordingly."
+                                    />
+                                    <button
+                                        className="btn btn-primary"
+                                        onClick={handleUpdateConfig}
+                                        disabled={isOptimizing || !configPrompt.trim()}
+                                        style={{ height: 'auto' }}
+                                        title="Apply AI refinements to configuration"
+                                    >
+                                        <Icon name="config" size={14} />
+                                    </button>
                                 </div>
 
                                 <div ref={configScrollRef} style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
@@ -459,16 +530,17 @@ function SmartConfigViewer({ configData, selectedImage, type, scrollContainerRef
 function useAssetController(type, asset, refresh, onDelete) {
     const [logs, setLogs] = useState('');
     const [isOptimizing, setIsOptimizing] = useState(false);
-    const [selectedImage, setSelectedImage] = useState(type === 'sprite' ? 'current' : 'original');
+    const [selectedImage, setSelectedImage] = useState(type === 'sprite' ? asset.name : 'original');
     const [visualPrompt, setVisualPrompt] = useState('');
     const [configPrompt, setConfigPrompt] = useState('');
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
     const [imageTimestamp, setImageTimestamp] = useState(Date.now());
+    const [processingMode, setProcessingMode] = useState('local'); // 'local' (free) or 'llm' (quality)
 
     // Initialization & Reset
     useEffect(() => {
         if (type === 'sprite') {
-            setSelectedImage('current');
+            setSelectedImage(asset.name);
         } else {
             // Default to first sprite if available, otherwise original
             const hasSprites = asset.used_sprites && asset.used_sprites.length > 0;
@@ -553,7 +625,12 @@ function useAssetController(type, asset, refresh, onDelete) {
 
     // --- Actions ---
 
-    const [activeConfigTab, setActiveConfigTab] = useState('behaviors');
+    const [activeTab, setActiveTab] = useState(() => localStorage.getItem('lastActiveTab') || 'sprites');
+
+    const handleTabChange = (tab) => {
+        setActiveTab(tab);
+        localStorage.setItem('lastActiveTab', tab);
+    };
 
     // --- Actions ---
 
@@ -620,7 +697,7 @@ function useAssetController(type, asset, refresh, onDelete) {
                 promise = fetch(`${API_BASE}/scenes/${asset.name}/optimize`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ prompt_guidance: visualPrompt })
+                    body: JSON.stringify({ prompt_guidance: visualPrompt, processing_mode: processingMode })
                 });
             }
 
@@ -735,7 +812,7 @@ function useAssetController(type, asset, refresh, onDelete) {
             }
 
             if (mode === 'reset') {
-                setSelectedImage(type === 'sprite' ? 'current' : 'original');
+                setSelectedImage(type === 'sprite' ? asset.name : 'original');
                 setLogs('');
                 refresh();
             } else if (onDelete) {
@@ -745,6 +822,48 @@ function useAssetController(type, asset, refresh, onDelete) {
             }
         } catch (e) {
             toast.error(`Action failed: ${e.message}`);
+        }
+    };
+
+    const [showSpriteLibrary, setShowSpriteLibrary] = useState(false);
+
+    const handleAddSprite = async (sprite) => {
+        if (!asset.config) return;
+
+        // Check if already exists
+        const exists = (asset.config.layers || []).find(l => l.sprite_name === sprite.name);
+        if (exists) {
+            toast.warning(`Sprite '${sprite.name}' is already in the scene.`);
+            return;
+        }
+
+        const newLayer = {
+            sprite_name: sprite.name,
+            d: 100, // Default depth
+            x_offset: 0,
+            y_offset: 0,
+            scale: 1.0, // Added actual size explicit default
+            visible: true,
+            behaviors: []
+        };
+
+        const updatedConfig = JSON.parse(JSON.stringify(asset.config));
+        updatedConfig.layers = [...(updatedConfig.layers || []), newLayer];
+
+        try {
+            const res = await fetch(`${API_BASE}/scenes/${asset.name}/config`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updatedConfig)
+            });
+            if (!res.ok) throw new Error(await res.text());
+            toast.success(`Added sprite '${sprite.name}'`);
+            setShowSpriteLibrary(false);
+            setSelectedImage(sprite.name); // Select the newly added sprite
+            handleTabChange('sprites'); // Switch to sprites tab
+            await refresh();
+        } catch (e) {
+            toast.error(`Failed to add sprite: ${e.message}`);
         }
     };
 
@@ -771,12 +890,39 @@ function useAssetController(type, asset, refresh, onDelete) {
         }
     };
 
+    const handleDeleteSprite = async (spriteName) => {
+        // Delete sprite permanently via API
+        try {
+            // First remove from scene if present
+            if (type === 'scene' && asset.config) {
+                const updatedConfig = JSON.parse(JSON.stringify(asset.config));
+                updatedConfig.layers = (updatedConfig.layers || []).filter(l => l.sprite_name !== spriteName);
+
+                await fetch(`${API_BASE}/scenes/${asset.name}/config`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updatedConfig)
+                });
+            }
+
+            // Then delete the sprite asset
+            const res = await fetch(`${API_BASE}/sprites/${spriteName}?mode=delete`, { method: 'DELETE' });
+            if (!res.ok) throw new Error((await res.json()).detail);
+
+            toast.success(`Deleted sprite "${spriteName}" permanently`);
+            setSelectedImage('original');
+            await refresh();
+        } catch (e) {
+            toast.error(`Failed to delete sprite: ${e.message}`);
+        }
+    };
+
     const handleSpriteSelected = (spriteName) => {
         // Update selected image when sprite is clicked in theatre
         if (type === 'scene') {
             setSelectedImage(spriteName);
-            // Optionally switch to behaviors tab
-            setActiveConfigTab('behaviors');
+            // Optionally switch to sprites tab (where behavior now lives)
+            handleTabChange('sprites');
         }
     };
 
@@ -916,11 +1062,11 @@ function useAssetController(type, asset, refresh, onDelete) {
             setImageTimestamp(Date.now());
             await refresh();
             // We rely on ImageViewer to reset its internal rotation state via prop or effect if needed,
-            // but currently ImageViewer resets on mount or new image. 
+            // but currently ImageViewer resets on mount or new image.
             // Since refresh() might update the image URL (timestamp), it should trigger a re-render.
             // However, ImageViewer only resets pos on mainSrc change. It doesn't reset rotation explicitly on mainSrc change yet.
             // Check ImageViewer implementation:
-            // useEffect(() => { setPosition... }, [mainSrc]); 
+            // useEffect(() => {setPosition... }, [mainSrc]);
             // It does NOT reset rotation on mainSrc change. I should fix that in ImageViewer or force it here.
             // Actually, if we refresh, mainSrc changes (timestamp), so we want rotation to go back to 0.
 
@@ -928,6 +1074,106 @@ function useAssetController(type, asset, refresh, onDelete) {
             toast.error(`Rotation failed: ${e.message}`);
         } finally {
             setIsOptimizing(false);
+        }
+    };
+
+    const handleSpriteRotationChanged = async (spriteName, degrees) => {
+        if (type !== 'scene') return;
+        try {
+            if (!asset.config) return;
+            const updatedConfig = JSON.parse(JSON.stringify(asset.config));
+            const layer = (updatedConfig.layers || []).find(l => l.sprite_name === spriteName);
+            if (!layer) return;
+
+            // Updated base rotation or location behavior if it exists
+            const loc = (layer.behaviors || []).find(b => b.type === 'location' && b.time_offset === undefined);
+            if (loc) {
+                loc.rotation = degrees;
+            } else {
+                layer.rotation = degrees;
+            }
+
+            const res = await fetch(`${API_BASE}/scenes/${asset.name}/config`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updatedConfig)
+            });
+            if (!res.ok) throw new Error(await res.text());
+            await refresh();
+        } catch (e) {
+            console.error("Failed to update rotation:", e);
+        }
+    };
+
+    const handleSaveScale = async (arg1, arg2, arg3) => {
+        // Handle varying signatures: (scale) or (spriteName, scale) or (spriteName, scale, time)
+        let targetSprite = selectedImage;
+        let newScale = arg1;
+        let time = 0;
+
+        if (typeof arg1 === 'string' && typeof arg2 === 'number') {
+            targetSprite = arg1;
+            newScale = arg2;
+            if (typeof arg3 === 'number') time = arg3;
+        }
+
+        if (type !== 'scene' || !targetSprite || targetSprite === 'original') return;
+
+        try {
+            const updatedConfig = JSON.parse(JSON.stringify(asset.config));
+            const layer = (updatedConfig.layers || []).find(l => l.sprite_name === targetSprite);
+            if (!layer) throw new Error(`Layer ${targetSprite} not found`);
+
+            // Always update base scale if at t=0 or if it's the intended base edit
+            // But if t > 0, we create a keyframe.
+            if (time > 0.1) {
+                if (!layer.behaviors) layer.behaviors = [];
+                // Find existing keyframe at this time
+                const existingIndex = layer.behaviors.findIndex(
+                    b => b.type === 'location' && Math.abs((b.time_offset || 0) - time) < 0.1
+                );
+
+                const kf = {
+                    type: 'location',
+                    scale: newScale,
+                    time_offset: parseFloat(time.toFixed(2)),
+                    interpolate: true,
+                    enabled: true
+                };
+
+                // Merge with existing keyframe props if updating
+                if (existingIndex >= 0) {
+                    const existing = layer.behaviors[existingIndex];
+                    layer.behaviors[existingIndex] = { ...existing, scale: newScale };
+                } else {
+                    layer.behaviors.push(kf);
+                    // Sort
+                    layer.behaviors.sort((a, b) => (a.time_offset || 0) - (b.time_offset || 0));
+                }
+                toast.success(`Keyframed scale for ${targetSprite} at ${time.toFixed(1)}s`);
+            } else {
+                // Base Scale
+                layer.scale = newScale;
+                // Also update any static LocationBehavior (time_offset undefined)
+                if (layer.behaviors) {
+                    const baseLoc = layer.behaviors.find(b => b.type === 'location' && b.time_offset === undefined);
+                    if (baseLoc) baseLoc.scale = newScale;
+                }
+                toast.success(`Updated base scale for ${targetSprite}`);
+            }
+
+            const res = await fetch(`${API_BASE}/scenes/${asset.name}/config`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updatedConfig)
+            });
+            if (!res.ok) throw new Error(await res.text());
+
+            await refresh();
+        } catch (e) {
+            const msg = `Failed to save scale: ${e.message}`;
+            toast.error(msg, { duration: 8000 }); // Longer duration
+            setLogs(prev => prev + `\n[UI ERROR] ${msg}`); // Append to visible log
         }
     };
 
@@ -942,7 +1188,7 @@ function useAssetController(type, asset, refresh, onDelete) {
     // Tabs & Image Source
     const tabs = [];
     if (type === 'sprite') {
-        tabs.push({ id: 'current', label: 'Current', onClick: () => setSelectedImage('current'), isActive: selectedImage === 'current' });
+        tabs.push({ id: asset.name, label: 'Current', onClick: () => setSelectedImage(asset.name), isActive: selectedImage === asset.name });
         if (asset.has_original) {
             tabs.push({ id: 'original', label: 'Original', onClick: () => setSelectedImage('original'), isActive: selectedImage === 'original' });
         }
@@ -956,9 +1202,15 @@ function useAssetController(type, asset, refresh, onDelete) {
                 isActive: selectedImage === s,
                 isSprite: true,
                 isVisible: layerVisibility[s] !== false,
-                onToggleVisibility: () => toggleLayerVisibility(s),
                 onDelete: () => handleRemoveLayer(s)
             });
+        });
+        tabs.push({
+            id: 'add-sprite',
+            label: '+',
+            onClick: () => setShowSpriteLibrary(true),
+            isActive: false,
+            title: "Add Sprite from Library"
         });
     }
 
@@ -1005,8 +1257,9 @@ function useAssetController(type, asset, refresh, onDelete) {
         handleEventsChange,
         currentBehaviors,
         behaviorGuidance,
-        activeConfigTab,
-        setActiveConfigTab,
+        activeTab,
+        setActiveTab,
+        handleTabChange,
         handleRevert,
         handleDeleteClick,
         handleConfirmDelete,
@@ -1023,10 +1276,20 @@ function useAssetController(type, asset, refresh, onDelete) {
         toggleLayerVisibility,
         layerVisibility,
         handleRemoveLayer,
+        handleDeleteSprite,
         handleSpriteSelected,
         handleSpritePositionChanged,
         handleKeyframeMove,
         handleShare,
         handleSaveRotation,
+        handleSpriteRotationChanged,
+        handleSaveScale,
+        showSpriteLibrary,
+        setShowSpriteLibrary,
+        handleAddSprite,
+        activeLayer,
+        processingMode,
+        setProcessingMode,
     };
 }
+

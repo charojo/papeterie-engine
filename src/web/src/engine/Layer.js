@@ -170,9 +170,8 @@ class LocationRuntime extends EventRuntime {
 
         // Apply position based on keyframes
         if (prevKeyframe && nextKeyframe && nextKeyframe.interpolate) {
-            // Interpolate between keyframes
-            const t = (elapsedTime - prevKeyframe.time_offset) /
-                (nextKeyframe.time_offset - prevKeyframe.time_offset);
+            const timeDiff = nextKeyframe.time_offset - prevKeyframe.time_offset;
+            const t = timeDiff > 0 ? (elapsedTime - prevKeyframe.time_offset) / timeDiff : 0;
             const smoothT = Math.min(1, Math.max(0, t)); // Clamp to [0, 1]
 
             if (prevKeyframe.x !== undefined && nextKeyframe.x !== undefined) {
@@ -204,6 +203,19 @@ class LocationRuntime extends EventRuntime {
             } else if (prevKeyframe.horizontal_percent !== undefined) {
                 transform.horizontal_percent = prevKeyframe.horizontal_percent;
             }
+
+            // Scale and Rotation interpolation
+            if (prevKeyframe.scale !== undefined && nextKeyframe.scale !== undefined) {
+                transform.scale = prevKeyframe.scale + (nextKeyframe.scale - prevKeyframe.scale) * smoothT;
+            } else if (prevKeyframe.scale !== undefined) {
+                transform.scale = prevKeyframe.scale;
+            }
+
+            if (prevKeyframe.rotation !== undefined && nextKeyframe.rotation !== undefined) {
+                transform.rotation = prevKeyframe.rotation + (nextKeyframe.rotation - prevKeyframe.rotation) * smoothT;
+            } else if (prevKeyframe.rotation !== undefined) {
+                transform.rotation = prevKeyframe.rotation;
+            }
         } else if (prevKeyframe) {
             // Use the most recent keyframe
             if (prevKeyframe.x !== undefined) transform.x += prevKeyframe.x;
@@ -214,6 +226,12 @@ class LocationRuntime extends EventRuntime {
             }
             if (prevKeyframe.horizontal_percent !== undefined) {
                 transform.horizontal_percent = prevKeyframe.horizontal_percent;
+            }
+            if (prevKeyframe.scale !== undefined) {
+                transform.scale = prevKeyframe.scale;
+            }
+            if (prevKeyframe.rotation !== undefined) {
+                transform.rotation = prevKeyframe.rotation;
             }
         }
     }
@@ -240,6 +258,7 @@ export class Layer {
 
         // Scale from LocationBehavior (used as base scale, behaviors may modify)
         this._baseScale = initialLocation?.scale ?? config.scale ?? 1.0;
+        this._baseRotation = initialLocation?.rotation ?? config.rotation ?? 0.0;
 
         // Other props (not in LocationBehavior)
         this.scroll_speed = config.scroll_speed ?? 0.0;
@@ -337,39 +356,47 @@ export class Layer {
 
     // --- Interaction Methods ---
 
-    containsPoint(x, y, screenW, screenH, scrollX) {
+    containsPoint(x, y, screenW, screenH, scrollX, elapsedTime = 0) {
         if (!this.processedImage || !this.visible) return false;
         if (this.is_background) return false; // Backgrounds not selectable
 
-        const tf = this.getTransform(screenH, screenW, 0, 0); // pass proper args
+        const tf = this.getTransform(screenH, screenW, 0, elapsedTime);
         const { width: baseW, height: baseH } = this._getBaseDimensions(screenH);
         const imgW = baseW * Math.max(0.001, tf.scale);
         const imgH = baseH * Math.max(0.001, tf.scale);
+        const finalRot = tf.rotation;
 
         const parallaxScroll = this.scroll_speed * scrollX;
         const scrollOffset = (parallaxScroll + this.x_offset + tf.x + (tf.base_x || 0));
-
         let finalY = tf.base_y + tf.y;
+
+        const checkPointStyle = (drawX, drawY) => {
+            const cx = drawX + imgW / 2;
+            const cy = drawY + imgH / 2;
+
+            // Transform point into local rotated space
+            const dx = x - cx;
+            const dy = y - cy;
+            const rad = -finalRot * Math.PI / 180;
+            const lx = dx * Math.cos(rad) - dy * Math.sin(rad);
+            const ly = dx * Math.sin(rad) + dy * Math.cos(rad);
+
+            return Math.abs(lx) <= imgW / 2 && Math.abs(ly) <= imgH / 2;
+        };
 
         // Handle tiling
         if (this.tile_horizontal) {
             const startX = scrollOffset % imgW;
-            let currX = startX;
-            if (currX > 0) currX -= imgW;
-
-            while (currX < screenW) {
-                if (x >= currX && x <= currX + imgW && y >= finalY && y <= finalY + imgH) {
-                    return true;
-                }
-                currX += imgW;
+            // Draw many tiles to support zooming out
+            // We draw 50 tiles left and 50 tiles right of the main frame
+            for (let i = -50; i <= 50; i++) {
+                const currX = startX + (i * imgW);
+                if (checkPointStyle(currX, finalY)) return true;
             }
         } else {
-            const wrapW = screenW + imgW;
-            const drawX = ((scrollOffset) % wrapW) - imgW;
-
-            if (x >= drawX && x <= drawX + imgW && y >= finalY && y <= finalY + imgH) {
-                return true;
-            }
+            // No wrapping for single sprites - use true world coordinates
+            const drawX = scrollOffset;
+            if (checkPointStyle(drawX, finalY)) return true;
         }
 
         return false;
@@ -469,7 +496,7 @@ export class Layer {
             base_y: this._getBaseY(screenH) + this.y_offset,
             base_x: this._getBaseX(screenW, screenH),
             scale: this._baseScale ?? 1.0,
-            rotation: 0.0,
+            rotation: this._baseRotation ?? 0.0,
             opacity: 1.0,
             horizontal_percent: this.horizontal_percent // Default
         };
@@ -541,8 +568,10 @@ export class Layer {
         return screenH;
     }
 
-    draw(ctx, screenW, screenH, scrollX, elapsedTime, dt, envLayer = null) {
-        const frameDt = dt || (1 / 60);
+    draw(ctx, screenW, screenH, scrollX, elapsedTime, dt, envLayer = null, _isPaused = false, _cropMode = false) {
+        // Use the actual dt value - when paused, dt should be 0 to freeze behaviors
+        // Only use fallback for environmental smoothing calculations, not behavior accumulation
+        const frameDtForSmoothing = dt > 0 ? dt : (1 / 60);
         if (!this.processedImage || !this.visible) return;
 
         if (this.is_background) {
@@ -550,13 +579,19 @@ export class Layer {
             return;
         }
 
-        const tf = this.getTransform(screenH, screenW, frameDt, elapsedTime);
+        const tf = this.getTransform(screenH, screenW, dt, elapsedTime);
 
         const finalX = tf.x + (tf.base_x || 0); // Include base_x from horizontal_percent
         let finalY = tf.base_y + tf.y;
         let finalScale = Math.max(0.001, tf.scale);
         let finalRot = tf.rotation;
         const finalAlpha = Math.max(0, Math.min(1.0, tf.opacity));
+
+        if (this.isSelected) {
+            // Keep minimal logging for selected sprite if needed, or remove entire block.
+            // The plan said "Remove console.log in draw() method". 
+            // I will remove the block completely as it was spamming.
+        }
 
         // --- Calculate Initial Drawn Dimensions ---
         let { width: imgW, height: imgH } = this._getBaseDimensions(screenH);
@@ -599,10 +634,11 @@ export class Layer {
             const limit = reaction.max_tilt_angle || 30.0;
             const clampedTilt = Math.max(-limit, Math.min(limit, targetTilt));
 
-            // 4. Smoothing / Inertia
+            // Smoothing / Inertia
             if (this.currentTilt === undefined) this.currentTilt = 0;
             // Use frame-rate independent smoothing: 0.1 at 60fps
-            const smoothingFactor = 1.0 - Math.pow(0.9, frameDt * 60);
+            // Use frameDtForSmoothing to ensure smoothing works even when paused
+            const smoothingFactor = 1.0 - Math.pow(0.9, frameDtForSmoothing * 60);
             this.currentTilt += (clampedTilt - this.currentTilt) * smoothingFactor;
             finalRot += this.currentTilt;
 
@@ -620,7 +656,7 @@ export class Layer {
                 desiredY -= lift;
 
                 if (this._currentYPhys === undefined) this._currentYPhys = finalY;
-                const ySmoothingFactor = 1.0 - Math.pow(0.9, frameDt * 60);
+                const ySmoothingFactor = 1.0 - Math.pow(0.9, frameDtForSmoothing * 60);
                 this._currentYPhys += (desiredY - this._currentYPhys) * ySmoothingFactor;
                 finalY = this._currentYPhys;
             }
@@ -635,10 +671,9 @@ export class Layer {
 
         if (this.tile_horizontal) {
             const startX = scrollOffset % imgW;
-            let currX = startX;
-            if (currX > 0) currX -= imgW;
-
-            while (currX < screenW) {
+            // Draw many tiles to support zooming out
+            for (let i = -50; i <= 50; i++) {
+                const currX = startX + (i * imgW);
                 if (finalRot !== 0) {
                     ctx.save();
                     ctx.translate(currX + imgW / 2, finalY + imgH / 2);
@@ -647,22 +682,20 @@ export class Layer {
 
                     if (this.fill_down) {
                         ctx.fillStyle = this.fillColor;
-                        ctx.fillRect(-imgW / 2, imgH / 2, imgW, screenH); // Fill to bottom of screen
+                        ctx.fillRect(-imgW / 2, imgH / 2, imgW, screenH * 10); // Increased fill height for zoom-out
                     }
                     ctx.restore();
                 } else {
                     ctx.drawImage(this.processedImage, currX, finalY, imgW, imgH);
                     if (this.fill_down) {
                         ctx.fillStyle = this.fillColor;
-                        ctx.fillRect(currX, finalY + imgH, imgW, screenH);
+                        ctx.fillRect(currX, finalY + imgH, imgW, screenH * 10);
                     }
                 }
-                currX += imgW;
             }
         } else {
-            const wrapW = screenW + imgW;
-            const x = (scrollOffset) % wrapW;
-            const drawX = x - imgW;
+            // No wrapping for single sprites
+            const drawX = scrollOffset;
 
             if (finalRot !== 0) {
                 const cx = drawX + imgW / 2;
@@ -674,38 +707,191 @@ export class Layer {
 
                 if (this.fill_down) {
                     ctx.fillStyle = this.fillColor;
-                    ctx.fillRect(-imgW / 2, imgH / 2, imgW, screenH);
+                    ctx.fillRect(-imgW / 2, imgH / 2, imgW, screenH * 2);
                 }
                 ctx.restore();
             } else {
                 ctx.drawImage(this.processedImage, drawX, finalY, imgW, imgH);
                 if (this.fill_down) {
                     ctx.fillStyle = this.fillColor;
-                    ctx.fillRect(drawX, finalY + imgH, imgW, screenH);
+                    ctx.fillRect(drawX, finalY + imgH, imgW, screenH * 10); // Use 10x screenH to support zoom out
                 }
             }
         }
 
-        // Draw selection highlight
-        if (this.isSelected) {
-            ctx.strokeStyle = 'rgba(0, 255, 255, 0.8)';
-            ctx.lineWidth = 3;
+        // Draw interactive handles when sprite is selected (always show for editing)
+        // This allows users to see and interact with the sprite bounds at any time
+        const showHandles = this.isSelected && !this.is_background;
+        if (showHandles) {
+            const handleSize = 8;
+            const rotateHandleSize = 10;
+            const handleGlow = 'rgba(0, 255, 255, 0.4)';
+            const handleFill = 'rgba(0, 255, 255, 1.0)';
+
+            const drawHandles = (x, y, w, h) => {
+                ctx.save();
+                ctx.translate(x + w / 2, y + h / 2);
+                ctx.rotate(finalRot * Math.PI / 180);
+
+                // Main bounding box
+                ctx.strokeStyle = 'rgba(0, 255, 255, 0.8)';
+                ctx.setLineDash([5, 5]);
+                ctx.lineWidth = 2;
+                ctx.strokeRect(-w / 2, -h / 2, w, h);
+                ctx.setLineDash([]);
+
+                // Scale handles (corners and edges)
+                const handles = [
+                    { x: -w / 2, y: -h / 2, cursor: 'nwse-resize', id: 'tl' },
+                    { x: w / 2, y: -h / 2, cursor: 'nesw-resize', id: 'tr' },
+                    { x: -w / 2, y: h / 2, cursor: 'nesw-resize', id: 'bl' },
+                    { x: w / 2, y: h / 2, cursor: 'nwse-resize', id: 'br' },
+                    { x: 0, y: -h / 2, cursor: 'ns-resize', id: 'mt' },
+                    { x: 0, y: h / 2, cursor: 'ns-resize', id: 'mb' },
+                    { x: -w / 2, y: 0, cursor: 'ew-resize', id: 'ml' },
+                    { x: w / 2, y: 0, cursor: 'ew-resize', id: 'mr' }
+                ];
+
+                handles.forEach(c => {
+                    ctx.fillStyle = handleGlow;
+                    ctx.beginPath();
+                    ctx.arc(c.x, c.y, handleSize, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.fillStyle = handleFill;
+                    ctx.beginPath();
+                    ctx.arc(c.x, c.y, handleSize / 2, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+
+                // Rotate handle (top center)
+                const rotY = -h / 2 - 25;
+                ctx.beginPath();
+                ctx.moveTo(0, -h / 2);
+                ctx.lineTo(0, rotY);
+                ctx.stroke();
+
+                ctx.fillStyle = handleGlow;
+                ctx.beginPath();
+                ctx.arc(0, rotY, rotateHandleSize, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = handleFill;
+                ctx.beginPath();
+                ctx.arc(0, rotY, rotateHandleSize / 2, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.restore();
+            };
+
             if (this.tile_horizontal) {
                 const startX = scrollOffset % imgW;
                 let currX = startX;
                 if (currX > 0) currX -= imgW;
                 while (currX < screenW) {
-                    ctx.strokeRect(currX, finalY, imgW, imgH);
+                    drawHandles(currX, finalY, imgW, imgH);
                     currX += imgW;
                 }
             } else {
-                const wrapW = screenW + imgW;
-                const drawX = ((scrollOffset) % wrapW) - imgW;
-                ctx.strokeRect(drawX, finalY, imgW, imgH);
+                // No wrapping for single sprites
+                const drawX = scrollOffset;
+                drawHandles(drawX, finalY, imgW, imgH);
             }
         }
 
         ctx.globalAlpha = 1.0;
+    }
+
+    getHandleAtPoint(x, y, screenW, screenH, scrollX) {
+        if (!this.isSelected || this.is_background) return null;
+
+        const tf = this.getTransform(screenH, screenW, 0, 0);
+        const { width: baseW, height: baseH } = this._getBaseDimensions(screenH);
+        const imgW = baseW * Math.max(0.001, tf.scale);
+        const imgH = baseH * Math.max(0.001, tf.scale);
+        const finalRot = tf.rotation;
+
+        const parallaxScroll = this.scroll_speed * scrollX;
+        const scrollOffset = (parallaxScroll + this.x_offset + tf.x + (tf.base_x || 0));
+
+        const checkHandles = (drawX, drawY) => {
+            const cx = drawX + imgW / 2;
+            const cy = drawY + imgH / 2;
+
+            // Transform point into local rotated space
+            const dx = x - cx;
+            const dy = y - cy;
+            const rad = -finalRot * Math.PI / 180;
+            const lx = dx * Math.cos(rad) - dy * Math.sin(rad);
+            const ly = dx * Math.sin(rad) + dy * Math.cos(rad);
+
+            const handleTolerance = 15;
+
+            // Rotate handle
+            const rotY = -imgH / 2 - 25;
+            if (Math.abs(lx) < handleTolerance && Math.abs(ly - rotY) < handleTolerance) {
+                return { type: 'rotate' };
+            }
+
+            // Scale handles (corners)
+            if (Math.abs(lx - (-imgW / 2)) < handleTolerance && Math.abs(ly - (-imgH / 2)) < handleTolerance) return { type: 'scale', id: 'tl' };
+            if (Math.abs(lx - (imgW / 2)) < handleTolerance && Math.abs(ly - (-imgH / 2)) < handleTolerance) return { type: 'scale', id: 'tr' };
+            if (Math.abs(lx - (-imgW / 2)) < handleTolerance && Math.abs(ly - (imgH / 2)) < handleTolerance) return { type: 'scale', id: 'bl' };
+            if (Math.abs(lx - (imgW / 2)) < handleTolerance && Math.abs(ly - (imgH / 2)) < handleTolerance) return { type: 'scale', id: 'br' };
+
+            // Scale handles (edges)
+            if (Math.abs(lx - 0) < handleTolerance && Math.abs(ly - (-imgH / 2)) < handleTolerance) return { type: 'scale', id: 'mt' };
+            if (Math.abs(lx - 0) < handleTolerance && Math.abs(ly - (imgH / 2)) < handleTolerance) return { type: 'scale', id: 'mb' };
+            if (Math.abs(lx - (-imgW / 2)) < handleTolerance && Math.abs(ly - 0) < handleTolerance) return { type: 'scale', id: 'ml' };
+            if (Math.abs(lx - (imgW / 2)) < handleTolerance && Math.abs(ly - 0) < handleTolerance) return { type: 'scale', id: 'mr' };
+
+            return null;
+        };
+
+        if (this.tile_horizontal) {
+            const startX = scrollOffset % imgW;
+            for (let i = -50; i <= 50; i++) {
+                const currX = startX + (i * imgW);
+                const h = checkHandles(currX, tf.base_y + tf.y);
+                if (h) return h;
+            }
+        } else {
+            // No wrapping for single sprites
+            const drawX = scrollOffset;
+            return checkHandles(drawX, tf.base_y + tf.y);
+        }
+
+        return null;
+    }
+
+    setRotation(deg, time = 0) {
+        const behaviors = this.config.behaviors || [];
+        const locs = behaviors.filter(b => b.type === 'location' && (
+            b.time_offset === undefined ||
+            b.time_offset === 0 ||
+            (time > 0 && Math.abs(b.time_offset - time) < 0.2)
+        ));
+        locs.forEach(loc => {
+            loc.rotation = deg;
+        });
+        if (locs.length === 0 && (time === undefined || time < 0.1)) {
+            this.config.rotation = deg;
+        }
+    }
+
+    setScale(s, time = 0) {
+        this._baseScale = s;
+        const behaviors = this.config.behaviors || [];
+        // Update both the static location (undefined time_offset) and the keyframe nearest to current time
+        const locs = behaviors.filter(b => b.type === 'location' && (
+            b.time_offset === undefined ||
+            b.time_offset === 0 ||
+            (time > 0 && Math.abs(b.time_offset - time) < 0.2)
+        ));
+        locs.forEach(loc => {
+            loc.scale = s;
+        });
+        if (locs.length === 0 && (time === undefined || time < 0.1)) {
+            this.config.scale = s;
+        }
     }
 
     _drawBackground(ctx, screenW, screenH) {

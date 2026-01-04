@@ -1,20 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { Icon } from './Icon';
+import { BehaviorTypes, CoordinateTypes, createDefaultBehavior } from './BehaviorConstants';
 
-const BehaviorTypes = {
-    OSCILLATE: "oscillate",
-    DRIFT: "drift",
-    PULSE: "pulse",
-    BACKGROUND: "background",
-    LOCATION: "location",
-    SOUND: "sound"
-};
-
-const CoordinateTypes = ["y", "x", "scale", "rotation", "opacity"];
-
-export function BehaviorEditor({ behaviors = [], onChange, readOnly = false, spriteName, isVisible, onToggleVisibility, onRemoveSprite, behaviorGuidance }) {
+export function BehaviorEditor({ behaviors = [], onChange, readOnly = false, spriteName, isVisible, _onToggleVisibility, _onRemoveSprite, behaviorGuidance, inline = false }) {
     // Ensure the editor expands and scrolls within its container
-    const containerStyle = { display: 'flex', flexDirection: 'column', gap: '8px', height: '100%', overflowY: 'auto' };
+    const containerStyle = {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '0px',
+        height: inline ? 'auto' : '100%',
+        minHeight: inline ? '40px' : '0',
+        overflowY: inline ? 'visible' : 'auto'
+    };
     const [isAdding, setIsAdding] = useState(false);
 
     const handleAdd = (type) => {
@@ -44,6 +41,7 @@ export function BehaviorEditor({ behaviors = [], onChange, readOnly = false, spr
     const [activeTab, setActiveTab] = useState('Motion');
 
     const filteredBehaviors = behaviors.filter(b => {
+        if (inline) return true; // Show all in inline mode
         if (activeTab === 'Motion') {
             return [BehaviorTypes.OSCILLATE, BehaviorTypes.DRIFT, BehaviorTypes.PULSE, BehaviorTypes.BACKGROUND, BehaviorTypes.LOCATION].includes(b.type);
         } else if (activeTab === 'Sound') {
@@ -54,116 +52,90 @@ export function BehaviorEditor({ behaviors = [], onChange, readOnly = false, spr
 
     return (
         <div style={containerStyle}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 600, opacity: isVisible === false ? 0.5 : 1 }}>
-                    {spriteName || 'Active Behaviors'}
-                </h3>
+            {!inline && (
+                <>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <h3 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 600, opacity: isVisible === false ? 0.5 : 1 }}>
+                            {spriteName || 'Active Behaviors'}
+                        </h3>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
-                    {onToggleVisibility && (
-                        <button
-                            className="btn-icon"
-                            onClick={onToggleVisibility}
-                            title={isVisible ? "Hide Sprite" : "Show Sprite"}
-                        >
-                            <Icon name={isVisible ? "visible" : "hidden"} size={14} />
-                        </button>
-                    )}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                            {/* Visibility/Remove buttons moved to ImageViewer floating controls */}
 
-                    {onRemoveSprite && !readOnly && (
-                        <button
-                            className="btn-icon"
-                            onClick={onRemoveSprite}
-                            title="Remove Sprite from Scene"
-                        >
-                            <Icon name="close" size={14} />
-                        </button>
-                    )}
-
-                    {!readOnly && (
-                        <div style={{ position: 'relative' }}>
-                            <button
-                                className="btn-icon"
-                                onClick={() => setIsAdding(!isAdding)}
-                                title="Add Behavior"
-                            >
-                                <Icon name="add" size={16} />
-                            </button>
-                            {isAdding && (
-                                <div style={{
-                                    position: 'absolute', top: '100%', right: 0, zIndex: 10,
-                                    background: 'var(--color-bg-surface)', border: '1px solid var(--color-border)', borderRadius: '4px',
-                                    boxShadow: '0 4px 12px rgba(0,0,0,0.5)', minWidth: '120px'
-                                }}>
-                                    {Object.values(BehaviorTypes).filter(t =>
-                                        (activeTab === 'Motion' && [BehaviorTypes.OSCILLATE, BehaviorTypes.DRIFT, BehaviorTypes.PULSE, BehaviorTypes.BACKGROUND, BehaviorTypes.LOCATION].includes(t)) ||
-                                        (activeTab === 'Sound' && t === BehaviorTypes.SOUND)
-                                    ).map(type => (
-                                        <div
-                                            key={type}
-                                            style={{ padding: '8px 12px', cursor: 'pointer', fontSize: '0.85rem' }}
-                                            className="hover-bg"
-                                            onClick={() => handleAdd(type)}
-                                        >
-                                            {type.charAt(0).toUpperCase() + type.slice(1)}
+                            {!readOnly && !inline && (
+                                <div style={{ position: 'relative' }}>
+                                    <button
+                                        className="btn-icon"
+                                        onClick={() => setIsAdding(!isAdding)}
+                                        title="Add Behavior"
+                                    >
+                                        <Icon name="add" size={16} />
+                                    </button>
+                                    {isAdding && (
+                                        <div style={{
+                                            position: 'absolute', top: '100%', right: 0, zIndex: 10,
+                                            background: 'var(--color-bg-surface)', border: '1px solid var(--color-border)', borderRadius: '4px',
+                                            boxShadow: '0 4px 12px rgba(0,0,0,0.5)', minWidth: '120px'
+                                        }}>
+                                            {Object.values(BehaviorTypes).filter(t =>
+                                                (activeTab === 'Motion' && [BehaviorTypes.OSCILLATE, BehaviorTypes.DRIFT, BehaviorTypes.PULSE, BehaviorTypes.BACKGROUND, BehaviorTypes.LOCATION].includes(t)) ||
+                                                (activeTab === 'Sound' && t === BehaviorTypes.SOUND)
+                                            ).map(type => (
+                                                <div
+                                                    key={type}
+                                                    style={{ padding: '8px 12px', cursor: 'pointer', fontSize: '0.85rem' }}
+                                                    className="hover-bg"
+                                                    onClick={() => handleAdd(type)}
+                                                >
+                                                    {type.charAt(0).toUpperCase() + type.slice(1)}
+                                                </div>
+                                            ))}
                                         </div>
-                                    ))}
+                                    )}
                                 </div>
                             )}
                         </div>
-                    )}
-                </div>
-            </div>
+                    </div>
 
-            {/* Tabs */}
-            <div style={{ display: 'flex', borderBottom: '1px solid var(--color-border)', marginBottom: '8px' }}>
-                {TABS.map(tab => (
-                    <button
-                        key={tab}
-                        className={`btn`}
-                        style={{
-                            borderBottom: activeTab === tab ? '2px solid var(--color-primary)' : 'none',
-                            borderRadius: 0, padding: '4px 12px', color: activeTab === tab ? 'var(--color-text-main)' : 'var(--color-text-muted)',
-                            fontSize: '0.8rem'
-                        }}
-                        onClick={() => setActiveTab(tab)}
-                    >
-                        {tab}
-                    </button>
-                ))}
-            </div>
+                    {/* Tabs */}
+                    <div style={{ display: 'flex', borderBottom: '1px solid var(--color-border)', marginBottom: '8px' }}>
+                        {TABS.map(tab => (
+                            <button
+                                key={tab}
+                                className={`btn`}
+                                style={{
+                                    borderBottom: activeTab === tab ? '2px solid var(--color-primary)' : 'none',
+                                    borderRadius: 0, padding: '4px 12px', color: activeTab === tab ? 'var(--color-text-main)' : 'var(--color-text-muted)',
+                                    fontSize: '0.8rem'
+                                }}
+                                onClick={() => setActiveTab(tab)}
+                            >
+                                {tab}
+                            </button>
+                        ))}
+                    </div>
+                </>
+            )}
+
 
             {/* Behavior Guidance from LLM - shown once at top */}
             {behaviorGuidance && (
                 <div style={{
-                    padding: '8px 10px',
-                    background: 'rgba(139, 92, 246, 0.1)',
-                    borderLeft: '3px solid var(--color-primary, #8b5cf6)',
-                    borderRadius: '0 4px 4px 0',
+                    margin: '0 0 4px 0',
+                    padding: '6px 8px',
+                    background: 'rgba(var(--color-primary-rgb), 0.05)',
+                    borderRadius: '4px',
                     fontSize: '0.75rem'
                 }}>
-                    <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                        marginBottom: '2px',
-                        fontSize: '0.65rem',
-                        fontWeight: 600,
-                        textTransform: 'uppercase',
-                        opacity: 0.7
-                    }}>
-                        <Icon name="generate" size={10} />
-                        Behavior Guidance
-                    </div>
                     <p style={{ margin: 0, fontStyle: 'italic', lineHeight: '1.3' }}>
                         {behaviorGuidance}
                     </p>
                 </div>
             )}
 
-            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1px' }}>
                 {filteredBehaviors.length === 0 && (
-                    <div style={{ padding: '12px', textAlign: 'center', opacity: 0.5, fontStyle: 'italic', fontSize: '0.8rem' }}>
+                    <div style={{ padding: '8px', textAlign: 'center', opacity: 0.5, fontStyle: 'italic', fontSize: '0.75rem' }}>
                         No {activeTab.toLowerCase()} behaviors defined.
                     </div>
                 )}
@@ -218,14 +190,19 @@ function BehaviorCard({ behavior, onChange, onRemove, readOnly }) {
         <div style={{ background: 'var(--color-bg-surface)', borderRadius: '4px', border: '1px solid var(--color-border)', overflow: 'hidden' }}>
             <div
                 style={{
-                    padding: '4px 8px', background: 'var(--color-bg-elevated)', display: 'flex', alignItems: 'center', gap: '6px',
-                    borderBottom: expanded ? '1px solid var(--color-border)' : 'none', cursor: 'pointer'
+                    padding: '0px 6px', background: 'var(--color-bg-elevated)', display: 'flex', alignItems: 'center', gap: '4px',
+                    borderBottom: expanded ? '1px solid var(--color-border)' : 'none', cursor: 'pointer',
+                    minHeight: '20px'
                 }}
                 onClick={() => setExpanded(!expanded)}
             >
                 <Icon name={behavior.type} size={14} />
                 <span style={{ fontWeight: 600, fontSize: '0.75rem', flex: 1 }}>
-                    {behavior.type.toUpperCase()} <span style={{ opacity: 0.6, fontSize: '0.65rem' }}>({behavior.coordinate || 'y'})</span>
+                    {behavior.type.toUpperCase()}
+                    {behavior.type === BehaviorTypes.LOCATION && behavior.time_offset !== undefined && (
+                        <span style={{ color: 'var(--color-primary)', marginLeft: '4px' }}>@{behavior.time_offset.toFixed(2)}s</span>
+                    )}
+                    <span style={{ opacity: 0.6, fontSize: '0.65rem' }}>({behavior.coordinate || 'y'})</span>
                 </span>
                 {!readOnly && (
                     <button className="btn-icon" onClick={(e) => { e.stopPropagation(); onRemove(); }} title="Remove">
@@ -235,7 +212,7 @@ function BehaviorCard({ behavior, onChange, onRemove, readOnly }) {
             </div>
 
             {expanded && (
-                <div style={{ padding: '8px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                <div style={{ padding: '4px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>
 
                     {/* Common Fields */}
                     {behavior.type !== BehaviorTypes.LOCATION && behavior.type !== BehaviorTypes.SOUND && (
@@ -280,11 +257,13 @@ function BehaviorCard({ behavior, onChange, onRemove, readOnly }) {
                     {/* Location Fields */}
                     {behavior.type === BehaviorTypes.LOCATION && (
                         <>
+                            <Field label="Time (s)" value={behavior.time_offset} type="number" step="0.05" onChange={v => updateParam('time_offset', v)} readOnly={readOnly} />
                             <Field label="X Offset (px)" value={behavior.x} type="number" onChange={v => updateParam('x', v)} readOnly={readOnly} />
                             <Field label="Y Offset (px)" value={behavior.y} type="number" onChange={v => updateParam('y', v)} readOnly={readOnly} />
                             <Field label="Vert % (0-1)" value={behavior.vertical_percent} type="number" step="0.01" onChange={v => updateParam('vertical_percent', v)} readOnly={readOnly} />
                             <Field label="Horiz % (0-1)" value={behavior.horizontal_percent} type="number" step="0.01" onChange={v => updateParam('horizontal_percent', v)} readOnly={readOnly} />
                             <Field label="Scale" value={behavior.scale} type="number" step="0.1" onChange={v => updateParam('scale', v)} readOnly={readOnly} />
+                            <Field label="Rotation" value={behavior.rotation} type="number" step="5" onChange={v => updateParam('rotation', v)} readOnly={readOnly} />
                             <Field label="Z Depth" value={behavior.z_depth} type="number" step="1" onChange={v => updateParam('z_depth', v)} readOnly={readOnly} />
                         </>
                     )}
@@ -333,8 +312,8 @@ function BehaviorCard({ behavior, onChange, onRemove, readOnly }) {
 function Field({ label, value, type = "text", step, options, onChange, readOnly }) {
     const id = `field-${label.replace(/\s+/g, '-').toLowerCase()}`;
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <label htmlFor={id} style={{ fontSize: '0.75rem', opacity: 0.7 }}>{label}</label>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+            <label htmlFor={id} style={{ fontSize: '0.7rem', opacity: 0.7 }}>{label}</label>
             {options ? (
                 <select
                     id={id}
@@ -342,7 +321,7 @@ function Field({ label, value, type = "text", step, options, onChange, readOnly 
                     value={value || ''}
                     onChange={e => onChange(e.target.value)}
                     disabled={readOnly}
-                    style={{ padding: '4px 8px', fontSize: '0.8rem' }}
+                    style={{ padding: '1px 4px', fontSize: '0.7rem' }}
                 >
                     {options.map(o => <option key={o} value={o}>{o}</option>)}
                 </select>
@@ -355,26 +334,10 @@ function Field({ label, value, type = "text", step, options, onChange, readOnly 
                     value={value ?? ''}
                     onChange={e => onChange(e.target.value)}
                     disabled={readOnly}
-                    style={{ padding: '4px 8px', fontSize: '0.8rem' }}
+                    style={{ padding: '1px 4px', fontSize: '0.7rem' }}
                 />
             )}
         </div>
     );
 }
 
-function createDefaultBehavior(type) {
-    if (type === BehaviorTypes.OSCILLATE) {
-        return { type, enabled: true, frequency: 1.0, amplitude: 10, coordinate: "y", phase_offset: 0 };
-    } else if (type === BehaviorTypes.DRIFT) {
-        return { type, enabled: true, velocity: 10, coordinate: "y", drift_cap: null };
-    } else if (type === BehaviorTypes.PULSE) {
-        return { type, enabled: true, frequency: 1.0, min_value: 0.5, max_value: 1.0, coordinate: "opacity", waveform: "sine" };
-    } else if (type === BehaviorTypes.BACKGROUND) {
-        return { type, enabled: true, scroll_speed: 0.0, coordinate: "y" };
-    } else if (type === BehaviorTypes.LOCATION) {
-        return { type, enabled: true, x: 0, y: 0 };
-    } else if (type === BehaviorTypes.SOUND) {
-        return { type, enabled: true, sound_file: "splash.mp3", volume: 1.0, time_offset: 0 };
-    }
-    return { type, enabled: true };
-}

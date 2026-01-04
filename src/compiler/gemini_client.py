@@ -56,8 +56,6 @@ class GeminiCompilerClient:
         # Or imagen-3.0-generate-001 if available/preferred, but 3-pro is unified
 
         try:
-            print(f"DEBUG: calling generate_content with model={model_name} for image generation")
-
             response = self.client.models.generate_content(
                 model=model_name,
                 contents=prompt,
@@ -122,8 +120,6 @@ class GeminiCompilerClient:
             # Contents: [Text, Image]
             contents = [final_prompt, img]
 
-            print(f"DEBUG: calling generate_content with model={model_name}, aspect={aspect_ratio}")
-
             response = self.client.models.generate_content(
                 model=model_name,
                 contents=contents,
@@ -163,7 +159,7 @@ class GeminiCompilerClient:
 
             for part in candidate.content.parts:
                 if hasattr(part, "inline_data") and part.inline_data:
-                    print("DEBUG: Found generated inline_data (image)")
+                    # print("DEBUG: Found generated inline_data (image)")
                     image_data = part.inline_data.data
                 elif hasattr(part, "text") and part.text:
                     text_explanation.append(part.text)
@@ -173,7 +169,7 @@ class GeminiCompilerClient:
 
             # If no image found, return the text explanation as the error
             full_explanation = "\n".join(text_explanation)
-            print(f"DEBUG: Model returned text explanation: {full_explanation[:200]}...")
+            # print(f"DEBUG: Model returned text explanation: {full_explanation[:200]}...")
             raise ValueError(
                 f"Model returned text instead of image (Refusal?). Explanation: {full_explanation}"
             )

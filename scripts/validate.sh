@@ -7,10 +7,14 @@ cd "$ROOT_DIR"
 
 # Parse arguments
 FIX_MODE=true
+LIVE_MODE=false
 for arg in "$@"; do
     case $arg in
         --nofix)
             FIX_MODE=false
+            ;;
+        --live)
+            LIVE_MODE=true
             ;;
     esac
 done
@@ -20,7 +24,6 @@ mkdir -p logs
 
 {
     echo "Starting Verification at $(date)"
-    echo "----------------------------------------"
 
     if [ "$FIX_MODE" = true ]; then
         echo "Auto-fixing Backend code style..."
@@ -39,7 +42,13 @@ mkdir -p logs
     uv run ruff format --check .
 
     echo "Running Backend Tests..."
-    uv run pytest --cov=src --cov-report=term-missing
+    if [ "$LIVE_MODE" = true ]; then
+        echo "\033[0;33mRunning ALL tests including LIVE API calls...\033[0m"
+        uv run pytest --cov=src --cov-report=term-missing
+    else
+        echo "Skipping live tests (use --live to include them)..."
+        uv run pytest -m "not live" --cov=src --cov-report=term-missing
+    fi
 
     echo "Running Frontend Linters..."
     pushd src/web > /dev/null
@@ -51,7 +60,6 @@ mkdir -p logs
     npm run test:coverage
     popd > /dev/null
     
-    echo "----------------------------------------"
     echo "All tests passed!"
 } | tee >(sed 's/\x1b\[[0-9;]*m//g' > logs/validate.log)
 

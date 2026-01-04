@@ -229,7 +229,8 @@ describe('Layer', () => {
             // screenW=1000, imgW=100 -> wrapW=1100.
             // (scrollOffset % 1100) - 100 = 50 => scrollOffset % 1100 = 150.
             // So x_offset should be 150.
-            const layer = new Layer({ x_offset: 150, y_offset: 50 }, mockImage);
+            // drawX = scrollOffset = x_offset (since scroll=0)
+            const layer = new Layer({ x_offset: 50, y_offset: 50 }, mockImage);
             // BaseY = 450. Y Offset = 50 -> 500.
             // Img w=100, h=100.
             // Rect: x=[50, 150], y=[500, 600]

@@ -20,6 +20,7 @@ PATTERNS = [
 # Files and directories to ignore
 EXCLUDE_DIRS = {
     ".git",
+    ".agent",
     "node_modules",
     ".venv",
     "__pycache__",

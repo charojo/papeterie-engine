@@ -3,11 +3,23 @@ import { Toaster, toast } from 'sonner';
 import { GenericDetailView } from './components/GenericDetailView';
 import { Icon } from './components/Icon';
 import { SettingsMenu } from './components/SettingsMenu';
+import { SceneSelectionDialog } from './components/SceneSelectionDialog';
+import { TopBar } from './components/TopBar';
 import { usePersistentState } from './hooks/usePersistentState';
 import { LoginView } from './components/LoginView';
 import { PromptsView } from './components/PromptsView';
 
-const API_BASE = "http://localhost:8000/api";
+// Use window.location to determine API base dynamically if not explicit
+// This handles different ports or network access
+const protocol = window.location.protocol;
+const hostname = window.location.hostname;
+const port = "8000"; // Assuming backend is always on 8000 for now, or use window.location.port if proxied
+// If we are on port 5173 (dev), backend is on 8000. 
+// If we are on prod, it might be same origin /api.
+const isDev = window.location.port === "5173";
+const API_BASE = isDev ? `${protocol}//${hostname}:${port}/api` : `${protocol}//${hostname}:${window.location.port || 80}/api`;
+
+window.API_BASE = API_BASE;
 
 function App() {
   const [sprites, setSprites] = useState([]);
@@ -111,11 +123,19 @@ function App() {
 
   return (
     <div className="app-container">
-      <aside className="sidebar glass">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-          <h3 style={{ margin: 0 }}>Papeterie</h3>
+      <TopBar
+        title="Papeterie"
+        leftContent={
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button className="btn btn-secondary" onClick={() => setView('scene-selection')} style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+              <Icon name="folder" size={14} /> Open
+            </button>
+            {/* Future: Add Recent Files here */}
+          </div>
+        }
+        rightContent={
           <div style={{ display: 'flex', gap: '4px' }}>
-            <button className="btn btn-secondary" style={{ padding: '4px 8px' }} onClick={() => setView('create')} title="Add">
+            <button className="btn btn-secondary" style={{ padding: '4px 8px' }} onClick={() => setView('create')} title="New">
               <Icon name="add" size={16} />
             </button>
             <SettingsMenu
@@ -129,70 +149,14 @@ function App() {
               user={user}
             />
           </div>
-        </div>
+        }
+      />
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflowY: 'auto', flex: 1, minHeight: 0 }}>
-
-          <CollapsibleSection title="Scenes" defaultOpen={true} icon="scenes">
-            {scenes.map(scene => (
-              <div
-                key={scene.name}
-                data-testid={`scene-item-${scene.name}`}
-                className={`btn ${selectedItem?.name === scene.name && view === 'scene-detail' ? 'btn-primary' : ''}`}
-                style={{ textAlign: 'left', border: 'none', background: selectedItem?.name === scene.name && view === 'scene-detail' ? 'var(--color-primary)' : 'transparent', color: selectedItem?.name === scene.name && view === 'scene-detail' ? 'var(--color-text-on-primary)' : 'var(--color-text-main)', paddingLeft: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}
-                onClick={() => { setSelectedItem(scene); setView('scene-detail'); }}
-              >
-                <Icon name="scenes" size={14} /> {scene.name}
-              </div>
-            ))}
-            {scenes.length === 0 && <div style={{ opacity: 0.5, paddingLeft: '16px', fontSize: '0.9em' }}>No scenes found</div>}
-          </CollapsibleSection>
-
-          <CollapsibleSection title="Sprites" defaultOpen={true} icon="sprites">
-            {sprites.map(sprite => (
-              <div
-                key={sprite.name}
-                className={`btn ${selectedItem?.name === sprite.name && view === 'sprite-detail' ? 'btn-primary' : ''}`}
-                style={{ textAlign: 'left', border: 'none', background: selectedItem?.name === sprite.name && view === 'sprite-detail' ? 'var(--color-primary)' : 'transparent', color: selectedItem?.name === sprite.name && view === 'sprite-detail' ? 'var(--color-text-on-primary)' : 'var(--color-text-main)', paddingLeft: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}
-                onClick={() => { setSelectedItem(sprite); setView('sprite-detail'); }}
-              >
-                <span title={sprite.name} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
-                  <Icon name="sprites" size={14} style={{ marginRight: '8px', verticalAlign: 'middle' }} />{sprite.name}
-                </span>
-                {sprite.has_metadata && <span style={{ fontSize: '0.625rem', opacity: 0.7 }}>✨</span>}
-              </div>
-            ))}
-          </CollapsibleSection>
-
-          <div style={{ marginTop: 'auto', paddingTop: '16px', borderTop: '1px solid var(--color-border)' }}>
-            <button
-              className={`btn ${view === 'configuration' ? 'btn-primary' : ''}`}
-              style={{
-                width: '100%',
-                textAlign: 'left',
-                border: 'none',
-                background: view === 'configuration' ? 'var(--color-primary)' : 'transparent',
-                color: view === 'configuration' ? 'var(--color-text-on-primary)' : 'var(--color-text-muted)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '10px 16px'
-              }}
-              onClick={() => { setView('configuration'); setSelectedItem(null); }}
-            >
-              <Icon name="config" size={16} /> System Configuration
-            </button>
-          </div>
-
-        </div>
-      </aside>
-
-      <main className="main-content">
+      <main className="main-content" style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
         {view === 'create' && (
           <CreateView
             onCreated={async (type, name) => {
               await fetchData();
-              // Fetch fresh data to force selection of new item
               const endpoint = type === 'sprite' ? 'sprites' : 'scenes';
               const res = await fetch(`${API_BASE}/${endpoint}`);
               const data = await res.json();
@@ -206,21 +170,27 @@ function App() {
           />
         )}
 
-        {view === 'sprite-detail' && selectedItem && (
-          <GenericDetailView
-            type="sprite"
-            asset={selectedItem}
-            refresh={fetchData}
-            onDelete={() => { setSelectedItem(null); setView('list'); }}
-            isExpanded={isExpanded}
-            toggleExpand={() => setIsExpanded(!isExpanded)}
+        {view === 'scene-selection' && (
+          <SceneSelectionDialog
+            scenes={scenes}
+            onSelect={(scene) => {
+              setSelectedItem(scene);
+              setView('scene-detail');
+            }}
           />
         )}
+
+        {/* Temporary: Sprite list for debugging or direct access if needed, though plan puts this in a dialog */}
+
+
+
+
 
         {view === 'scene-detail' && selectedItem && (
           <GenericDetailView
             type="scene"
             asset={selectedItem}
+            sprites={sprites}
             refresh={fetchData}
             onDelete={() => { setSelectedItem(null); setView('list'); }}
             isExpanded={isExpanded}
@@ -243,14 +213,17 @@ function App() {
         )}
 
         {view === 'list' && (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', height: '100%', opacity: 0.5, flexDirection: 'column', gap: '16px', paddingTop: '100px' }}>
-            <Icon name="logs" size={48} opacity={0.5} />
-            <h2>Select a Scene or Sprite</h2>
+          /* Default empty state */
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', opacity: 0.5, flexDirection: 'column', gap: '16px' }}>
+            <Icon name="app" size={64} opacity={0.2} />
+            <h2>Welcome to Papeterie</h2>
+            <button className="btn btn-primary" onClick={() => setView('scene-selection')}>Open Scene</button>
+            <button className="btn" onClick={() => setView('create')}>New Project</button>
           </div>
         )}
       </main>
       <Toaster theme="dark" position="bottom-right" />
-    </div>
+    </div >
   )
 }
 

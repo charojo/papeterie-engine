@@ -31,6 +31,7 @@ The system follows a clear **Compiler-Renderer** separation:
 *   **LLM Interaction**: `google-genai>=1.56.0`
 *   **Data Validation**: `pydantic>=2.0.0`
 *   **Animation/Rendering**: `pygame-ce>=2.5.6`, `moviepy>=2.0.0`
+*   **Local Image Processing**: `rembg[cpu]>=2.0.50` (background removal), `opencv-python>=4.8.0` (inpainting), `numpy>=1.26.0`, `numba>=0.60.0`, `llvmlite>=0.43.0`
 *   **Testing**: `pytest>=9.0.2`, `pytest-asyncio>=1.3.0`, `pytest-mock>=3.10.0`
 
 ## Directory Structure Highlights
@@ -105,9 +106,10 @@ Future features, improvements, and bugs are tracked in `docs/BACKLOG.md`. This f
 
 ## Design Documentation
 
-Detailed design principles for scenes and sprites can be found in the `/docs` directory:
-*   `docs/scene_design.md`: Guidelines for structuring `sceneX.json` files and defining layer behavior.
-*   `docs/sprite_design.md`: Principles for creating and configuring individual sprite assets via their `.prompt.json` files.
+Detailed design documentation is located in the `docs/design/` directory. Key documents include:
+*   [`docs/design/scene_editing_architecture.md`](design/scene_editing_architecture.md): Comprehensive guide to scene composition, behaviors, and the editing UI. Replaces legacy `scene_design.md`.
+*   [`docs/design/high_level_design.md`](design/high_level_design.md): System architecture, data flow, and core component overview.
+*   [`docs/design/persistence_and_user_design.md`](design/persistence_and_user_design.md): User management and data persistence strategy.
 
 ## Diagrams & Visuals
 *   **Location**: All `.dot` (source) and generated `.png` diagram files MUST be placed in `docs/assets/diagrams/`. Do not place them in the root of `docs/assets/`.

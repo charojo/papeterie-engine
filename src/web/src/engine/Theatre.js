@@ -1,13 +1,21 @@
 import { Layer } from './Layer.js';
 import { AudioManager } from './AudioManager.js';
 
+// Safe global access with fallback for tests/environments without RAF
+const _requestAnimationFrame = (cb) => (globalThis.requestAnimationFrame || ((c) => setTimeout(() => c(Date.now()), 16)))(cb);
+const _cancelAnimationFrame = (id) => (globalThis.cancelAnimationFrame || ((i) => clearTimeout(i)))(id);
+
+
 export class Theatre {
-    constructor(canvas, sceneData, sceneName, assetBaseUrl = "http://localhost:8000/assets") {
+    constructor(canvas, sceneData, sceneName, assetBaseUrl = "http://localhost:8000/assets", userType = "default") {
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d');
         this.sceneData = sceneData;
         this.sceneName = sceneName;
         this.assetBaseUrl = assetBaseUrl;
+        this.userType = userType; // 'default' or 'community'
+
+
 
         this.audioManager = new AudioManager();
         this.audioManager.setBasePath(`${assetBaseUrl}/sounds/`);
@@ -33,15 +41,24 @@ export class Theatre {
         // Interaction state
         this.selectedSprite = null;
         this.isDragging = false;
+        this.activeHandle = null; // { type: 'scale' | 'rotate', id?: string }
         this.dragStartX = 0;
         this.dragStartY = 0;
         this.dragOffsetX = 0;
         this.dragOffsetY = 0;
+        this.initialScale = 1.0;
+        this.initialRotation = 0;
+        this.isCropMode = false;
+
+        // Camera state
+        this.cameraZoom = 1.0;
+        this.cameraPanX = 0;
+        this.cameraPanY = 0;
 
         // Event callbacks
-        this.onSpriteSelected = null;
-        this.onSpritePositionChanged = null;
         this.onTimeUpdate = null;
+
+        this.soloSprite = null;
 
         // Bind for loop
         this.loop = this.loop.bind(this);
@@ -64,66 +81,56 @@ export class Theatre {
     }
 
     async initialize() {
-        console.log("Initializing Theatre for scene:", this.sceneName);
-        this.layers = [];
+
 
         // Load layers
+        // We use map -> Promise.all to load in parallel
+        // We catch errors inside the map so Promise.all doesn't fail fast
         const layerPromises = (this.sceneData.layers || []).map(async (layerData) => {
             const spriteName = layerData.sprite_name;
             if (!spriteName) return null;
 
-            // Load from Global: /assets/sprites/{spriteName}/{spriteName}.png
-            const globalUrl = `${this.assetBaseUrl}/sprites/${spriteName}/${spriteName}.png`;
             let image = null;
 
             try {
-                image = await this._loadImage(globalUrl);
-                // console.log(`Loaded global sprite: ${spriteName}`);
-            } catch {
-                console.warn(`Failed to load sprite '${spriteName}' from ${globalUrl}`);
-                return null;
+                image = await this._loadSprite(spriteName);
+            } catch (err) {
+                console.error(`[Theatre] Failed to load sprite '${spriteName}':`, err);
+                // Return a null image, Layer class should handle it (or we skip it)
             }
 
-            // Note: We are using the config from sceneData directly. 
-            // In python, it loads sprite metadata (.prompt.json) effectively merges it. 
-            // Here, we assume sceneData might be fully resolved OR we need to fetch metadata separately.
-            // For this MVP, let's assume the sceneData passed in *contains* the specific overrides,
-            // but the defaults come from the sprite's metadata. 
-            // Ideally, we'd fetch `${spriteName}.prompt.json` too.
-            // TODO: Fetch metadata for defaults. For now, we rely on what's in sceneData or defaults in Layer.js
-
+            // Attempt to load metadata if image exists
             let config = { ...layerData };
-
-            // Try to fetch metadata to fill gaps? 
-            // Let's try fetching the .prompt.json
-            try {
-                const metaUrl = image.src.replace(/\.png$/, '.prompt.json');
-                const metaRes = await fetch(metaUrl);
-                if (metaRes.ok) {
-                    const meta = await metaRes.json();
-                    // Merge: Scene overrides Metadata
-                    config = { ...meta, ...config };
+            if (image && image.src) {
+                try {
+                    // Remove query parameters (e.g. cache busters) ensuring we target the base file
+                    const cleanSrc = image.src.split('?')[0];
+                    const metaUrl = cleanSrc.replace(/\.png$/, '.prompt.json');
+                    const metaRes = await fetch(metaUrl);
+                    if (metaRes.ok) {
+                        const meta = await metaRes.json();
+                        // Merge: Scene overrides Metadata
+                        config = { ...meta, ...config };
+                    }
+                } catch {
+                    // Metadata is optional, so silence this warning
                 }
-            } catch {
-                console.warn("Could not load metadata for", spriteName);
             }
 
             return new Layer(config, image);
         });
 
-        const layers = await Promise.all(layerPromises);
-        this.layers = layers.filter(l => l !== null);
+        const loadedLayers = await Promise.all(layerPromises);
+        this.layers = loadedLayers.filter(l => l !== null);
 
-        // Sort by z_depth
-        this.layers.sort((a, b) => a.z_depth - b.z_depth);
 
-        // OPTIMIZATION: Index layers by name once, avoids map creation every frame
-        this.layersByName = new Map();
-        for (const layer of this.layers) {
-            if (layer.config.sprite_name) {
-                this.layersByName.set(layer.config.sprite_name, layer);
+        // Re-build index
+        this.layersByName.clear();
+        this.layers.forEach(l => {
+            if (l.config.sprite_name) {
+                this.layersByName.set(l.config.sprite_name, l);
             }
-        }
+        });
 
         // OPTIMIZATION: Reuse Map for environment data
         this.envYData = new Map();
@@ -135,31 +142,29 @@ export class Theatre {
         if (this.sceneData.sounds) {
             for (const sound of this.sceneData.sounds) {
                 if (sound.sound_file) {
-                    await this.audioManager.loadSound(sound.sound_file, sound.sound_file);
-                    // Schedule if it has a time offset
-                    if (sound.time_offset !== undefined && sound.time_offset !== null) {
-                        this.audioManager.scheduleAt(sound.sound_file, sound.time_offset, {
-                            volume: sound.volume,
-                            loop: sound.loop,
-                            fade_in: sound.fade_in,
-                            fade_out: sound.fade_out
-                        });
+                    try {
+                        await this.audioManager.loadSound(sound.sound_file, sound.sound_file);
+                        // Schedule if it has a time offset
+                        if (sound.time_offset !== undefined && sound.time_offset !== null) {
+                            this.audioManager.scheduleAt(sound.sound_file, sound.time_offset, {
+                                volume: sound.volume,
+                                loop: sound.loop,
+                                fade_in: sound.fade_in,
+                                fade_out: sound.fade_out
+                            });
+                        }
+                    } catch (e) {
+                        console.warn("[Theatre] Failed to load sound:", sound.sound_file, e);
                     }
                 }
             }
         }
 
-        console.log(`Theatre initialized with ${this.layers.length} layers.`);
-    }
+        this.lastTime = performance.now();
+        this.isRunning = true;
 
-    _loadImage(url) {
-        return new Promise((resolve, reject) => {
-            const img = new Image();
-            img.crossOrigin = "Anonymous"; // specific for canvas manipulation
-            img.onload = () => resolve(img);
-            img.onerror = reject;
-            img.src = url;
-        });
+        // One initial draw to ensure something is visible before loop starts
+        this.updateAndDraw(0);
     }
 
     start() {
@@ -170,10 +175,87 @@ export class Theatre {
         this.animationFrameId = requestAnimationFrame(this.loop);
     }
 
+    /**
+     * Robustly load a sprite image, handling userType prioritization and fallbacks.
+     * @param {string} spriteName
+     * @returns {Promise<HTMLImageElement|null>}
+     */
+    async _loadSprite(spriteName) {
+        // Construct target URL
+        // SPRITES are located at: /assets/users/{user}/sprites/{spriteName}/{spriteName}.png
+        const paths = this.userType === 'community'
+            ? ['community', 'default']
+            : ['default', 'community'];
+
+        let image = null;
+        let lastError = null;
+
+        for (const user of paths) {
+            const assetUrl = `${this.assetBaseUrl}/users/${user}/sprites/${spriteName}/${spriteName}.png`;
+            try {
+                console.log(`[Theatre] Attempting to load sprite '${spriteName}' from: ${assetUrl}`);
+                image = await this._loadImage(assetUrl);
+                console.log(`[Theatre] Successfully loaded sprite '${spriteName}' from ${user}: ${assetUrl}`);
+                return image;
+            } catch (err) {
+                console.warn(`[Theatre] Failed to load sprite '${spriteName}' from ${user}.`);
+                lastError = err;
+            }
+        }
+
+        // Last ditch fallback - check if assetBaseUrl is actually correct (local dev mismatch)
+        if (this.assetBaseUrl.includes('localhost') && !window.location.hostname.includes('localhost')) {
+            const fallbackUser = paths[0];
+            const assetUrl = `${this.assetBaseUrl}/users/${fallbackUser}/sprites/${spriteName}/${spriteName}.png`;
+            const altUrl = assetUrl.replace(/https?:\/\/[^/]+/, window.location.origin);
+            console.warn(`[Theatre] Retrying with local origin fallback: ${altUrl}`);
+            try {
+                image = await this._loadImage(altUrl);
+                console.log(`[Theatre] Success on retry with origin fallback.`);
+                return image;
+            } catch {
+                console.error(`[Theatre] Origin fallback failed for ${spriteName}`);
+            }
+        }
+
+        console.error(`[Theatre] CRITICAL: Failed to load sprite '${spriteName}' from all paths.`, lastError);
+        return null; // Return null so we can proceed without crashing
+    }
+
+    _loadImage(url, retry = true) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.crossOrigin = "Anonymous"; // specific for canvas manipulation
+            img.onload = () => resolve(img);
+            img.onerror = () => {
+                if (retry) {
+                    // Retry with cache buster
+                    console.warn(`[Theatre] Retrying image load with cache buster: ${url}`);
+                    const bustUrl = url + (url.includes('?') ? '&' : '?') + 't=' + Date.now();
+                    const retryImg = new Image();
+                    retryImg.crossOrigin = "Anonymous";
+                    retryImg.onload = () => {
+                        console.log(`[Theatre] Recovered image with cache buster: ${url}`);
+                        resolve(retryImg);
+                    };
+                    retryImg.onerror = (err) => {
+                        console.error(`[Theatre] Image load error for URL (retry failed): ${url}`, err);
+                        reject(new Error(`Failed to load image: ${url}`));
+                    };
+                    retryImg.src = bustUrl;
+                } else {
+                    // console.error(`[Theatre] Image load error for URL: ${url}`, e);
+                    reject(new Error(`Failed to load image: ${url}`));
+                }
+            };
+            img.src = url;
+        });
+    }
+
     stop() {
         this.isRunning = false;
         if (this.animationFrameId) {
-            cancelAnimationFrame(this.animationFrameId);
+            _cancelAnimationFrame(this.animationFrameId);
             this.animationFrameId = null;
         }
         this.audioManager.stopAll(); // Stop sound on pause/stop? Or maybe just pause?
@@ -196,6 +278,73 @@ export class Theatre {
         else this.pause();
     }
 
+    setCropMode(enabled) {
+        this.isCropMode = enabled;
+        // Trigger redraw to show/hide handles if we used that flag
+        if (this.isPaused || this.selectedSprite) this.updateAndDraw(0);
+    }
+
+    async updateScene(newSceneData) {
+        this.sceneData = newSceneData;
+        console.log("[Theatre] Updating scene data...");
+
+        // Smart update: Sync layers with new config, preserving state/images where possible
+        const newLayerConfigs = newSceneData.layers || [];
+
+        // 1. Map existing layers by name for quick lookup
+        const existingLayers = new Map();
+        this.layers.forEach(l => {
+            if (l.config.sprite_name) existingLayers.set(l.config.sprite_name, l);
+        });
+
+        // 2. Build new layer list
+        const newLayers = [];
+
+        for (const layerData of newLayerConfigs) {
+            const spriteName = layerData.sprite_name;
+            if (!spriteName) continue;
+
+            let layer = existingLayers.get(spriteName);
+
+            if (layer) {
+                // Update config of existing layer
+                // We need to merge metadata again if we want to be safe, but typically config has it?
+                // For performance, we assume layerData from parent is authoritative or we just update the specific overrides.
+                // Re-initializing config might reset standard behaviors if not careful, but Layer constructor handles it.
+                // Better: Update the config on the existing Layer instance? 
+                // Layer.js doesn't have 'updateConfig'.
+                // So we re-create Layer but pass the PREVIOUS image.
+                const wasSelected = layer.isSelected;
+                layer = new Layer({ ...layerData }, layer.image);
+                // Preserve selection state
+                layer.isSelected = wasSelected;
+                // Preserve runtime state? (velocity, timeAccum)
+                // If we want seamless editing, we might lose Oscillation phase if we re-create.
+                // But typically editing updates static props (pos, scale).
+                // Let's try re-creation first.
+            } else {
+                // New Layer - Needs load (using cache if possible)
+                // We'll fetch the image if it's new.
+                const img = await this._loadSprite(spriteName);
+                if (!img) {
+                    console.warn("Failed to load new sprite in update from all paths", spriteName);
+                    continue;
+                }
+                layer = new Layer({ ...layerData }, img);
+            }
+            newLayers.push(layer);
+        }
+
+        this.layers = newLayers;
+        this.layers.sort((a, b) => a.z_depth - b.z_depth);
+
+        // Re-index
+        this.layersByName.clear();
+        for (const layer of this.layers) {
+            this.layersByName.set(layer.config.sprite_name, layer);
+        }
+    }
+
     loop(timestamp) {
         if (!this.isRunning) return;
 
@@ -208,72 +357,204 @@ export class Theatre {
         } else {
             this.elapsedTime += dt;
 
-            // Throttle React state updates to ~30fps to avoid "Maximum update depth exceeded"
+            // Throttle React state updates to ~30fps
             if (this.onTimeUpdate && (timestamp - this.lastUpdateTime > 33)) {
                 this.onTimeUpdate(this.elapsedTime);
                 this.lastUpdateTime = timestamp;
             }
 
-            // Scroll speed: Python uses `self.scroll += 3` per frame (at 60fps supposedly, or just loop speed)
-            // If python ticks at 60fps, that's 180 units per second.
-            this.scroll += 180 * dt;
+            if (!this.soloSprite) {
+                this.scroll += 180 * dt;
+            }
 
-            // Update Audio
             this.audioManager.update(this.elapsedTime);
 
             this.updateAndDraw(dt);
         }
 
-        this.animationFrameId = requestAnimationFrame(this.loop);
+        this.animationFrameId = _requestAnimationFrame(this.loop);
+    }
+
+    setSoloMode(spriteName) {
+        this.soloSprite = spriteName;
+    }
+
+    getSoloMode() {
+        return this.soloSprite;
+    }
+
+    screenToWorld(x, y) {
+        return {
+            x: (x - this.canvas.width / 2) / this.cameraZoom - this.cameraPanX + this.canvas.width / 2,
+            y: (y - this.canvas.height / 2) / this.cameraZoom - this.cameraPanY + this.canvas.height / 2
+        };
     }
 
     updateAndDraw(dt) {
         const { width, height } = this.canvas;
 
-        // Clear screen
-        this.ctx.fillStyle = "rgb(200, 230, 255)"; // Default sky color
+        // Clear screen (outer background)
+        this.ctx.fillStyle = "#1a1a1a";
+        this.ctx.fillRect(0, 0, width, height);
+
+        this.ctx.save();
+
+        // Apply Camera Transform
+        this.ctx.translate(width / 2, height / 2);
+        this.ctx.scale(this.cameraZoom, this.cameraZoom);
+        this.ctx.translate(-width / 2 + this.cameraPanX, -height / 2 + this.cameraPanY);
+
+        // Draw Scene Background (the 1080p frame)
+        this.ctx.fillStyle = "rgb(200, 230, 255)";
         this.ctx.fillRect(0, 0, width, height);
 
         const telemetry = [];
+        let selectedLayer = null;
+        let selectedEnvLayer = null;
 
-        // Draw Layers
+        // Draw Layers (skip selected layer, draw it last for visibility)
         for (const layer of this.layers) {
-            let envLayerForTilt = null;
+            const isSelected = this.selectedSprite === layer.config.sprite_name;
 
+            // Skip selected layer in normal order, we'll draw it on top
+            if (isSelected) {
+                selectedLayer = layer;
+                if (layer.environmental_reaction) {
+                    const targetName = layer.environmental_reaction.target_sprite_name;
+                    selectedEnvLayer = this.layersByName ? this.layersByName.get(targetName) : null;
+                }
+                continue;
+            }
+
+            let envLayerForTilt = null;
             if (layer.environmental_reaction) {
                 const targetName = layer.environmental_reaction.target_sprite_name;
                 envLayerForTilt = this.layersByName ? this.layersByName.get(targetName) : null;
             }
+
+            const isSolo = this.soloSprite === layer.config.sprite_name;
+
+            // Stability: If sprite is selected, force dt=0 to pause behaviors (stop bobbling)
+            // effectiveDt is 0 if not solo (when solo active) OR if selected (stabilized)
+            let effectiveDt = dt;
+            let effectiveTime = this.elapsedTime;
+
+            if (this.soloSprite && !isSolo) {
+                effectiveDt = 0;
+                effectiveTime = 0;
+            }
+
+            const forceHandles = this.isPaused;
 
             layer.draw(
                 this.ctx,
                 width,
                 height,
                 this.scroll,
-                this.elapsedTime,
-                dt,
-                envLayerForTilt
+                effectiveTime,
+                effectiveDt,
+                envLayerForTilt,
+                forceHandles,
+                this.isCropMode
             );
 
             // Collect telemetry
             const currentY = layer._currentYPhys !== undefined ? layer._currentYPhys : (layer._getBaseY(height) + layer.y_offset);
-            // layer._currentXPhys tracking for telemetry X position
-            // Actually Layer.js getTransform returns 'x' offset. 
-            // In draw(), finalX = tf.x. And parallaxX = (scrollX * speed) + x_offset.
-            // Let's get the visual X (screen X not including scroll?). 
-            // Telemetry usually wants "World" or "Screen" coords? 
-            // Y is screen Y. X should be Screen X. 
-            // But Layer.js 'draw' calculates positions on the fly. 
-            // We can capture the last drawn X in Layer.js or recalculate here.
-            // Simple approach: just report the transform x for now, as that's what 'Location' behavior affects.
-
             telemetry.push({
                 name: layer.config.sprite_name,
-                x: layer.lastDrawnX || 0, // We need to capture this in Layer.js draw()
+                x: layer.lastDrawnX || 0,
                 y: currentY,
                 tilt: layer.currentTilt || 0,
                 z_depth: layer.z_depth,
                 visible: layer.visible
+            });
+        }
+
+        // Draw selected layer LAST (on top) for editing visibility
+        if (selectedLayer) {
+            // Check if it's occluded by any layer that was drawn AFTER it (higher Z-depth)
+            // Layers are sorted by z_depth ascending, so we check layers that were drawn after skip.
+            // Wait, updateAndDraw loop draws all but selected. 
+            // Let's check overlap with all layers that have higher Z-depth.
+            let isOccluded = false;
+            for (const other of this.layers) {
+                if (other.config.sprite_name === this.selectedSprite) continue;
+                if (other.z_depth > selectedLayer.z_depth && other.visible) {
+                    // Simple bounding box check for occlusion
+                    const otherTf = other.getTransform(height, width, 0, this.elapsedTime);
+                    const selTf = selectedLayer.getTransform(height, width, 0, this.elapsedTime);
+                    const { width: oW, height: oH } = other._getBaseDimensions(height);
+                    const { width: sW, height: sH } = selectedLayer._getBaseDimensions(height);
+
+                    const actualOW = oW * otherTf.scale;
+                    const actualOH = oH * otherTf.scale;
+                    const actualSW = sW * selTf.scale;
+                    const actualSH = sH * selTf.scale;
+
+                    const oX = (other.scroll_speed * this.scroll) + other.x_offset + otherTf.x + (otherTf.base_x || 0);
+                    const oY = otherTf.base_y + otherTf.y;
+                    const sX = (selectedLayer.scroll_speed * this.scroll) + selectedLayer.x_offset + selTf.x + (selTf.base_x || 0);
+                    const sY = selTf.base_y + selTf.y;
+
+                    if (oX < sX + actualSW && oX + actualOW > sX && oY < sY + actualSH && oY + actualOH > sY) {
+                        isOccluded = true;
+                        break;
+                    }
+                }
+            }
+
+            selectedLayer.draw(
+                this.ctx,
+                width,
+                height,
+                this.scroll,
+                this.elapsedTime,
+                0, // dt=0 to freeze behaviors for editing
+                selectedEnvLayer,
+                true, // Always show handles for selected
+                this.isCropMode
+            );
+
+            if (isOccluded) {
+                // Draw "Hidden" indicator
+                this.ctx.save();
+                const selTf = selectedLayer.getTransform(height, width, 0, this.elapsedTime);
+                const { width: sW } = selectedLayer._getBaseDimensions(height);
+                const sX = (selectedLayer.scroll_speed * this.scroll) + selectedLayer.x_offset + selTf.x + (selTf.base_x || 0);
+                const sY = selTf.base_y + selTf.y;
+
+                this.ctx.fillStyle = "rgba(255, 100, 100, 0.9)";
+                this.ctx.font = "bold 12px Inter, system-ui, sans-serif";
+                this.ctx.textBaseline = "bottom";
+                const label = "HIDDEN BEHIND LAYERS";
+                const metrics = this.ctx.measureText(label);
+
+                this.ctx.fillRect(sX + (sW * selTf.scale) / 2 - metrics.width / 2 - 4, sY - 20, metrics.width + 8, 18);
+                this.ctx.fillStyle = "white";
+                this.ctx.fillText(label, sX + (sW * selTf.scale) / 2 - metrics.width / 2, sY - 6);
+
+                // Draw eye-slash icon-like shape
+                this.ctx.strokeStyle = "white";
+                this.ctx.lineWidth = 2;
+                this.ctx.beginPath();
+                this.ctx.arc(sX + (sW * selTf.scale) / 2, sY - 30, 4, 0, Math.PI * 2);
+                this.ctx.stroke();
+                this.ctx.moveTo(sX + (sW * selTf.scale) / 2 - 6, sY - 36);
+                this.ctx.lineTo(sX + (sW * selTf.scale) / 2 + 6, sY - 24);
+                this.ctx.stroke();
+
+                this.ctx.restore();
+            }
+
+            // Add to telemetry
+            const currentY = selectedLayer._currentYPhys !== undefined ? selectedLayer._currentYPhys : (selectedLayer._getBaseY(height) + selectedLayer.y_offset);
+            telemetry.push({
+                name: selectedLayer.config.sprite_name,
+                x: selectedLayer.lastDrawnX || 0,
+                y: currentY,
+                tilt: selectedLayer.currentTilt || 0,
+                z_depth: selectedLayer.z_depth,
+                visible: selectedLayer.visible
             });
         }
 
@@ -286,11 +567,14 @@ export class Theatre {
         if (this.debugMode) {
             this._drawDebugOverlay(width, height);
         }
+
+        this.ctx.restore();
     }
 
     setMousePosition(x, y) {
-        this.mouseX = x;
-        this.mouseY = y;
+        const worldPos = this.screenToWorld(x, y);
+        this.mouseX = worldPos.x;
+        this.mouseY = worldPos.y;
     }
 
     setLayerVisibility(name, visible) {
@@ -303,22 +587,39 @@ export class Theatre {
 
     // --- Sprite Selection and Interaction ---
 
-    selectSprite(name) {
-        if (this.selectedSprite === name) return; // Guard against redundant selections
+    // --- Sprite Selection and Interaction ---
+
+    selectSprite(name, isSync = false) {
+        if (!isSync && this.selectedSprite === name) {
+            // Toggle off only if NOT a sync call
+            const layer = this.layersByName.get(name);
+            if (layer) layer.isSelected = false;
+            this.selectedSprite = null;
+            if (this.onSpriteSelected) this.onSpriteSelected(null);
+            return;
+        }
 
         const layer = this.layersByName.get(name);
         if (layer) {
             // Deselect previous
-            if (this.selectedSprite) {
+            if (this.selectedSprite && this.selectedSprite !== name) {
                 const prevLayer = this.layersByName.get(this.selectedSprite);
                 if (prevLayer) prevLayer.isSelected = false;
             }
             // Select new
             this.selectedSprite = name;
             layer.isSelected = true;
-            if (this.onSpriteSelected) {
+            if (!isSync && this.onSpriteSelected) {
                 this.onSpriteSelected(name);
             }
+        } else {
+            // Deselect all if name is null
+            if (this.selectedSprite) {
+                const prevLayer = this.layersByName.get(this.selectedSprite);
+                if (prevLayer) prevLayer.isSelected = false;
+            }
+            this.selectedSprite = null;
+            if (!isSync && this.onSpriteSelected) this.onSpriteSelected(null);
         }
     }
 
@@ -326,30 +627,56 @@ export class Theatre {
         return this.selectedSprite;
     }
 
+    getHandleAtPoint(screenX, screenY) {
+        if (!this.selectedSprite) return null;
+        const layer = this.layersByName.get(this.selectedSprite);
+        if (!layer) return null;
+        const worldPos = this.screenToWorld(screenX, screenY);
+        return layer.getHandleAtPoint(worldPos.x, worldPos.y, this.canvas.width, this.canvas.height, this.scroll, this.elapsedTime);
+    }
+
     handleCanvasClick(x, y) {
+        const worldPos = this.screenToWorld(x, y);
+
         // Find sprite under cursor (reverse order for top-most first)
         for (let i = this.layers.length - 1; i >= 0; i--) {
             const layer = this.layers[i];
-            if (!layer.visible) continue;
+            if (!layer.visible || layer.is_background) continue;
 
-            if (layer.containsPoint(x, y, this.canvas.width, this.canvas.height, this.scroll)) {
+            if (layer.containsPoint(worldPos.x, worldPos.y, this.canvas.width, this.canvas.height, this.scroll, this.elapsedTime)) {
                 this.selectSprite(layer.config.sprite_name);
                 return true;
             }
         }
+        this.selectSprite(null);
         return false;
     }
 
     handleDragStart(x, y) {
-        if (!this.selectedSprite) return false;
+        const worldPos = this.screenToWorld(x, y);
 
+        if (!this.selectedSprite) return false;
         const layer = this.layersByName.get(this.selectedSprite);
         if (!layer) return false;
 
-        if (layer.containsPoint(x, y, this.canvas.width, this.canvas.height, this.scroll)) {
+        // 1. Check for handles first
+        const handle = layer.getHandleAtPoint(worldPos.x, worldPos.y, this.canvas.width, this.canvas.height, this.scroll, this.elapsedTime);
+        if (handle) {
+            this.activeHandle = handle;
             this.isDragging = true;
-            this.dragStartX = x;
-            this.dragStartY = y;
+            this.dragStartX = worldPos.x;
+            this.dragStartY = worldPos.y;
+            this.initialScale = layer._baseScale;
+            this.initialRotation = layer.getTransform(this.canvas.height, this.canvas.width, 0, this.elapsedTime).rotation;
+            return true;
+        }
+
+        // 2. Check for body drag
+        if (layer.containsPoint(worldPos.x, worldPos.y, this.canvas.width, this.canvas.height, this.scroll, this.elapsedTime)) {
+            this.activeHandle = null;
+            this.isDragging = true;
+            this.dragStartX = worldPos.x;
+            this.dragStartY = worldPos.y;
 
             // Store initial offsets
             this.dragOffsetX = layer.x_offset;
@@ -361,30 +688,77 @@ export class Theatre {
 
     handleDragMove(x, y) {
         if (!this.isDragging || !this.selectedSprite) return;
-
+        const worldPos = this.screenToWorld(x, y);
         const layer = this.layersByName.get(this.selectedSprite);
         if (!layer) return;
 
-        const dx = x - this.dragStartX;
-        const dy = y - this.dragStartY;
+        const dx = worldPos.x - this.dragStartX;
+        const dy = worldPos.y - this.dragStartY;
 
-        layer.setPosition(this.dragOffsetX + dx, this.dragOffsetY + dy);
+        if (this.activeHandle) {
+            if (this.activeHandle.type === 'scale') {
+                // Simplified scaling: use distance from center to calculate new scale
+                const tf = layer.getTransform(this.canvas.height, this.canvas.width, 0, this.elapsedTime);
+                const { width: baseW, height: baseH } = layer._getBaseDimensions(this.canvas.height);
+                const centerX = (layer.scroll_speed * this.scroll) + layer.x_offset + tf.x + (tf.base_x || 0) + (baseW * tf.scale) / 2;
+                const centerY = tf.base_y + tf.y + (baseH * tf.scale) / 2;
+
+                const initialDist = Math.sqrt(Math.pow(this.dragStartX - centerX, 2) + Math.pow(this.dragStartY - centerY, 2));
+                const currentDist = Math.sqrt(Math.pow(worldPos.x - centerX, 2) + Math.pow(worldPos.y - centerY, 2));
+
+                if (initialDist > 5) {
+                    const newScale = this.initialScale * (currentDist / initialDist);
+                    if (this.isCropMode) {
+                        // Visual indicator for crop? 
+                        // For now we just prevent setScale from affecting the actual sprite metadata/baseScale
+                        // so it doesn't trigger the toast. 
+                        // We could call layer.setCropPreview(newScale) if we had that.
+                    } else {
+                        layer.setScale(newScale, this.elapsedTime);
+                    }
+                }
+            } else if (this.activeHandle.type === 'rotate') {
+                const tf = layer.getTransform(this.canvas.height, this.canvas.width, 0, this.elapsedTime);
+                const { width: baseW, height: baseH } = layer._getBaseDimensions(this.canvas.height);
+                const centerX = (layer.scroll_speed * this.scroll) + layer.x_offset + tf.x + (tf.base_x || 0) + (baseW * tf.scale) / 2;
+                const centerY = tf.base_y + tf.y + (baseH * tf.scale) / 2;
+
+                const initialAngle = Math.atan2(this.dragStartY - centerY, this.dragStartX - centerX);
+                const currentAngle = Math.atan2(worldPos.y - centerY, worldPos.x - centerX);
+
+                const angleDiff = (currentAngle - initialAngle) * (180 / Math.PI);
+                layer.setRotation(this.initialRotation + angleDiff, this.elapsedTime);
+            }
+        } else {
+            // Body drag
+            layer.setPosition(this.dragOffsetX + dx, this.dragOffsetY + dy);
+        }
     }
 
     handleDragEnd() {
         if (!this.isDragging || !this.selectedSprite) return;
 
         const layer = this.layersByName.get(this.selectedSprite);
-        if (layer && this.onSpritePositionChanged) {
-            this.onSpritePositionChanged(
-                this.selectedSprite,
-                layer.x_offset,
-                layer.y_offset,
-                this.elapsedTime
-            );
+        if (layer) {
+            if (this.activeHandle) {
+                if (this.activeHandle.type === 'scale') {
+                    if (this.isCropMode) {
+                        // Handle crop commit if we implement it, for now just log
+                        // console.log("[Theatre] Crop committed (placeholder)");
+                    } else if (this.onSpriteScaleChanged) {
+                        this.onSpriteScaleChanged(this.selectedSprite, layer._baseScale, this.elapsedTime);
+                    }
+                } else if (this.activeHandle.type === 'rotate' && this.onSpriteRotationChanged) {
+                    const tf = layer.getTransform(this.canvas.height, this.canvas.width, 0, this.elapsedTime);
+                    this.onSpriteRotationChanged(this.selectedSprite, tf.rotation);
+                }
+            } else if (this.onSpritePositionChanged) {
+                this.onSpritePositionChanged(this.selectedSprite, layer.x_offset, layer.y_offset, this.elapsedTime);
+            }
         }
 
         this.isDragging = false;
+        this.activeHandle = null;
     }
 
     _drawDebugOverlay(width, height) {

@@ -25,6 +25,7 @@ from src.server.dependencies import (
     get_current_user,
     get_user_assets,
 )
+from src.server.local_processor import LocalImageProcessor
 
 logger = logging.getLogger("papeterie")
 router = APIRouter(tags=["scenes"])
@@ -51,6 +52,7 @@ class GenerateSceneRequest(BaseModel):
 
 class OptimizeRequest(BaseModel):
     prompt_guidance: Optional[str] = None
+    processing_mode: str = "local"  # "local" (default, $0) or "llm" (high quality)
 
 
 # --- Endpoints ---
@@ -303,7 +305,7 @@ def optimize_scene(
         name,
         "OPTIMIZE_START",
         "Starting scene optimization",
-        f"Guidance: {request.prompt_guidance}",
+        f"Guidance: {request.prompt_guidance}, Mode: {request.processing_mode}",
         user_id=user_id,
     )
     start_time = datetime.now()
@@ -390,29 +392,41 @@ def optimize_scene(
 
         # 3. Extract Background
         logger.info("Step 3: Extracting background...")
-        bg_prompt_tmpl = (
-            PROJECT_ROOT / "assets" / "prompts" / "BackgroundExtraction.prompt"
-        ).read_text()
-
-        # Reconstruct objects description from Stage 1 for the negative prompt context
-        objects_desc_list = []
-        if "sprites" in stage1_data:
-            for s in stage1_data["sprites"]:
-                # Use robust key access
-                desc = s.get("visual_description", "")
-                loc = s.get("location_description", "")
-                objects_desc_list.append(f"- {desc} ({loc})")
-
-        objects_desc = "\n".join(objects_desc_list)
-        bg_prompt = bg_prompt_tmpl.replace("{{foreground_objects_list}}", objects_desc)
-
-        if request.prompt_guidance:
-            bg_prompt += f"\n\nAdditional nuance: {request.prompt_guidance}"
-
-        asset_logger.log_info("scenes", name, "Step 3: Extracting background...", user_id=user_id)
-        bg_bytes = client.extract_element_image(
-            str(original_path), bg_prompt, "You are a professional image editor."
+        asset_logger.log_info(
+            "scenes",
+            name,
+            f"Step 3: Extracting background (mode={request.processing_mode})...",
+            user_id=user_id,
         )
+
+        if request.processing_mode == "local":
+            # Local processing: Use rembg + inpainting (zero API cost)
+            local_proc = LocalImageProcessor()
+            scene_image = img_proc.image_from_bytes(original_path.read_bytes())
+            bg_bytes = local_proc.extract_background(scene_image)
+        else:
+            # LLM processing: Use Gemini (high quality, API cost)
+            bg_prompt_tmpl = (
+                PROJECT_ROOT / "assets" / "prompts" / "BackgroundExtraction.prompt"
+            ).read_text()
+
+            # Reconstruct objects description for the negative prompt context
+            objects_desc_list = []
+            if "sprites" in stage1_data:
+                for s in stage1_data["sprites"]:
+                    desc = s.get("visual_description", "")
+                    loc = s.get("location_description", "")
+                    objects_desc_list.append(f"- {desc} ({loc})")
+
+            objects_desc = "\n".join(objects_desc_list)
+            bg_prompt = bg_prompt_tmpl.replace("{{foreground_objects_list}}", objects_desc)
+
+            if request.prompt_guidance:
+                bg_prompt += f"\n\nAdditional nuance: {request.prompt_guidance}"
+
+            bg_bytes = client.extract_element_image(
+                str(original_path), bg_prompt, "You are a professional image editor."
+            )
 
         bg_sprite_name = f"{name}_background"
         bg_sprite_dir = sprites_dir / bg_sprite_name
@@ -493,15 +507,25 @@ def optimize_scene(
             sprite_prompt = sprite_prompt.replace("{{location_hint}}", s_loc)
 
             try:
-                sprite_bytes = client.extract_element_image(
-                    str(original_path),
-                    sprite_prompt,
-                    "You are a professional image editor.",
-                    aspect_ratio="1:1",
-                )
-
-                s_img = img_proc.image_from_bytes(sprite_bytes)
-                s_img = img_proc.remove_green_screen(s_img)
+                if request.processing_mode == "local":
+                    # Local processing: Use rembg (zero API cost)
+                    # Note: For local mode, we extract the full image and let rembg isolate
+                    if "local_proc" not in dir():
+                        local_proc = LocalImageProcessor()
+                    scene_image = img_proc.image_from_bytes(original_path.read_bytes())
+                    sprite_bytes, _ = local_proc.extract_sprite(scene_image)
+                    s_img = img_proc.image_from_bytes(sprite_bytes)
+                    s_img = img_proc.remove_green_screen(s_img)
+                else:
+                    # LLM processing: Use Gemini (high quality, API cost)
+                    sprite_bytes = client.extract_element_image(
+                        str(original_path),
+                        sprite_prompt,
+                        "You are a professional image editor.",
+                        aspect_ratio="1:1",
+                    )
+                    s_img = img_proc.image_from_bytes(sprite_bytes)
+                    s_img = img_proc.remove_green_screen(s_img)
 
                 s_dir = sprites_dir / s_name
                 s_dir.mkdir(parents=True, exist_ok=True)

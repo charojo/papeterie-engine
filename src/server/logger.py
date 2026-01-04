@@ -69,7 +69,7 @@ class AssetLogger:
             log_entry = f"[{timestamp}] {action.upper()}: {message}"
             if details:
                 log_entry += f"\nDetails: {details}"
-            log_entry += "\n" + "-" * 40 + "\n"
+            log_entry += "\n"
 
             with open(log_file, "a", encoding="utf-8") as f:
                 f.write(log_entry)

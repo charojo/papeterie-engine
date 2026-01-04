@@ -12,7 +12,9 @@ import {
     Plus,
     ChevronRight,
     ChevronDown,
+    ChevronUp,
     Maximize,
+    Minimize2,
     ZoomIn,
     ZoomOut,
     Save,
@@ -33,6 +35,11 @@ import {
     Music,
     Waves,
     Anchor,
+    Copy,
+    Check,
+    Search,
+    Crop,
+    MousePointer,
 } from 'lucide-react';
 
 const icons = {
@@ -68,9 +75,18 @@ const icons = {
     background: Layers,
     location: Anchor,
     sound: Music,
+    copy: Copy,
+    check: Check,
+    expand: ChevronDown,
+    collapse: ChevronUp,
+    minimize: Minimize2,
+    search: Search,
+    crop: Crop,
+    pointer: MousePointer,
 };
 
 export const Icon = ({ name, size = 16, className, ...props }) => {
     const LucideIcon = icons[name] || icons.image;
     return <LucideIcon size={size} className={className} {...props} />;
 };
+

@@ -9,19 +9,31 @@ This file lists features, improvements, and bugs to be addressed in the Papeteri
 *   **Gemini 3 Pro Image Fixup:** Integration of Gemini 3 Pro for advanced image processing and automated fixup loops.
 *   **Web Dashboard (Beta):** Initial release of a React/Vite web dashboard for sprite management and visualisation.
 *   **Starbuilders Scene:** Added the full "Starbuilders" scene with new assets and logic (`scene_starbuilders.json`).
+*   **Unified Scene View**: Merged the static `ImageViewer` and the animated `TheatreStage` into a single, interactive scene editor. Supports actual-size rendering, direct manipulation of position, scale, and rotation, and Shift-Click to add sprites.
+*   **Interactive Sprite Editing Mode**: Implemented via the Unified Scene View, allowing users to select and transform sprites directly on the stage with persistence back to the scene configuration.
+*   **Local Image Processing Toggle**: Added a processing mode toggle (Local/LLM) for scene optimization. Local mode uses `rembg` + OpenCV for $0 cost extraction, defaulting to "Local" to reduce API expenses. Design: [`docs/design/high_level_design.md`](design/high_level_design.md).
+
+## Active Development
+
+*   **UI Overhaul & Workflow Refinement**: Complete refactor of the web dashboard to remove the sidebar, centralize the Scene View, and improve sprite manipulation tools (Scale Widget, Overlay). Design: [`docs/design/ui_redesign_2026.md`](design/ui_redesign_2026.md).
 
 ## Unprioritized / Ideas
 
-*   **Interactive Sprite Editing Mode:** Implement an in-application edit mode where users can select individual sprites and move them vertically (up/down) using interactive controls. This mode would require a 'Save' button to persist the adjusted `y_offset` (and potentially `x_offset`) values back into the `sceneX.json` file for the active scene. This would allow for visual fine-tuning of sprite positions.
 *   **Twinkling Stars Effect:** Implement a visual effect for star sprites that makes them appear to twinkle. This involves randomly selecting individual stars within the sprite image and applying a temporary brightness or opacity change to simulate twinkling. This effect should be configurable via sprite metadata to control frequency and intensity.
-*   **Export Scene to Movie File:** Add functionality to export a specified number of seconds of the current animation scene as a movie file (e.g., MP4, GIF) for easy sharing.
+*   **Export Scene to Movie File:** Add functionality to export a specified number of seconds of the current animation scene as a movie file (e.g., MP4, GIF) for easy sharing. Design: [`docs/design/export_scene_design.md`](design/export_scene_design.md).
 *   **Agent Self-Reflection Loop:** Enhance the `SpriteCompiler` to allow the agent to generate its own unit tests for the metadata it produces, ensuring "physics-correctness" before human review.
 *   **Token Optimization Analyzer:** Create a script that analyzes `logs/token_ledger.csv` and suggests prompt compression or model switching to reduce operational costs.
 *   **Sprite Remixing**: Allow users to "remix" existing sprites by editing their prompts.
 *   **Scene Templates**: Provide pre-configured scene templates (e.g., "Forest Theater", "Space Stage").
 *   **SMTP Email Verification**: Implement real email verification using Python's `smtplib`. This is planned for when the engine is hosted on PythonAnywhere. For now, email validation is assumed to be successful on registration.
-*   **Two-Stage LLM Scene Composition Pipeline**: Refactor scene optimization to separate creative interpretation (descriptive text output) from technical formatting (JSON generation). Stage 1 has the LLM describe sprites and animations in natural language; Stage 2 converts those descriptions into valid `BehaviorConfig` JSON. See planning document in `.gemini/antigravity/brain/.../two_stage_llm_plan.md`.
-*   **Undo/Redo System**: Replace confirmation dialogs with an optimistic Undo/Redo command system. This involves implementing a history manager, command pattern for actions like deleting/moving sprites, and backend support for soft-deletes. Detailed design: `docs/design/undo_redo_system.md`.
+*   **Two-Stage LLM Scene Composition Pipeline**: Refactor scene optimization to separate creative interpretation (descriptive text output) from technical formatting (JSON generation). Stage 1 has the LLM describe sprites and animations in natural language; Stage 2 converts those descriptions into valid `BehaviorConfig` JSON. Design: [`docs/design/high_level_design.md`](design/high_level_design.md).
+*   **Undo/Redo System**: Replace confirmation dialogs with an optimistic Undo/Redo command system. This involves implementing a history manager, command pattern for actions like deleting/moving sprites, and backend support for soft-deletes. Design: [`docs/design/undo_redo_system.md`](design/undo_redo_system.md).
+*   **Sound File Picker**: Implement a UI to browse and select audio files in the Behavior Editor. Currently, users must manually type paths. See "Feature Backlog FB-1" in [`docs/design/scene_editing_architecture.md`](design/scene_editing_architecture.md).
+*   **Draggable Timeline Keyframes**: allow users to drag keyframes on the timeline to adjust their timing. See "Feature Backlog FB-2" in [`docs/design/scene_editing_architecture.md`](design/scene_editing_architecture.md).
+*   **Local Sprite Isolation Enhancement**: Improve `LocalImageProcessor` to detect individual sprites within a scene image using bounding box detection or SAM (Segment Anything Model) integration, rather than extracting the entire foreground as one unit.
+*   **Hybrid Processing Mode**: Add a "Hybrid" mode that uses local processing for initial extraction but falls back to LLM mode for complex sprites that fail quality checks.
+*   **Local Model Selection**: Allow users to choose between different rembg models (u2net, u2netp, silueta) based on quality vs speed tradeoffs.
+
 
 ## Verification & Quality Assurance
 

@@ -29,6 +29,7 @@ describe('AssetDetailLayout', () => {
         expect(screen.getByText('Click Me')).toBeInTheDocument();
         expect(screen.getByText('Visual Content Content')).toBeInTheDocument();
         expect(screen.getByText('Configuration Content Content')).toBeInTheDocument();
+        // Log starts minimized, last line shown in summary
         expect(screen.getByText('Initial log')).toBeInTheDocument();
     });
 
@@ -49,24 +50,32 @@ describe('AssetDetailLayout', () => {
         vi.useFakeTimers();
         render(<AssetDetailLayout {...defaultProps} />);
 
-        const copyButton = screen.getByText('Copy Log');
-        fireEvent.click(copyButton);
+        // Find copy button by icon testid (now uses icon instead of text)
+        const copyIcon = screen.getByTestId('icon-copy');
+        fireEvent.click(copyIcon.closest('button'));
 
         expect(mockWriteText).toHaveBeenCalledWith('Initial log');
-        expect(screen.getByText('Copied!')).toBeInTheDocument();
+        // Check icon changes to check mark
+        expect(screen.getByTestId('icon-check')).toBeInTheDocument();
 
         // Wait for feedback to reset
         act(() => {
             vi.advanceTimersByTime(2000);
         });
-        expect(screen.queryByText('Copied!')).not.toBeInTheDocument();
-        expect(screen.getByText('Copy Log')).toBeInTheDocument();
+        expect(screen.queryByTestId('icon-check')).not.toBeInTheDocument();
+        expect(screen.getByTestId('icon-copy')).toBeInTheDocument();
 
         vi.useRealTimers();
     });
 
-    it('scolls logs when updated', () => {
+    it('scolls logs when expanded and updated', () => {
         const { rerender } = render(<AssetDetailLayout {...defaultProps} />);
+
+        // First expand the log panel (it starts minimized, shows collapse/up arrow icon)
+        const collapseIcon = screen.getByTestId('icon-collapse');
+        fireEvent.click(collapseIcon.closest('button'));
+
+        // Now logs should be visible in pre element
         const logPre = screen.getByText('Initial log');
 
         // Mock scroll properties
@@ -76,4 +85,29 @@ describe('AssetDetailLayout', () => {
         rerender(<AssetDetailLayout {...defaultProps} logs="Updated log" />);
         expect(scrollTopSpy).toHaveBeenCalledWith(500);
     });
+
+    it('toggles log panel between minimized and expanded', () => {
+        render(<AssetDetailLayout {...defaultProps} logs={"Line 1\nLine 2\nLine 3"} />);
+
+        // Initially minimized - only last line visible, shows collapse/up arrow icon
+        expect(screen.getByText('Line 3')).toBeInTheDocument();
+        expect(screen.queryByText('SYSTEM LOGS')).not.toBeInTheDocument();
+
+        // Expand (click up arrow to expand)
+        const collapseIcon = screen.getByTestId('icon-collapse');
+        fireEvent.click(collapseIcon.closest('button'));
+
+        // Now should see full logs and header, shows expand/down arrow icon
+        expect(screen.getByText('SYSTEM LOGS')).toBeInTheDocument();
+        expect(screen.getByTestId('icon-expand')).toBeInTheDocument();
+
+        // Collapse (click down arrow to close)
+        const expandIcon = screen.getByTestId('icon-expand');
+        fireEvent.click(expandIcon.closest('button'));
+
+        // Back to minimized
+        expect(screen.queryByText('SYSTEM LOGS')).not.toBeInTheDocument();
+        expect(screen.getByTestId('icon-collapse')).toBeInTheDocument();
+    });
 });
+
