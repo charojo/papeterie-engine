@@ -27,5 +27,8 @@ The engine follows a strict **Compiler-Renderer** separation:
 - `/src`: Modular Python package (Compiler, Renderer, Validator).
 - `/tests`: Pytest suite for behavioral validation.
 
+## 🚀 Getting Started
+Check out **[docs/HOWTO_Develop.md](docs/HOWTO_Develop.md)** for installation, environment setup, and development workflows.
+
 ## 🤖 AI Interaction Protocol
-This project uses an `AGENTS.md` file to maintain persistent context for LLM collaborators. When working with Gemini, ensure **Agent Mode** is active to allow full-repository awareness.
+This project uses an `AGENTS.md` file to maintain persistent context for LLM collaborators. When working with Gemini, ensure **Agent Mode** is active to allow full-repository awareness. See the "AI Agent Initialization" section in **[HOWTO_Develop.md](docs/HOWTO_Develop.md)** for details.

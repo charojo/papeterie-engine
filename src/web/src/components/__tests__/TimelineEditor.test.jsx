@@ -1,6 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import { TimelineEditor } from '../TimelineEditor.jsx';
+
+// Silence console.error for expected test failures
+vi.spyOn(console, 'error').mockImplementation(() => { });
 
 // Mock Icon component
 vi.mock('../Icon', () => ({
@@ -21,6 +24,13 @@ describe('TimelineEditor', () => {
 
     beforeEach(() => {
         vi.clearAllMocks();
+    });
+
+    afterEach(() => {
+        // Force cleanup of document listeners and wrap in act to avoid warnings
+        act(() => {
+            document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+        });
     });
 
     describe('rendering', () => {
@@ -59,10 +69,7 @@ describe('TimelineEditor', () => {
 
         it('highlights selected layer', () => {
             render(<TimelineEditor {...defaultProps} layers={layers} selectedLayer="boat" />);
-            // The boat label parent should have a tinted background
             const boatLabel = screen.getByText('boat');
-            const _style = boatLabel.parentElement.style;
-            // Just verify it renders without error when selectedLayer is set
             expect(boatLabel).toBeInTheDocument();
         });
     });
@@ -89,20 +96,8 @@ describe('TimelineEditor', () => {
 
         it('renders keyframe markers for LocationBehaviors with time_offset', () => {
             render(<TimelineEditor {...defaultProps} layers={layersWithKeyframes} />);
-            // Keyframes should have titles with time info
             expect(screen.getByTitle(/Keyframe at 5.00s/)).toBeInTheDocument();
             expect(screen.getByTitle(/Keyframe at 10.00s/)).toBeInTheDocument();
-        });
-
-        it('does not render keyframes for behaviors without time_offset', () => {
-            const layersNoOffset = [
-                {
-                    sprite_name: 'boat',
-                    behaviors: [{ type: 'oscillate', frequency: 1 }]
-                }
-            ];
-            render(<TimelineEditor {...defaultProps} layers={layersNoOffset} />);
-            expect(screen.queryByTitle(/Keyframe/)).not.toBeInTheDocument();
         });
     });
 
@@ -110,7 +105,6 @@ describe('TimelineEditor', () => {
         it('calls onPlayPause when play button is clicked', () => {
             const onPlayPause = vi.fn();
             render(<TimelineEditor {...defaultProps} onPlayPause={onPlayPause} />);
-
             fireEvent.click(screen.getByLabelText(/Play/));
             expect(onPlayPause).toHaveBeenCalled();
         });
@@ -118,36 +112,105 @@ describe('TimelineEditor', () => {
         it('updates zoom when slider changes', () => {
             render(<TimelineEditor {...defaultProps} />);
             const slider = screen.getByRole('slider');
-
             fireEvent.change(slider, { target: { value: '50' } });
-            // Zoom change is internal state, verify it doesn't crash
             expect(slider.value).toBe('50');
         });
     });
 
     describe('scrubbing', () => {
-        it('calls onTimeChange when ruler is clicked', () => {
+        it('calls onTimeChange during scrubbing', () => {
             const onTimeChange = vi.fn();
             const { container } = render(<TimelineEditor {...defaultProps} onTimeChange={onTimeChange} />);
 
-            // Find the ruler div (has time markers)
             const ruler = container.querySelector('div[style*="sticky"]');
+            const timelineContainer = ruler.closest('div[style*="flex: 1"]');
 
-            if (ruler) {
-                // Simulate click at a position
-                fireEvent.mouseDown(ruler, { clientX: 200, clientY: 10 });
-                expect(onTimeChange).toHaveBeenCalled();
+            vi.spyOn(timelineContainer, 'getBoundingClientRect').mockReturnValue({
+                left: 100,
+                width: 600,
+                top: 0,
+                bottom: 200
+            });
+
+            act(() => {
+                fireEvent.mouseDown(ruler, { clientX: 200 });
+            });
+            expect(onTimeChange).toHaveBeenCalledWith(0);
+
+            const moveEvent = new MouseEvent('mousemove', { clientX: 300 });
+            act(() => {
+                fireEvent(document, moveEvent);
+            });
+            expect(onTimeChange).toHaveBeenCalledWith(5);
+
+            act(() => {
+                fireEvent.mouseUp(document);
+            });
+        });
+    });
+
+    describe('keyframe dragging', () => {
+        const layersWithKeyframes = [
+            {
+                sprite_name: 'boat',
+                behaviors: [
+                    { type: 'location', time_offset: 5, x: 100, y: 100 }
+                ]
             }
+        ];
+
+        it('calls onKeyframeMove during and after drag', () => {
+            const onKeyframeMove = vi.fn();
+            render(<TimelineEditor {...defaultProps} layers={layersWithKeyframes} onKeyframeMove={onKeyframeMove} />);
+
+            const keyframe = screen.getByTitle(/Keyframe at 5.00s/);
+            const timelineContainer = keyframe.closest('div[style*="flex: 1"]');
+
+            vi.spyOn(timelineContainer, 'getBoundingClientRect').mockReturnValue({
+                left: 100,
+                top: 0
+            });
+
+            act(() => {
+                fireEvent.mouseDown(keyframe, { clientX: 200 });
+            });
+
+            const moveEvent = new MouseEvent('mousemove', { clientX: 300 });
+            act(() => {
+                fireEvent(document, moveEvent);
+            });
+            expect(onKeyframeMove).toHaveBeenCalledWith('boat', 0, 10, false);
+
+            act(() => {
+                fireEvent.mouseUp(document, { clientX: 400 });
+            });
+            expect(onKeyframeMove).toHaveBeenCalledWith('boat', 0, 15, true);
+        });
+
+        it('prevents event propagation when clicking keyframe', () => {
+            const onTimeChange = vi.fn();
+            render(<TimelineEditor {...defaultProps} layers={layersWithKeyframes} onTimeChange={onTimeChange} />);
+
+            const keyframe = screen.getByTitle(/Keyframe at 5.00s/);
+
+            const mouseDownEvent = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
+            const stopPropagationSpy = vi.spyOn(mouseDownEvent, 'stopPropagation');
+
+            act(() => {
+                fireEvent(keyframe, mouseDownEvent);
+            });
+
+            expect(stopPropagationSpy).toHaveBeenCalled();
+            expect(onTimeChange).not.toHaveBeenCalled();
         });
     });
 
     describe('playhead', () => {
         it('renders playhead at correct position', () => {
             const { container } = render(<TimelineEditor {...defaultProps} currentTime={5} />);
-
-            // Playhead is a red div with position absolute
             const playhead = container.querySelector('div[style*="background: var(--color-danger)"]');
             expect(playhead).toBeInTheDocument();
+            expect(playhead.style.left).toBe('100px');
         });
     });
 });

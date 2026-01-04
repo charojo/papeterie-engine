@@ -338,7 +338,7 @@ function NewSpriteForm({ onSuccess }) {
     formData.append('name', name);
     formData.append('file', file);
 
-    const promise = fetch(`${API_BASE}/upload`, { method: 'POST', body: formData })
+    const promise = fetch(`${API_BASE}/sprites/upload`, { method: 'POST', body: formData })
       .then(async res => {
         if (!res.ok) throw new Error(await res.text());
         return res.json();

@@ -143,7 +143,7 @@ async def list_scenes(
     return scenes
 
 
-@router.post("/{name}/share")
+@router.post("/scenes/{name}/share")
 async def share_scene(
     name: str,
     user_id: str = Depends(get_current_user),

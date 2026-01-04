@@ -1,0 +1,42 @@
+digraph DevelopmentWorkflow {
+    rankdir=LR;
+    node [shape=box, style=filled, fontname="Verdana", fontsize=10];
+    edge [fontname="Verdana", fontsize=9];
+
+    subgraph cluster_Assets {
+        label = "1. Assets 🎨";
+        style=filled; color=lightgrey;
+        Art [label="Create PNG Art", fillcolor=white];
+        Prompt [label="Write .prompt File", fillcolor=white];
+    }
+
+    subgraph cluster_Engine {
+        label = "2. Engine ⚙️";
+        style=filled; color=lightgrey;
+        Compile [label="Run Compiler\n(uv run python main.py)", fillcolor=lightcyan];
+        Review [label="Review Metadata\n(.prompt.json)", fillcolor=white];
+    }
+
+    subgraph cluster_Verification {
+        label = "3. Verification ✅";
+        style=filled; color=lightgrey;
+        Theatre [label="Run Theatre\n(uv run python src/renderer/theatre.py)", fillcolor=lightyellow];
+        Dashboard [label="Web Dashboard\n(npm run dev)", fillcolor=lightyellow];
+        Test [label="Validation\n(./scripts/validate.sh)", fillcolor=lightgreen];
+    }
+
+    Art -> Prompt;
+    Prompt -> Compile;
+    Compile -> Review;
+    Review -> Art [label="Refine Prompt", style=dashed];
+    Review -> Theatre;
+    Review -> Dashboard;
+    Theatre -> Art [label="Visual Adjustment", style=dashed];
+    Dashboard -> Art [label="Visual Adjustment", style=dashed];
+    Theatre -> Test;
+    Dashboard -> Test;
+    Test -> Review [label="Fix Failures", color=red];
+    Test -> Commit [label="Success!", fontcolor=forestgreen, color=forestgreen, penwidth=2];
+
+    Commit [label="Publish/PR", shape=egg, fillcolor=green];
+}

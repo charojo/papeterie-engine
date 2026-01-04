@@ -131,7 +131,7 @@ async def list_sprites(
     return sprites
 
 
-@router.post("/{name}/share")
+@router.post("/sprites/{name}/share")
 async def share_sprite(
     name: str,
     user_id: str = Depends(get_current_user),
@@ -160,7 +160,7 @@ async def share_sprite(
     return {"status": "success", "message": f"Sprite '{name}' shared to community"}
 
 
-@router.post("/upload")
+@router.post("/sprites/upload")
 async def upload_sprite(
     name: str = Form(...),
     file: UploadFile = File(...),
@@ -392,7 +392,7 @@ async def update_sprite_config(
         raise HTTPException(status_code=400, detail=f"Invalid metadata: {str(e)}")
 
 
-@router.post("/compile")
+@router.post("/sprites/compile")
 def compile_sprite(request: CompileRequest, user_assets=Depends(get_user_assets)):
     try:
         _, sprites_dir = user_assets

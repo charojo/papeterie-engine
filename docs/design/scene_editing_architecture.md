@@ -446,9 +446,9 @@ This section provides detailed UI design specifications for implementing advance
 
 ### 7.1 Component Architecture
 
-![Scene Editor Components](assets/diagrams/scene_editor_components.png)
+![Scene Editor Components](../assets/diagrams/scene_editor_components.png)
 
-[Source Diagram (.dot)](assets/diagrams/scene_editor_components.dot)
+[Source Diagram (.dot)](../assets/diagrams/scene_editor_components.dot)
 
 ### 7.2 Timeline Editor Component
 
@@ -567,9 +567,9 @@ class SoundBehavior(BaseBehavior):
 
 ### 7.5 State Flow
 
-![Behavior Edit Flow](assets/diagrams/behavior_edit_flow.png)
+![Behavior Edit Flow](../assets/diagrams/behavior_edit_flow.png)
 
-[Source Diagram (.dot)](assets/diagrams/behavior_edit_flow.dot)
+[Source Diagram (.dot)](../assets/diagrams/behavior_edit_flow.dot)
 
 ### 7.6 API Endpoints
 

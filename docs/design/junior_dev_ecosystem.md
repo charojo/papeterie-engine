@@ -8,9 +8,9 @@ The ecosystem is designed to provide comprehensive coverage across technical, pr
 
 ## Ecosystem Diagram
 
-![Junior Developer Support Ecosystem](assets/diagrams/junior_dev_ecosystem.png)
+![Junior Developer Support Ecosystem](../assets/diagrams/junior_dev_ecosystem.png)
 
-[Source Diagram (.dot)](assets/diagrams/junior_dev_ecosystem.dot)
+[Source Diagram (.dot)](../assets/diagrams/junior_dev_ecosystem.dot)
 
 ## Key Roles
 

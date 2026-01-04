@@ -80,5 +80,5 @@ The backend server reads this value at startup and instantiates the appropriate 
 
 The following diagram illustrates how a user session is restored and assets are loaded within the multi-user architecture.
 
-![Persistence Flow](assets/diagrams/persistence_flow.png)
-> [Source (DOT)](assets/diagrams/persistence_flow.dot)
+![Persistence Flow](../assets/diagrams/persistence_flow.png)
+> [Source (DOT)](../assets/diagrams/persistence_flow.dot)

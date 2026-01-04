@@ -82,7 +82,7 @@ def test_upload_sprite_raw(clean_assets):
     files = {"file": ("sprite.png", img_bytes, "image/png")}
     data = {"name": "test_sprite_upload"}
 
-    response = client.post("/api/upload", data=data, files=files)
+    response = client.post("/api/sprites/upload", data=data, files=files)
     assert response.status_code == 200
 
     sprite_dir = SPRITES_DIR / "test_sprite_upload"
@@ -102,7 +102,7 @@ def test_upload_sprite_remove_bg(mock_remove_bg, clean_assets):
     files = {"file": ("sprite.png", img_bytes, "image/png")}
     data = {"name": "test_sprite_upload", "remove_background": "true"}
 
-    response = client.post("/api/upload", data=data, files=files)
+    response = client.post("/api/sprites/upload", data=data, files=files)
     assert response.status_code == 200
 
     mock_remove_bg.assert_called_once()

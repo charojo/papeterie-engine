@@ -299,11 +299,13 @@ function BehaviorCard({ behavior, onChange, onRemove, readOnly }) {
 }
 
 function Field({ label, value, type = "text", step, options, onChange, readOnly }) {
+    const id = `field-${label.replace(/\s+/g, '-').toLowerCase()}`;
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <label style={{ fontSize: '0.75rem', opacity: 0.7 }}>{label}</label>
+            <label htmlFor={id} style={{ fontSize: '0.75rem', opacity: 0.7 }}>{label}</label>
             {options ? (
                 <select
+                    id={id}
                     className="input"
                     value={value || ''}
                     onChange={e => onChange(e.target.value)}
@@ -314,6 +316,7 @@ function Field({ label, value, type = "text", step, options, onChange, readOnly 
                 </select>
             ) : (
                 <input
+                    id={id}
                     className="input"
                     type={type}
                     step={step}
