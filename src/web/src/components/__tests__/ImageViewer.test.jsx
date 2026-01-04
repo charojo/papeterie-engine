@@ -71,19 +71,19 @@ describe('ImageViewer', () => {
         const zoomOutBtn = screen.getByTitle('Zoom Out');
 
         // Initial Transform Check (scale(1))
-        expect(img.style.transform).toContain('scale(1)');
+        expect(img.style.scale).toBe('1');
 
         // Zoom In
         fireEvent.click(zoomInBtn);
         // logic is scale * 1.2 => 1.2
-        expect(img.style.transform).toContain('scale(1.2)');
+        expect(img.style.scale).toBe('1.2');
 
         // Zoom Out twice
         fireEvent.click(zoomOutBtn); // returns to 1
-        expect(img.style.transform).toContain('scale(1)');
+        expect(img.style.scale).toBe('1');
 
         fireEvent.click(zoomOutBtn); // stays at 1 (min limit)
-        expect(img.style.transform).toContain('scale(1)');
+        expect(img.style.scale).toBe('1');
     });
 
     it('resets view when reset button is clicked', () => {
@@ -98,7 +98,7 @@ describe('ImageViewer', () => {
         fireEvent.click(resetBtn);
 
         const img = screen.getByRole('img');
-        expect(img.style.transform).toContain('scale(1)');
+        expect(img.style.scale).toBe('1');
         expect(screen.queryByText('Reset View')).not.toBeInTheDocument();
     });
 
@@ -130,7 +130,7 @@ describe('ImageViewer', () => {
 
         const img = screen.getByRole('img');
         // Expect clamped values
-        expect(img.style.transform).toMatch(/translate\(9\.9.*?px, 9\.9.*?px\)/);
+        expect(img.style.translate).toMatch(/9\.9.*?px 9\.9.*?px/);
 
         // Mouse Up
         fireEvent.mouseUp(container);
@@ -148,13 +148,13 @@ describe('ImageViewer', () => {
         // Ctrl + Wheel Down (Zoom Out logic in code is deltaY > 0 -> 0.9)
         // Default scale is 1. Min is 1. 
         fireEvent.wheel(container, { ctrlKey: true, deltaY: 100 });
-        expect(img.style.transform).toContain('scale(1)'); // Should stay at 1
+        expect(img.style.scale).toBe('1'); // Should stay at 1
 
         // Ctrl + Wheel Up (Zoom In logic is deltaY < 0 -> 1.1)
         // 1 * 1.1 = 1.1
         fireEvent.wheel(container, { ctrlKey: true, deltaY: -100 });
         // checking close to 1.1
-        expect(img.style.transform).toMatch(/scale\(1.1/);
+        expect(img.style.scale).toMatch(/1.1/);
     });
 
     it('pans on wheel when zoomed in', () => {
@@ -169,7 +169,7 @@ describe('ImageViewer', () => {
         // First Zoom In so scale > 1
         const zoomInBtn = screen.getByTitle('Zoom In');
         fireEvent.click(zoomInBtn); // Scale 1.2
-        expect(img.style.transform).toContain('scale(1.2)');
+        expect(img.style.scale).toBe('1.2');
 
         // Limit 10 (calculated above)
 
@@ -179,7 +179,7 @@ describe('ImageViewer', () => {
         fireEvent.wheel(container, { ctrlKey: false, deltaX: 5, deltaY: 5 });
         // Expect clamped values (-5 clamped)
         // With limit 10, -5 is fine. Float errors might make it -4.999 or -5.00..01
-        expect(img.style.transform).toMatch(/translate\(-5(\.0+)?px, -5(\.0+)?px\)/);
+        expect(img.style.translate).toMatch(/-5(\.0+)?px -5(\.0+)?px/);
     });
 
     it('does not pan on wheel when not zoomed in', () => {
@@ -192,7 +192,7 @@ describe('ImageViewer', () => {
         fireEvent.wheel(container, { ctrlKey: false, deltaX: 10, deltaY: 20 });
 
         // Should remain at 0,0
-        expect(img.style.transform).toContain('translate(0px, 0px)');
+        expect(img.style.translate).toBe('0px 0px');
     });
     it('clamps pan position within image boundaries', () => {
         render(<ImageViewer {...defaultProps} />);
@@ -222,8 +222,8 @@ describe('ImageViewer', () => {
         // Try to pan HUGE amount to right (negative deltaX)
         fireEvent.wheel(container, { ctrlKey: false, deltaX: -1000, deltaY: 0 });
 
-        const transform = img.style.transform;
-        const match = transform.match(/translate\(([\d.-]+)px/);
+        const transform = img.style.translate;
+        const match = transform.match(/([\d.-]+)px/);
         const x = parseFloat(match[1]);
 
         expect(x).toBeGreaterThan(0);
@@ -246,7 +246,7 @@ describe('ImageViewer', () => {
             deltaY: -100
         });
 
-        expect(img.style.transform).toContain('translate(0px, 0px)');
+        expect(img.style.translate).toBe('0px 0px');
     });
 
     it('rotates image when slider is changed', () => {
@@ -255,16 +255,16 @@ describe('ImageViewer', () => {
         const slider = screen.getByRole('slider');
 
         // Initial Rotation Check (rotate(0deg))
-        expect(img.style.transform).toContain('rotate(0deg)');
+        expect(img.style.rotate).toBe('0deg');
 
         // Change slider
         fireEvent.change(slider, { target: { value: '45' } });
-        expect(img.style.transform).toContain('rotate(45deg)');
+        expect(img.style.rotate).toBe('45deg');
         expect(screen.getByText('45°')).toBeInTheDocument();
 
         // Change slider again
         fireEvent.change(slider, { target: { value: '-90' } });
-        expect(img.style.transform).toContain('rotate(-90deg)');
+        expect(img.style.rotate).toBe('-90deg');
     });
 
     it('resets rotation when reset button is clicked', () => {
@@ -279,7 +279,21 @@ describe('ImageViewer', () => {
         fireEvent.click(resetBtn);
 
         const img = screen.getByRole('img');
-        expect(img.style.transform).toContain('rotate(0deg)');
+        expect(img.style.rotate).toBe('0deg');
         expect(screen.queryByText('Reset View')).not.toBeInTheDocument();
+    });
+
+    it('always renders save rotation button as grayed out/disabled when rotation is 0', () => {
+        const onSaveRotation = vi.fn();
+        render(<ImageViewer {...defaultProps} onSaveRotation={onSaveRotation} />);
+
+        const saveBtn = screen.getByTitle('Save Rotation');
+        expect(saveBtn).toBeInTheDocument();
+        expect(saveBtn).toBeDisabled();
+
+        const slider = screen.getByRole('slider');
+        fireEvent.change(slider, { target: { value: '10' } });
+
+        expect(saveBtn).not.toBeDisabled();
     });
 });

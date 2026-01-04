@@ -15,6 +15,7 @@ export const ImageViewer = ({
     const [rotation, setRotation] = useState(0);
     const [position, setPosition] = useState({ x: 0, y: 0 });
     const [isDragging, setIsDragging] = useState(false);
+    const [isRotating, setIsRotating] = useState(false);
     const dragStartRef = useRef({ x: 0, y: 0 });
     const imgRef = useRef(null);
     const containerRef = useRef(null);
@@ -193,8 +194,10 @@ export const ImageViewer = ({
                             maxWidth: '100%',
                             maxHeight: '100%',
                             objectFit: 'contain',
-                            transform: `translate(${position.x}px, ${position.y}px) scale(${scale}) rotate(${rotation}deg)`,
-                            transition: isDragging ? 'none' : 'transform 0.1s ease-out',
+                            translate: `${position.x}px ${position.y}px`,
+                            scale: `${scale}`,
+                            rotate: `${rotation}deg`,
+                            transition: (isDragging || isRotating) ? 'none' : 'translate 0.1s ease-out, scale 0.1s ease-out, rotate 0.1s ease-out',
                             pointerEvents: 'none' // Let container handle events
                         }}
                     />
@@ -223,8 +226,10 @@ export const ImageViewer = ({
 
                     {/* Fine Rotation Slider */}
                     <div
-                        onMouseDown={(e) => e.stopPropagation()}
-                        style={{ display: 'flex', alignItems: 'center', background: 'var(--color-bg-surface-2)', padding: '0 8px', height: '100%' }}
+                        onMouseDown={(e) => { e.stopPropagation(); setIsRotating(true); }}
+                        onMouseUp={() => setIsRotating(false)}
+                        onMouseLeave={() => setIsRotating(false)}
+                        style={{ display: 'flex', alignItems: 'center', background: 'var(--color-bg-surface-2)', padding: '0 8px', height: '100%', minHeight: '32px' }}
                     >
                         <input
                             type="range"
@@ -236,45 +241,52 @@ export const ImageViewer = ({
                         />
                         <span style={{ fontSize: '10px', marginLeft: '4px', width: '24px', textAlign: 'right' }}>{rotation}°</span>
                     </div>
-                    {onSaveRotation && rotation !== 0 && (
+                    {onSaveRotation && (
                         <button
                             onClick={() => onSaveRotation(rotation)}
-                            className="btn-icon"
+                            disabled={rotation === 0}
+                            className={`btn-icon ${rotation === 0 ? 'disabled' : ''}`}
                             title="Save Rotation"
-                            style={{ borderRadius: 0, borderLeft: '1px solid rgba(255,255,255,0.2)', background: 'var(--color-primary)' }}
+                            style={{
+                                borderRadius: 0,
+                                borderLeft: '1px solid rgba(255,255,255,0.2)',
+                                background: rotation === 0 ? 'rgba(255,255,255,0.1)' : 'var(--color-primary)',
+                                opacity: rotation === 0 ? 0.3 : 1,
+                                cursor: rotation === 0 ? 'not-allowed' : 'pointer'
+                            }}
                         >
                             <Icon name="save" size={16} />
                         </button>
                     )}
+
+                    <button
+                        onClick={toggleExpand}
+                        style={{
+                            background: isExpanded ? 'var(--color-primary)' : 'rgba(0,0,0,0.6)',
+                            border: 'none', borderRadius: '4px',
+                            color: isExpanded ? 'var(--color-text-on-primary)' : 'white', padding: '6px', cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}
+                        title={isExpanded ? "Minimize" : "Maximize (Zen Mode)"}
+                    >
+                        <Icon name={isExpanded ? "close" : "maximize"} size={16} />
+                    </button>
                 </div>
 
-                <button
-                    onClick={toggleExpand}
-                    style={{
-                        background: isExpanded ? 'var(--color-primary)' : 'rgba(0,0,0,0.6)',
-                        border: 'none', borderRadius: '4px',
-                        color: isExpanded ? 'var(--color-text-on-primary)' : 'white', padding: '6px', cursor: 'pointer',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}
-                    title={isExpanded ? "Minimize" : "Maximize (Zen Mode)"}
-                >
-                    <Icon name={isExpanded ? "close" : "maximize"} size={16} />
-                </button>
+                {/* Reset View Button (only shows if tweaked) */}
+                {(scale !== 1 || position.x !== 0 || position.y !== 0 || rotation !== 0) && (
+                    <button
+                        onClick={() => { setScale(1); setPosition({ x: 0, y: 0 }); setRotation(0); }}
+                        style={{
+                            position: 'absolute', bottom: '12px', left: '50%', transform: 'translateX(-50%)',
+                            background: 'rgba(0,0,0,0.6)', border: 'none', borderRadius: '20px',
+                            color: 'var(--color-text-main)', padding: '4px 12px', fontSize: '0.75rem', cursor: 'pointer', zIndex: 10
+                        }}
+                    >
+                        Reset View
+                    </button>
+                )}
             </div>
-
-            {/* Reset View Button (only shows if tweaked) */}
-            {(scale !== 1 || position.x !== 0 || position.y !== 0 || rotation !== 0) && (
-                <button
-                    onClick={() => { setScale(1); setPosition({ x: 0, y: 0 }); setRotation(0); }}
-                    style={{
-                        position: 'absolute', bottom: '12px', left: '50%', transform: 'translateX(-50%)',
-                        background: 'rgba(0,0,0,0.6)', border: 'none', borderRadius: '20px',
-                        color: 'var(--color-text-main)', padding: '4px 12px', fontSize: '0.75rem', cursor: 'pointer', zIndex: 10
-                    }}
-                >
-                    Reset View
-                </button>
-            )}
 
             {/* Controls Bar: Tabs & Actions */}
             <div style={{
