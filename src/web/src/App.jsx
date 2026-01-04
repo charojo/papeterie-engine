@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Toaster, toast } from 'sonner';
 import { GenericDetailView } from './components/GenericDetailView';
 import { Icon } from './components/Icon';
 import { SettingsMenu } from './components/SettingsMenu';
 import { usePersistentState } from './hooks/usePersistentState';
 import { LoginView } from './components/LoginView';
+import { PromptsView } from './components/PromptsView';
 
 const API_BASE = "http://localhost:8000/api";
 
@@ -36,7 +37,7 @@ function App() {
     document.documentElement.setAttribute('data-font-size', fontSize);
   }, [fontSize]);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     if (!user && storageMode !== 'LOCAL') return;
 
     try {
@@ -67,7 +68,7 @@ function App() {
       console.error("Failed to fetch data", e);
       toast.error("Failed to fetch data", { description: e.message });
     }
-  };
+  }, [user, storageMode, selectedItem, view, setSelectedItem]);
 
   useEffect(() => {
     const init = async () => {
@@ -163,6 +164,26 @@ function App() {
             ))}
           </CollapsibleSection>
 
+          <div style={{ marginTop: 'auto', paddingTop: '16px', borderTop: '1px solid var(--color-border)' }}>
+            <button
+              className={`btn ${view === 'configuration' ? 'btn-primary' : ''}`}
+              style={{
+                width: '100%',
+                textAlign: 'left',
+                border: 'none',
+                background: view === 'configuration' ? 'var(--color-primary)' : 'transparent',
+                color: view === 'configuration' ? 'var(--color-text-on-primary)' : 'var(--color-text-muted)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '10px 16px'
+              }}
+              onClick={() => { setView('configuration'); setSelectedItem(null); }}
+            >
+              <Icon name="config" size={16} /> System Configuration
+            </button>
+          </div>
+
         </div>
       </aside>
 
@@ -215,6 +236,10 @@ function App() {
               }
             }}
           />
+        )}
+
+        {view === 'configuration' && (
+          <PromptsView user={user} />
         )}
 
         {view === 'list' && (

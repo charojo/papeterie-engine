@@ -43,3 +43,17 @@ def get_user_assets(user_id: str = Depends(get_current_user)):
     sprites_dir.mkdir(parents=True, exist_ok=True)
 
     return scenes_dir, sprites_dir
+
+
+def get_community_assets():
+    """
+    Returns (scenes_dir, sprites_dir) for the shared community area.
+    """
+    community_dir = ASSETS_DIR / "users" / "community"
+    scenes_dir = community_dir / "scenes"
+    sprites_dir = community_dir / "sprites"
+
+    scenes_dir.mkdir(parents=True, exist_ok=True)
+    sprites_dir.mkdir(parents=True, exist_ok=True)
+
+    return scenes_dir, sprites_dir

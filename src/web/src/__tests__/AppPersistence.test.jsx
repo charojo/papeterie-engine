@@ -31,7 +31,9 @@ describe('App Session Persistence', () => {
     });
 
     it('should persist view changes to localStorage', async () => {
-        render(<App />);
+        await act(async () => {
+            render(<App />);
+        });
 
         // Initial view should be 'list' (default if not in localStorage)
         expect(localStorage.getItem('papeterie-view')).toBe('"list"');

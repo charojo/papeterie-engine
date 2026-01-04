@@ -359,7 +359,9 @@ describe('App Component', () => {
 
         // Click sign out in the menu
         const signOutButton = await screen.findByText(/sign out/i);
-        fireEvent.click(signOutButton);
+        await act(async () => {
+            fireEvent.click(signOutButton);
+        });
 
         // Should show login view
         expect(screen.getByText('Cloud Theater')).toBeInTheDocument();

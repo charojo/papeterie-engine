@@ -20,6 +20,7 @@ This file lists features, improvements, and bugs to be addressed in the Papeteri
 *   **Sprite Remixing**: Allow users to "remix" existing sprites by editing their prompts.
 *   **Scene Templates**: Provide pre-configured scene templates (e.g., "Forest Theater", "Space Stage").
 *   **SMTP Email Verification**: Implement real email verification using Python's `smtplib`. This is planned for when the engine is hosted on PythonAnywhere. For now, email validation is assumed to be successful on registration.
+*   **Two-Stage LLM Scene Composition Pipeline**: Refactor scene optimization to separate creative interpretation (descriptive text output) from technical formatting (JSON generation). Stage 1 has the LLM describe sprites and animations in natural language; Stage 2 converts those descriptions into valid `BehaviorConfig` JSON. See planning document in `.gemini/antigravity/brain/.../two_stage_llm_plan.md`.
 
 ## Verification & Quality Assurance
 

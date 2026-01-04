@@ -44,6 +44,5 @@ select = ["E", "F", "I"]  # E=pycodestyle errors, F=pyflakes, I=isort
 ignore = []
 
 [tool.coverage.run]
-dynamic_context = "test_function"
 source = ["src"]
 

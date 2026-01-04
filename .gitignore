@@ -38,28 +38,22 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Assets (User Content)
-assets/*
+# Assets (Example: Sailboat scene)
 !assets/prompts/
-!assets/scenes/
-assets/scenes/*
-!assets/scenes/sailboat/
-!assets/sprites/
-assets/sprites/*
-!assets/sprites/boat/
-!assets/sprites/clouds/
-!assets/sprites/stars/
-!assets/sprites/wave1/
-!assets/sprites/wave2/
-!assets/sprites/wave3/
-!assets/sprites/wave4/
-!assets/sprites/wave5/
-!assets/sprites/wave6/
 !assets/story/
 assets/story/*
 !assets/behaviors/
 assets/behaviors/*
-!assets/users/
+
+# User Assets
 assets/users/*
 !assets/users/.gitkeep
+
+# Community Assets (Sailboat)
+!assets/users/community/
+!assets/users/community/scenes/sailboat/
+!assets/users/community/sprites/boat/
+!assets/users/community/sprites/clouds/
+!assets/users/community/sprites/stars/
+!assets/users/community/sprites/wave*/
 !docs/assets/

@@ -237,3 +237,66 @@ class GeminiCompilerClient:
         return self.edit_image(
             scene_image_path, prompt, system_instruction, aspect_ratio=aspect_ratio
         )
+
+    def descriptive_scene_analysis(self, scene_image_path: str, system_instruction: str) -> str:
+        """
+        Stage 1: Analyzes a scene image to produce a descriptive YAML/Text output.
+        Returns the raw text description.
+        """
+        try:
+            from PIL import Image
+
+            img = Image.open(scene_image_path)
+
+            response = self.client.models.generate_content(
+                model=self.model_name,
+                contents=["Analyze this scene.", img],
+                config={
+                    "system_instruction": system_instruction,
+                    # No JSON enforcement here, we want free-form/YAML
+                },
+            )
+
+            if hasattr(response, "usage_metadata") and response.usage_metadata:
+                usage = response.usage_metadata
+                log_token_usage(
+                    self.model_name,
+                    usage.prompt_token_count,
+                    usage.candidates_token_count,
+                    usage.total_token_count,
+                    "descriptive_scene_analysis",
+                )
+
+            return response.text
+        except Exception as e:
+            print(f"Descriptive Analysis Error: {e}")
+            raise
+
+    def structure_behaviors(self, description_text: str, system_instruction: str) -> str:
+        """
+        Stage 2: Converts a descriptive text into structured Behavior JSON.
+        """
+        try:
+            response = self.client.models.generate_content(
+                model=self.model_name,
+                contents=[description_text],
+                config={
+                    "system_instruction": system_instruction,
+                    "response_mime_type": "application/json",
+                },
+            )
+
+            if hasattr(response, "usage_metadata") and response.usage_metadata:
+                usage = response.usage_metadata
+                log_token_usage(
+                    self.model_name,
+                    usage.prompt_token_count,
+                    usage.candidates_token_count,
+                    usage.total_token_count,
+                    "structure_behaviors",
+                )
+
+            return response.text
+        except Exception as e:
+            print(f"Structuring Error: {e}")
+            raise

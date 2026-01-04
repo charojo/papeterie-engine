@@ -623,8 +623,6 @@ class ParallaxLayer:
                 self._current_y_phys += (desired_y - self._current_y_phys) * 0.1
                 final_y = self._current_y_phys
 
-        # Always rotate if there is a value (or test expects it even if 0)
-        # Optimization: only if abs(final_rot) > 0.1
         if abs(final_rot) > 0.1:
             img_to_draw = pygame.transform.rotate(img_to_draw, final_rot)
         # Note: If rot is tiny, we skip to save significant CPU cycles
@@ -774,7 +772,12 @@ class Theatre:
 
         # Legacy path support
         path_obj = Path(scene_path)
-        if not path_obj.exists() and "assets/story" in scene_path:
+        if path_obj.exists() and path_obj.is_dir():
+            json_fallback = path_obj / "scene.json"
+            if json_fallback.exists():
+                path_obj = json_fallback
+
+        if not path_obj.exists() and "assets/story" in str(scene_path):
             name_part = path_obj.stem.replace("scene_", "")
             new_path = Path("assets/scenes") / name_part / "scene.json"
             if new_path.exists():
@@ -819,16 +822,25 @@ class Theatre:
 
                 scene_dir = self.scene_path.parent
                 local_sprite_path = scene_dir / "sprites" / sprite_name
+
+                # Community/User sprites path: ../../sprites/sprite_name
+                # e.g. from assets/users/community/scenes/sailboat/scene.json
+                # -> assets/users/community/sprites/
+                community_sprite_path = scene_dir.parent.parent / "sprites" / sprite_name
+
                 global_sprite_path = self.sprite_base_dir / sprite_name
 
                 if local_sprite_path.exists() and local_sprite_path.is_dir():
                     target_path = local_sprite_path
+                elif community_sprite_path.exists() and community_sprite_path.is_dir():
+                    target_path = community_sprite_path
                 elif global_sprite_path.exists() and global_sprite_path.is_dir():
                     target_path = global_sprite_path
                 else:
                     logging.warning(
                         f"Sprite directory not found for '{sprite_name}'. "
-                        f"Checked: {local_sprite_path}, {global_sprite_path}"
+                        f"Checked: {local_sprite_path}, {community_sprite_path}, "
+                        f"{global_sprite_path}"
                     )
                     continue
 

@@ -19,6 +19,8 @@ import {
     Play,
     Pause,
     Sparkles,
+    RotateCw,
+    RotateCcw,
 } from 'lucide-react';
 
 const icons = {
@@ -41,7 +43,9 @@ const icons = {
     chevronDown: ChevronDown,
     maximize: Maximize,
     zoomIn: ZoomIn,
-    zoomOut: ZoomOut
+    zoomOut: ZoomOut,
+    rotateCw: RotateCw,
+    rotateCcw: RotateCcw,
 };
 
 export const Icon = ({ name, size = 16, className, ...props }) => {

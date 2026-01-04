@@ -1,9 +1,9 @@
 import logging
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
 from src.config import PROJECT_ROOT, STORAGE_MODE
-from src.server.dependencies import asset_logger
+from src.server.dependencies import asset_logger, get_current_user
 
 logger = logging.getLogger("papeterie")
 router = APIRouter(tags=["system"])
@@ -28,7 +28,7 @@ async def get_system_prompt():
 
 
 @router.get("/logs/{asset_type}/{name}")
-async def get_asset_logs(asset_type: str, name: str):
+async def get_asset_logs(asset_type: str, name: str, user_id: str = Depends(get_current_user)):
     if asset_type not in ["sprites", "scenes"]:
         raise HTTPException(status_code=400, detail="Invalid asset type")
-    return {"content": asset_logger.get_logs(asset_type, name)}
+    return {"content": asset_logger.get_logs(asset_type, name, user_id=user_id)}

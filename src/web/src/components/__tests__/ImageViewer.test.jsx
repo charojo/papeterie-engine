@@ -248,4 +248,38 @@ describe('ImageViewer', () => {
 
         expect(img.style.transform).toContain('translate(0px, 0px)');
     });
+
+    it('rotates image when slider is changed', () => {
+        render(<ImageViewer {...defaultProps} />);
+        const img = screen.getByRole('img');
+        const slider = screen.getByRole('slider');
+
+        // Initial Rotation Check (rotate(0deg))
+        expect(img.style.transform).toContain('rotate(0deg)');
+
+        // Change slider
+        fireEvent.change(slider, { target: { value: '45' } });
+        expect(img.style.transform).toContain('rotate(45deg)');
+        expect(screen.getByText('45°')).toBeInTheDocument();
+
+        // Change slider again
+        fireEvent.change(slider, { target: { value: '-90' } });
+        expect(img.style.transform).toContain('rotate(-90deg)');
+    });
+
+    it('resets rotation when reset button is clicked', () => {
+        render(<ImageViewer {...defaultProps} />);
+        const slider = screen.getByRole('slider');
+
+        // Rotate to show reset button
+        fireEvent.change(slider, { target: { value: '90' } });
+        expect(screen.queryByText('Reset View')).toBeInTheDocument();
+
+        const resetBtn = screen.getByText('Reset View');
+        fireEvent.click(resetBtn);
+
+        const img = screen.getByRole('img');
+        expect(img.style.transform).toContain('rotate(0deg)');
+        expect(screen.queryByText('Reset View')).not.toBeInTheDocument();
+    });
 });

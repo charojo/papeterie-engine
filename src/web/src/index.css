@@ -36,6 +36,8 @@
 /* Purple Theme (Default) - Deep violet accent */
 :root,
 [data-theme="purple"] {
+  --color-bg-base-raw: #0f172a;
+  --color-bg-surface-raw: #1e293b;
   --color-bg-elevated-raw: #334155;
   --theme-softening-limit: 0.10;
   /* Purple now responds to contrast */

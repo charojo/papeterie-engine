@@ -109,7 +109,7 @@ def test_scaling_logic(mocker):
             os.remove(test_path)
 
 
-def test_environmental_reaction_pivot_on_crest(mocker):
+def test_environmental_reaction_pivot_on_crest(mocker, dummy_png):
     """
     Verify a sprite correctly reacts to environment using the Hull Contact model.
     """
@@ -137,9 +137,7 @@ def test_environmental_reaction_pivot_on_crest(mocker):
     mock_screen = MagicMock(spec=pygame.Surface, get_size=lambda: (800, 600), blit=MagicMock())
 
     # 1. Create a mock wave layer (environment)
-    wave_layer = ParallaxLayer(
-        "assets/sprites/wave1/waves1.png", z_depth=2, vertical_percent=0.7, scroll_speed=0.0
-    )
+    wave_layer = ParallaxLayer(dummy_png, z_depth=2, vertical_percent=0.7, scroll_speed=0.0)
     # Default to a flat surface for now
     wave_layer.get_y_at_x = MagicMock(return_value=400)
 
@@ -152,7 +150,7 @@ def test_environmental_reaction_pivot_on_crest(mocker):
         hull_length_factor=0.5,
     )
     boat_layer = ParallaxLayer(
-        "assets/sprites/boat/boat.png",
+        dummy_png,
         z_depth=3,
         vertical_percent=0.6,
         scroll_speed=0.0,

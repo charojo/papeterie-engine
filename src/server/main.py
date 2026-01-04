@@ -1,15 +1,28 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from src.config import ASSETS_DIR, CORS_ORIGINS, LOGS_DIR
+from src.server.database import init_db
 from src.server.logger import setup_server_logger
-from src.server.routers import auth, behaviors, scenes, sounds, sprites, system
+from src.server.routers import auth, behaviors, prompts, scenes, sounds, sprites, system
 
 # Setup logging
 logger = setup_server_logger(LOGS_DIR)
 
-app = FastAPI(title="Papeterie Engine Editor")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan context manager for startup/shutdown events."""
+    # Startup
+    init_db()
+    yield
+    # Shutdown (nothing needed currently)
+
+
+app = FastAPI(title="Papeterie Engine Editor", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -29,13 +42,7 @@ app.include_router(scenes.router, prefix="/api")
 app.include_router(system.router, prefix="/api")
 app.include_router(behaviors.router, prefix="/api")
 app.include_router(sounds.router, prefix="/api")
-
-
-@app.on_event("startup")
-async def startup_event():
-    from src.server.database import init_db
-
-    init_db()
+app.include_router(prompts.router, prefix="/api")
 
 
 @app.get("/")

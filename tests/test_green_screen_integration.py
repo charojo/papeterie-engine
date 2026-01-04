@@ -48,12 +48,20 @@ def test_optimize_scene_calls_remove_green_screen(mock_user_assets_setup, valid_
     # Mock Gemini
     mock_gemini = mocker.patch("src.server.routers.scenes.GeminiCompilerClient")
     mock_instance = mock_gemini.return_value
-    mock_instance.decompose_scene.return_value = json.dumps(
+
+    # Stage 1
+    mock_instance.descriptive_scene_analysis.return_value = json.dumps(
         {
-            "background_description": "bg",
-            "sprites": [{"name": "s1", "description": "d1", "location_hint": "h1"}],
+            "background": {"description": "bg"},
+            "sprites": [{"name": "s1", "visual_description": "d1", "location_description": "h1"}],
         }
     )
+
+    # Stage 2
+    mock_instance.structure_behaviors.return_value = json.dumps(
+        {"scene_name": scene_name, "sprites": [{"sprite_name": "s1", "behaviors": []}]}
+    )
+
     mock_instance.extract_element_image.return_value = valid_png_bytes
 
     # Mock Image processing at the source

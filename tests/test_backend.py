@@ -88,13 +88,35 @@ def test_delete_scene_only(setup_test_assets):
 
 
 def test_reset_scene(setup_test_assets):
+    """
+    Test reset mode.
+    Expectation:
+    - Scene config deleted.
+    - Scene layer sprites (unique) deleted.
+    - Scene layer sprites (shared) preserved.
+    - Original background preserved.
+    """
+    # Verify initial state
+    assert (SPRITES_DIR / "sprite_unique").exists()
+    assert (SPRITES_DIR / "sprite_shared").exists()
+
     response = client.delete("/api/scenes/test_scene_A?mode=reset")
     assert response.status_code == 200
+    data = response.json()
 
+    # Check response logic
+    assert "sprite_unique" in data["deleted_sprites"]
+    assert "sprite_shared" in data["kept_sprites"]
+
+    # Verify filesystem
     scene_dir = SCENES_DIR / "test_scene_A"
     assert scene_dir.exists()
     assert (scene_dir / "test_scene_A.original.png").exists()
     assert not (scene_dir / "scene.json").exists()
+
+    # Verify sprite cleanup
+    assert not (SPRITES_DIR / "sprite_unique").exists()
+    assert (SPRITES_DIR / "sprite_shared").exists()
 
 
 def test_delete_sprite_reset():

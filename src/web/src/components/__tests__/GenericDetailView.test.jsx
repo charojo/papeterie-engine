@@ -20,7 +20,7 @@ vi.mock('../Icon', () => ({
 }));
 
 vi.mock('../ImageViewer', () => ({
-    ImageViewer: ({ tabs, actions }) => (
+    ImageViewer: ({ tabs, actions, onSaveRotation }) => (
         <div data-testid="image-viewer">
             ImageViewer
             <div data-testid="viewer-tabs">
@@ -29,6 +29,7 @@ vi.mock('../ImageViewer', () => ({
                 ))}
             </div>
             <div data-testid="viewer-actions">{actions}</div>
+            <button onClick={() => onSaveRotation && onSaveRotation(90)}>Simulate Rotate Save</button>
         </div>
     )
 }));
@@ -88,9 +89,11 @@ describe('GenericDetailView', () => {
         }));
     });
 
-    it('renders correctly for a sprite', () => {
+    it('renders correctly for a sprite', async () => {
         const mockSprite = { name: 'dragon', has_metadata: true, has_original: true };
-        render(<GenericDetailView type="sprite" asset={mockSprite} refresh={vi.fn()} />);
+        await act(async () => {
+            render(<GenericDetailView type="sprite" asset={mockSprite} refresh={vi.fn()} />);
+        });
 
         expect(screen.getByTestId('detail-title')).toHaveTextContent('dragon');
         expect(screen.getByTestId('detail-status')).toHaveTextContent('Configured');
@@ -277,19 +280,99 @@ describe('GenericDetailView', () => {
 
     it('switches configuration tabs', async () => {
         const mockScene = { name: 'scene1', config: { layers: [] } };
-        render(<GenericDetailView type="scene" asset={mockScene} refresh={vi.fn()} />);
+        await act(async () => {
+            render(<GenericDetailView type="scene" asset={mockScene} refresh={vi.fn()} />);
+        });
 
         // Default behaviors
         expect(screen.getByText('Select a sprite from the tabs above to edit its behaviors.')).toBeInTheDocument();
 
         // Switch to JSON
         const jsonTab = screen.getByText('JSON Config');
-        fireEvent.click(jsonTab);
+        await act(async () => {
+            fireEvent.click(jsonTab);
+        });
         expect(screen.getByText('Refine Configuration')).toBeInTheDocument();
 
         // Switch to Debug
         const debugTab = screen.getByText('Debug');
-        fireEvent.click(debugTab);
+        await act(async () => {
+            fireEvent.click(debugTab);
+        });
         expect(screen.getByText('Debug Overlay')).toBeInTheDocument();
+    });
+
+    it('saves rotation for a sprite', async () => {
+        const mockSprite = { name: 'dragon', has_metadata: true, has_original: true };
+        const refreshMock = vi.fn();
+
+        global.fetch.mockResolvedValue({ ok: true, json: async () => ({ message: 'Rotated' }) });
+
+        render(<GenericDetailView type="sprite" asset={mockSprite} refresh={refreshMock} />);
+
+        const saveBtn = screen.getByText('Simulate Rotate Save');
+        await act(async () => { fireEvent.click(saveBtn); });
+
+        expect(global.fetch).toHaveBeenCalledWith(
+            expect.stringContaining('/sprites/dragon/rotate'),
+            expect.objectContaining({
+                method: 'POST',
+                body: JSON.stringify({ angle: 90 })
+            })
+        );
+        expect(refreshMock).toHaveBeenCalled();
+    });
+
+    it('auto-selects new sprite during optimization', async () => {
+        const initialScene = {
+            name: 'scene1',
+            config: { layers: [] },
+            used_sprites: []
+        };
+        const refreshMock = vi.fn();
+
+        let resolveFetch;
+        const fetchPromise = new Promise(r => { resolveFetch = r });
+
+        // Mock fetch response for process
+        global.fetch.mockImplementation((url, _options = {}) => {
+            if (url.endsWith('/optimize')) return fetchPromise.then(() => ({ ok: true, json: async () => ({}) }));
+            if (url.includes('/logs')) return Promise.resolve({ ok: true, json: async () => ({ content: 'logs' }) });
+            return Promise.resolve({ ok: true, json: async () => [] });
+        });
+
+        const { rerender } = render(<GenericDetailView type="scene" asset={initialScene} refresh={refreshMock} />);
+
+        // Start optimization
+        const optimizeBtn = screen.getByText('Optimize');
+        fireEvent.click(optimizeBtn);
+
+        // Verify initial state (optimizing = true)
+        await waitFor(() => expect(screen.getByTestId('icon-optimize')).toBeInTheDocument());
+
+        // Simulate refresh called by polling loop updating the asset prop
+        // Case 1: New sprite added
+        const updatedScene1 = {
+            ...initialScene,
+            used_sprites: ['sprite1']
+        };
+
+        rerender(<GenericDetailView type="scene" asset={updatedScene1} refresh={refreshMock} />);
+
+        // Should auto-select sprite1
+        await waitFor(() => expect(screen.getByText('Edit Sprite sprite1')).toBeInTheDocument());
+
+        // Case 2: Another sprite added
+        const updatedScene2 = {
+            ...initialScene,
+            used_sprites: ['sprite1', 'sprite2']
+        };
+        rerender(<GenericDetailView type="scene" asset={updatedScene2} refresh={refreshMock} />);
+
+        // Should auto-select sprite2
+        await waitFor(() => expect(screen.getByText('Edit Sprite sprite2')).toBeInTheDocument());
+
+        // Resolve optimization
+        await act(async () => { resolveFetch(); });
     });
 });

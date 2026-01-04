@@ -8,9 +8,11 @@ export const ImageViewer = ({
     tabs = [],
     actions,
     isExpanded,
-    toggleExpand
+    toggleExpand,
+    onSaveRotation
 }) => {
     const [scale, setScale] = useState(1);
+    const [rotation, setRotation] = useState(0);
     const [position, setPosition] = useState({ x: 0, y: 0 });
     const [isDragging, setIsDragging] = useState(false);
     const dragStartRef = useRef({ x: 0, y: 0 });
@@ -28,12 +30,14 @@ export const ImageViewer = ({
     useEffect(() => {
         setScale(1);
         setPosition({ x: 0, y: 0 });
+        setRotation(0);
     }, [isExpanded]);
 
     // Reset Position (but preserve Scale) when image changes
 
     useEffect(() => {
         setPosition({ x: 0, y: 0 });
+        setRotation(0);
     }, [mainSrc]);
 
     const clampPosition = (x, y, s) => {
@@ -152,6 +156,8 @@ export const ImageViewer = ({
         setScale(newScale);
     };
 
+
+
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%', height: isExpanded ? '100%' : 'auto' }}>
             {/* Main Image Container */}
@@ -187,7 +193,7 @@ export const ImageViewer = ({
                             maxWidth: '100%',
                             maxHeight: '100%',
                             objectFit: 'contain',
-                            transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
+                            transform: `translate(${position.x}px, ${position.y}px) scale(${scale}) rotate(${rotation}deg)`,
                             transition: isDragging ? 'none' : 'transform 0.1s ease-out',
                             pointerEvents: 'none' // Let container handle events
                         }}
@@ -215,34 +221,60 @@ export const ImageViewer = ({
                         </button>
                     </div>
 
-                    <button
-                        onClick={toggleExpand}
-                        style={{
-                            background: isExpanded ? 'var(--color-primary)' : 'rgba(0,0,0,0.6)',
-                            border: 'none', borderRadius: '4px',
-                            color: isExpanded ? 'var(--color-text-on-primary)' : 'white', padding: '6px', cursor: 'pointer',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        }}
-                        title={isExpanded ? "Minimize" : "Maximize (Zen Mode)"}
+                    {/* Fine Rotation Slider */}
+                    <div
+                        onMouseDown={(e) => e.stopPropagation()}
+                        style={{ display: 'flex', alignItems: 'center', background: 'var(--color-bg-surface-2)', padding: '0 8px', height: '100%' }}
                     >
-                        <Icon name={isExpanded ? "close" : "maximize"} size={16} />
-                    </button>
+                        <input
+                            type="range"
+                            min="-180"
+                            max="180"
+                            value={rotation}
+                            onChange={(e) => setRotation(parseInt(e.target.value))}
+                            style={{ width: '80px', cursor: 'grab' }}
+                        />
+                        <span style={{ fontSize: '10px', marginLeft: '4px', width: '24px', textAlign: 'right' }}>{rotation}°</span>
+                    </div>
+                    {onSaveRotation && rotation !== 0 && (
+                        <button
+                            onClick={() => onSaveRotation(rotation)}
+                            className="btn-icon"
+                            title="Save Rotation"
+                            style={{ borderRadius: 0, borderLeft: '1px solid rgba(255,255,255,0.2)', background: 'var(--color-primary)' }}
+                        >
+                            <Icon name="save" size={16} />
+                        </button>
+                    )}
                 </div>
 
-                {/* Reset View Button (only shows if tweaked) */}
-                {(scale !== 1 || position.x !== 0 || position.y !== 0) && (
-                    <button
-                        onClick={() => { setScale(1); setPosition({ x: 0, y: 0 }); }}
-                        style={{
-                            position: 'absolute', bottom: '12px', left: '50%', transform: 'translateX(-50%)',
-                            background: 'rgba(0,0,0,0.6)', border: 'none', borderRadius: '20px',
-                            color: 'var(--color-text-main)', padding: '4px 12px', fontSize: '0.75rem', cursor: 'pointer', zIndex: 10
-                        }}
-                    >
-                        Reset View
-                    </button>
-                )}
+                <button
+                    onClick={toggleExpand}
+                    style={{
+                        background: isExpanded ? 'var(--color-primary)' : 'rgba(0,0,0,0.6)',
+                        border: 'none', borderRadius: '4px',
+                        color: isExpanded ? 'var(--color-text-on-primary)' : 'white', padding: '6px', cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}
+                    title={isExpanded ? "Minimize" : "Maximize (Zen Mode)"}
+                >
+                    <Icon name={isExpanded ? "close" : "maximize"} size={16} />
+                </button>
             </div>
+
+            {/* Reset View Button (only shows if tweaked) */}
+            {(scale !== 1 || position.x !== 0 || position.y !== 0 || rotation !== 0) && (
+                <button
+                    onClick={() => { setScale(1); setPosition({ x: 0, y: 0 }); setRotation(0); }}
+                    style={{
+                        position: 'absolute', bottom: '12px', left: '50%', transform: 'translateX(-50%)',
+                        background: 'rgba(0,0,0,0.6)', border: 'none', borderRadius: '20px',
+                        color: 'var(--color-text-main)', padding: '4px 12px', fontSize: '0.75rem', cursor: 'pointer', zIndex: 10
+                    }}
+                >
+                    Reset View
+                </button>
+            )}
 
             {/* Controls Bar: Tabs & Actions */}
             <div style={{

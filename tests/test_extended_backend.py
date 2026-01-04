@@ -213,12 +213,22 @@ def test_optimize_scene_mocked(MockGemini, mock_remove, mock_img_from_bytes, cle
     # Mock Client instance
     client_instance = MockGemini.return_value
 
-    # Mock 1: Decompose
-    client_instance.decompose_scene.return_value = json.dumps(
-        {"sprites": [{"name": "test_obj", "description": "desc", "location_hint": "center"}]}
+    # Mock 1: Descriptive Analysis (Stage 1)
+    client_instance.descriptive_scene_analysis.return_value = json.dumps(
+        {
+            "background": {"description": "A dark forest"},
+            "sprites": [
+                {"name": "test_obj", "visual_description": "desc", "location_description": "center"}
+            ],
+        }
     )
 
-    # Mock 2: Extract BG & Sprites (return valid PNG bytes)
+    # Mock 2: Behavior Structuring (Stage 2)
+    client_instance.structure_behaviors.return_value = json.dumps(
+        {"scene_name": name, "sprites": [{"sprite_name": "test_obj", "behaviors": []}]}
+    )
+
+    # Mock 3: Extract BG & Sprites (return valid PNG bytes)
     img = Image.new("RGBA", (10, 10), "green")
     img_byte_arr = io.BytesIO()
     img.save(img_byte_arr, format="PNG")

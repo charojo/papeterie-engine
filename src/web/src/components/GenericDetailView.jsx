@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { AssetDetailLayout } from './AssetDetailLayout';
 import { ImageViewer } from './ImageViewer';
@@ -44,7 +44,9 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
         handleRemoveLayer,
         handleSpriteSelected,
         handleSpritePositionChanged,
-        handleKeyframeMove
+        handleKeyframeMove,
+        handleShare,
+        handleSaveRotation
     } = useAssetController(type, asset, refresh, onDelete);
 
     // ... (keep existing useState/useEffect) ...
@@ -67,13 +69,27 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
                 assetName={asset.name}
             />
             <AssetDetailLayout
-                title={asset.name}
+                title={
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {asset.name}
+                        {asset.is_community && (
+                            <span className="badge" style={{ background: 'var(--color-primary)', color: 'white', fontSize: '0.6rem', padding: '2px 6px', borderRadius: '10px', textTransform: 'uppercase' }}>
+                                Community
+                            </span>
+                        )}
+                    </div>
+                }
                 statusLabel={statusLabel}
                 logs={logs}
                 isExpanded={isExpanded}
                 actions={
                     <>
                         <button className="btn" title="Refresh" onClick={refresh}><Icon name="revert" size={16} /></button>
+                        {!asset.is_community && (
+                            <button className="btn" title="Share with Community" onClick={handleShare}>
+                                <Icon name="generate" size={16} style={{ opacity: 0.7 }} /> Share
+                            </button>
+                        )}
                         {type === 'scene' && (
                             <button
                                 className={`btn ${isPlaying ? 'btn-primary' : ''}`}
@@ -129,6 +145,7 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
                             tabs={tabs}
                             isExpanded={isExpanded}
                             toggleExpand={toggleExpand}
+                            onSaveRotation={handleSaveRotation}
                             actions={
                                 type === 'sprite' && asset.has_original && (
                                     <button className="btn" title="Revert to Original" onClick={handleRevert} style={{ padding: '2px 6px' }}>
@@ -157,6 +174,7 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
                                         onSpritePositionChanged={handleSpritePositionChanged}
                                         currentTime={currentTime}
                                         onTimeUpdate={setCurrentTime}
+                                        assetBaseUrl={`${API_BASE.replace('/api', '')}/assets/users/${asset.is_community ? 'community' : 'default'}`}
                                         onInitialize={(_theatre) => {
                                             // Restore visibility settings if any
                                             // This is a bit tricky since theatre is recreated on scene change
@@ -356,6 +374,7 @@ function useAssetController(type, asset, refresh, onDelete) {
     const [visualPrompt, setVisualPrompt] = useState('');
     const [configPrompt, setConfigPrompt] = useState('');
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+    const [imageTimestamp, setImageTimestamp] = useState(Date.now());
 
     // Initialization & Reset
     useEffect(() => {
@@ -367,13 +386,42 @@ function useAssetController(type, asset, refresh, onDelete) {
             setSelectedImage(hasSprites ? asset.used_sprites[0] : 'original');
         }
 
+        // Update timestamp on new asset
+        setImageTimestamp(Date.now());
+
         // Load persisted prompt
         const key = `papeterie_optimize_prompt_${type}_${asset.name}`;
         const saved = localStorage.getItem(key);
         setVisualPrompt(saved || '');
 
         setConfigPrompt('');
-    }, [asset.name, type, asset.used_sprites]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [asset.name, type]); // Removed asset.used_sprites to prevent reset on incremental updates
+
+    // Auto-select new sprites during optimization
+    const prevSpriteCountRef = useRef(0);
+    useEffect(() => {
+        const currentCount = asset.used_sprites?.length || 0;
+
+        // Reset ref on new asset
+        if (asset.name !== prevAssetNameRef.current) {
+            prevAssetNameRef.current = asset.name;
+            prevSpriteCountRef.current = currentCount;
+            return;
+        }
+
+        // Check for new sprites during optimization
+        if (type === 'scene' && isOptimizing && currentCount > prevSpriteCountRef.current) {
+            if (currentCount > 0) {
+                // Select the newest sprite (last in the list)
+                setSelectedImage(asset.used_sprites[currentCount - 1]);
+            }
+        }
+
+        prevSpriteCountRef.current = currentCount;
+    }, [asset.name, asset.used_sprites, type, isOptimizing]);
+
+    const prevAssetNameRef = useRef(asset.name);
 
     // Persist prompt changes
     useEffect(() => {
@@ -401,11 +449,18 @@ function useAssetController(type, asset, refresh, onDelete) {
         fetchLogs(); // Initial fetch
 
         if (isOptimizing) {
-            interval = setInterval(fetchLogs, 1000);
+            interval = setInterval(() => {
+                fetchLogs();
+                // Incrementally refresh asset data during optimization for scenes 
+                // to show sprites as they are extracted.
+                if (type === 'scene') {
+                    refresh();
+                }
+            }, 1000);
         }
 
         return () => clearInterval(interval);
-    }, [asset.name, type, isOptimizing]);
+    }, [asset.name, type, isOptimizing, refresh]);
 
     // --- Actions ---
 
@@ -484,6 +539,7 @@ function useAssetController(type, asset, refresh, onDelete) {
             if (!res.ok) throw new Error((await res.json()).detail);
 
             toast.success(`${actionName} Complete`);
+            setImageTimestamp(Date.now());
             await refresh();
         } catch (e) {
             let msg = e.message;
@@ -550,7 +606,9 @@ function useAssetController(type, asset, refresh, onDelete) {
                 toast.success(`${type} processed: ${mode}`);
             }
 
-            if (onDelete) {
+            if (mode === 'reset') {
+                refresh();
+            } else if (onDelete) {
                 onDelete();
             } else {
                 refresh();
@@ -689,6 +747,59 @@ function useAssetController(type, asset, refresh, onDelete) {
         }
     };
 
+    const handleShare = async () => {
+        if (!confirm(`Share '${asset.name}' with the community? This will make a public copy of your asset.`)) return;
+
+        try {
+            const endpoint = type === 'sprite' ? 'sprites' : 'scenes';
+            const res = await fetch(`${API_BASE}/${endpoint}/${asset.name}/share`, { method: 'POST' });
+            if (!res.ok) throw new Error((await res.json()).detail);
+            toast.success(`Successfully shared '${asset.name}' with the community!`);
+            await refresh();
+        } catch (e) {
+            toast.error(`Sharing failed: ${e.message}`);
+        }
+    };
+
+    const handleSaveRotation = async (degrees) => {
+        if (!confirm(`Apply ${degrees} degree rotation permanently? This will modify the image file.`)) return;
+
+        setIsOptimizing(true);
+        try {
+            // Normalize degrees to be within reasonable bounds if needed, but backend handles int
+            // degrees is usually 90, 180, -90 etc.
+
+            // Sprite and Scene rotation both supported now
+            const endpoint = type === 'sprite' ? 'sprites' : 'scenes';
+
+            const res = await fetch(`${API_BASE}/${endpoint}/${asset.name}/rotate`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ angle: degrees })
+            });
+
+            if (!res.ok) throw new Error(await res.text());
+
+            const data = await res.json();
+            toast.success(data.message);
+            setImageTimestamp(Date.now());
+            await refresh();
+            // We rely on ImageViewer to reset its internal rotation state via prop or effect if needed,
+            // but currently ImageViewer resets on mount or new image. 
+            // Since refresh() might update the image URL (timestamp), it should trigger a re-render.
+            // However, ImageViewer only resets pos on mainSrc change. It doesn't reset rotation explicitly on mainSrc change yet.
+            // Check ImageViewer implementation:
+            // useEffect(() => { setPosition... }, [mainSrc]); 
+            // It does NOT reset rotation on mainSrc change. I should fix that in ImageViewer or force it here.
+            // Actually, if we refresh, mainSrc changes (timestamp), so we want rotation to go back to 0.
+
+        } catch (e) {
+            toast.error(`Rotation failed: ${e.message}`);
+        } finally {
+            setIsOptimizing(false);
+        }
+    };
+
     // --- Computed State ---
 
     const statusLabel = type === 'sprite'
@@ -713,18 +824,17 @@ function useAssetController(type, asset, refresh, onDelete) {
 
     let mainSrc = null;
     if (type === 'sprite') {
-        mainSrc = selectedImage === 'original'
-            ? `${API_BASE.replace('/api', '')}/assets/sprites/${asset.name}/${asset.name}.original.png`
-            : `${API_BASE.replace('/api', '')}/assets/sprites/${asset.name}/${asset.name}.png?t=${Date.now()}`;
+        const url = selectedImage === 'original' ? asset.original_url : asset.image_url;
+        mainSrc = url ? `${API_BASE.replace('/api', '')}${url}?t=${imageTimestamp}` : null;
     } else {
         if (selectedImage === 'original') {
-            const ext = asset.original_ext || 'jpg';
-            mainSrc = asset.has_original
-                ? `${API_BASE.replace('/api', '')}/assets/scenes/${asset.name}/${asset.name}.original.${ext}`
-                : null;
+            mainSrc = asset.original_url ? `${API_BASE.replace('/api', '')}${asset.original_url}?t=${imageTimestamp}` : null;
         } else if (selectedImage) {
-            // Scene sprite view
-            mainSrc = `${API_BASE.replace('/api', '')}/assets/sprites/${selectedImage}/${selectedImage}.png`;
+            // Scene sprite view - we don't have the full URL here easily without fetching sprite info, 
+            // but we can construct it assuming 'default' user for now as a fallback or 
+            // if we want to be robust, we should have a sprite URL lookup.
+            // For now, let's use the known pattern:
+            mainSrc = `${API_BASE.replace('/api', '')}/assets/users/default/sprites/${selectedImage}/${selectedImage}.png?t=${imageTimestamp}`;
         }
     }
 
@@ -769,6 +879,8 @@ function useAssetController(type, asset, refresh, onDelete) {
         handleRemoveLayer,
         handleSpriteSelected,
         handleSpritePositionChanged,
-        handleKeyframeMove
+        handleKeyframeMove,
+        handleShare,
+        handleSaveRotation,
     };
 }

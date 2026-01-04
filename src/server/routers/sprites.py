@@ -1,5 +1,6 @@
 import logging
 import shutil
+from pathlib import Path
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
@@ -9,7 +10,12 @@ from pydantic import BaseModel, constr
 from src.compiler.engine import SpriteCompiler
 from src.config import PROJECT_ROOT
 from src.server import image_processing as img_proc
-from src.server.dependencies import asset_logger, get_user_assets
+from src.server.dependencies import (
+    asset_logger,
+    get_community_assets,
+    get_current_user,
+    get_user_assets,
+)
 
 logger = logging.getLogger("papeterie")
 router = APIRouter(tags=["sprites"])
@@ -24,6 +30,10 @@ class SpriteInfo(BaseModel):
     has_original: bool = False
     metadata: Optional[dict] = None
     prompt_text: Optional[str] = None
+    image_url: Optional[str] = None
+    original_url: Optional[str] = None
+    is_community: bool = False
+    creator: Optional[str] = None
 
 
 class ProcessRequest(BaseModel):
@@ -40,21 +50,29 @@ class CompileRequest(BaseModel):
 
 
 @router.get("/sprites", response_model=List[SpriteInfo])
-async def list_sprites(user_assets=Depends(get_user_assets)):
+async def list_sprites(
+    user_id: str = Depends(get_current_user),
+    user_assets=Depends(get_user_assets),
+    community_assets=Depends(get_community_assets),
+):
     _, sprites_dir = user_assets
+    _, community_sprites = community_assets
+
     sprites = []
-    logger.info(f"Scanning sprites in {sprites_dir}")
-    if sprites_dir.exists():
-        for item in sprites_dir.iterdir():
+
+    def scan_dir(directory: Path, is_comm: bool = False, owner_id: str = "default"):
+        logger.info(f"Scanning sprites in {directory} (community={is_comm})")
+        found = []
+        if not directory.exists():
+            return found
+
+        for item in directory.iterdir():
             if item.is_dir():
                 name = item.name
                 image_path = item / f"{name}.png"
                 metadata_path = item / f"{name}.prompt.json"
                 prompt_text_path = item / f"{name}.prompt.txt"
                 original_path = item / f"{name}.original.png"
-
-                if not image_path.exists():
-                    logger.warning(f"Sprite '{name}' missing image at {image_path}")
 
                 metadata = None
                 if metadata_path.exists():
@@ -73,7 +91,16 @@ async def list_sprites(user_assets=Depends(get_user_assets)):
                     except Exception as e:
                         logger.error(f"Failed to load prompt text for {name}: {e}")
 
-                sprites.append(
+                base_uid = "community" if is_comm else owner_id
+                image_url = None
+                if image_path.exists():
+                    image_url = f"/assets/users/{base_uid}/sprites/{name}/{name}.png"
+
+                original_url = None
+                if original_path.exists():
+                    original_url = f"/assets/users/{base_uid}/sprites/{name}/{name}.original.png"
+
+                found.append(
                     SpriteInfo(
                         name=name,
                         has_image=image_path.exists(),
@@ -81,11 +108,56 @@ async def list_sprites(user_assets=Depends(get_user_assets)):
                         has_original=original_path.exists(),
                         metadata=metadata,
                         prompt_text=prompt_text,
+                        image_url=image_url,
+                        original_url=original_url,
+                        is_community=is_comm,
+                        creator=None if is_comm else owner_id,
                     )
                 )
+        return found
+
+    # User sprites first
+    sprites.extend(scan_dir(sprites_dir, is_comm=False, owner_id=user_id))
+
+    # Community sprites
+    community_list = scan_dir(community_sprites, is_comm=True)
+    # Avoid duplicates if user has a sprite with the same name (user version takes precedence)
+    user_sprite_names = {s.name for s in sprites}
+    for s in community_list:
+        if s.name not in user_sprite_names:
+            sprites.append(s)
 
     logger.info(f"Found {len(sprites)} sprites")
     return sprites
+
+
+@router.post("/{name}/share")
+async def share_sprite(
+    name: str,
+    user_id: str = Depends(get_current_user),
+    user_assets=Depends(get_user_assets),
+    community_assets=Depends(get_community_assets),
+):
+    _, sprites_dir = user_assets
+    _, community_sprites = community_assets
+
+    src_dir = sprites_dir / name
+    if not src_dir.exists():
+        raise HTTPException(status_code=404, detail="Sprite not found in your library")
+
+    dest_dir = community_sprites / name
+    dest_dir.mkdir(parents=True, exist_ok=True)
+
+    # Copy files
+    for item in src_dir.iterdir():
+        if item.is_file():
+            shutil.copy2(item, dest_dir / item.name)
+
+    asset_logger.log_action(
+        "sprites", name, "share", f"Sprite shared to community by {user_id}", user_id=user_id
+    )
+
+    return {"status": "success", "message": f"Sprite '{name}' shared to community"}
 
 
 @router.post("/upload")
@@ -94,6 +166,7 @@ async def upload_sprite(
     file: UploadFile = File(...),
     remove_background: bool = Form(False),
     optimize: bool = Form(False),
+    user_id: str = Depends(get_current_user),
     user_assets=Depends(get_user_assets),
 ):
     _, sprites_dir = user_assets
@@ -119,9 +192,11 @@ async def upload_sprite(
 
         image = img_proc.image_from_bytes(contents)
         if remove_background:
+            asset_logger.log_info("sprites", safe_name, "Removing background...", user_id=user_id)
             logger.info(f"Removing background for sprite {safe_name}")
             image = img_proc.remove_green_screen(image)
         if optimize:
+            asset_logger.log_info("sprites", safe_name, "Optimizing image...", user_id=user_id)
             logger.info(f"Optimizing image for sprite {safe_name}")
             image = img_proc.optimize_image(image)
 
@@ -129,6 +204,7 @@ async def upload_sprite(
             image = image.convert("RGBA")
 
         image.save(image_path, "PNG")
+        asset_logger.log_info("sprites", safe_name, "Processing complete.", user_id=user_id)
 
         asset_logger.log_action(
             "sprites",
@@ -136,6 +212,7 @@ async def upload_sprite(
             "UPLOAD",
             "Sprite uploaded and processed",
             f"Method: {processing_method}",
+            user_id=user_id,
         )
 
     except Exception as e:
@@ -146,7 +223,12 @@ async def upload_sprite(
 
 
 @router.post("/sprites/{name}/process")
-def process_sprite(name: str, request: ProcessRequest, user_assets=Depends(get_user_assets)):
+def process_sprite(
+    name: str,
+    request: ProcessRequest,
+    user_id: str = Depends(get_current_user),
+    user_assets=Depends(get_user_assets),
+):
     _, sprites_dir = user_assets
     sprite_dir = sprites_dir / name
     image_path = sprite_dir / f"{name}.png"
@@ -168,6 +250,7 @@ def process_sprite(name: str, request: ProcessRequest, user_assets=Depends(get_u
         if request.optimize:
             from src.compiler.gemini_client import GeminiCompilerClient
 
+            asset_logger.clear_logs("sprites", name, user_id=user_id)
             gemini = GeminiCompilerClient()
             try:
                 # prompt_text = "Optimize this sprite."
@@ -176,6 +259,12 @@ def process_sprite(name: str, request: ProcessRequest, user_assets=Depends(get_u
                 if prompt_path.exists():
                     system_prompt = prompt_path.read_text(encoding="utf-8")
 
+                asset_logger.log_info(
+                    "sprites",
+                    name,
+                    "Step 1: Contacting Gemini for optimization...",
+                    user_id=user_id,
+                )
                 try:
                     img_data = gemini.edit_image(
                         input_image_path=str(original_path),
@@ -186,6 +275,12 @@ def process_sprite(name: str, request: ProcessRequest, user_assets=Depends(get_u
                         system_instruction=system_prompt,
                     )
 
+                    asset_logger.log_info(
+                        "sprites",
+                        name,
+                        "Step 2: AI Generation successful, removing green screen...",
+                        user_id=user_id,
+                    )
                     image = img_proc.image_from_bytes(img_data)
                     logger.info("AI Generation successful, proceeding to remove green screen")
                     processing_method = "ai_gemini"
@@ -196,6 +291,12 @@ def process_sprite(name: str, request: ProcessRequest, user_assets=Depends(get_u
                     import traceback
 
                     tb = traceback.format_exc()
+                    asset_logger.log_info(
+                        "sprites",
+                        name,
+                        "AI Optimization failed, falling back to manual removal.",
+                        user_id=user_id,
+                    )
                     logger.error(
                         f"AI Optimization failed: {e}\n{tb}. "
                         "Falling back to manual green screen removal."
@@ -228,6 +329,7 @@ def process_sprite(name: str, request: ProcessRequest, user_assets=Depends(get_u
             "PROCESS",
             "Sprite processed",
             f"Method: {processing_method}\nError: {error_msg}",
+            user_id=user_id,
         )
         return {
             "name": name,
@@ -259,7 +361,12 @@ async def revert_sprite(name: str, user_assets=Depends(get_user_assets)):
 
 
 @router.put("/sprites/{name}/config")
-async def update_sprite_config(name: str, config: dict, user_assets=Depends(get_user_assets)):
+async def update_sprite_config(
+    name: str,
+    config: dict,
+    user_id: str = Depends(get_current_user),
+    user_assets=Depends(get_user_assets),
+):
     from src.compiler.models import SpriteMetadata
 
     _, sprites_dir = user_assets
@@ -276,7 +383,9 @@ async def update_sprite_config(name: str, config: dict, user_assets=Depends(get_
         with open(metadata_path, "w") as f:
             f.write(metadata.model_dump_json(indent=2))
 
-        asset_logger.log_action("sprites", name, "UPDATE_CONFIG", "Sprite metadata updated", "")
+        asset_logger.log_action(
+            "sprites", name, "UPDATE_CONFIG", "Sprite metadata updated", "", user_id=user_id
+        )
         return {"name": name, "message": "Metadata updated successfully", "metadata": config}
     except Exception as e:
         logger.error(f"Failed to update metadata for {name}: {e}")
@@ -304,7 +413,12 @@ def compile_sprite(request: CompileRequest, user_assets=Depends(get_user_assets)
 
 
 @router.delete("/sprites/{name}")
-def delete_sprite(name: str, mode: str = "delete", user_assets=Depends(get_user_assets)):
+def delete_sprite(
+    name: str,
+    mode: str = "delete",
+    user_id: str = Depends(get_current_user),
+    user_assets=Depends(get_user_assets),
+):
     """
     Delete a sprite.
     - delete: Completely remove.
@@ -332,7 +446,9 @@ def delete_sprite(name: str, mode: str = "delete", user_assets=Depends(get_user_
         else:
             raise HTTPException(status_code=400, detail=f"Unknown mode: {mode}")
 
-        asset_logger.log_action("sprites", name, "DELETE", f"Sprite processed (mode={mode})", "")
+        asset_logger.log_action(
+            "sprites", name, "DELETE", f"Sprite processed (mode={mode})", "", user_id=user_id
+        )
         return {"name": name, "message": f"Sprite processed (mode={mode})"}
 
     except Exception as e:
@@ -340,3 +456,62 @@ def delete_sprite(name: str, mode: str = "delete", user_assets=Depends(get_user_
         if isinstance(e, HTTPException):
             raise e
         raise HTTPException(status_code=500, detail=f"Delete failed: {e}")
+
+
+class RotateRequest(BaseModel):
+    angle: int  # 90, 180, 270, -90, etc.
+
+
+@router.post("/sprites/{name}/rotate")
+async def rotate_sprite(
+    name: str,
+    request: RotateRequest,
+    user_id: str = Depends(get_current_user),
+    user_assets=Depends(get_user_assets),
+):
+    """
+    Rotate the sprite image (and original if it exists) by the specified angle.
+    Positive angle is clockwise (PIL rotate is counter-clockwise, so we negate).
+    """
+    _, sprites_dir = user_assets
+    sprite_dir = sprites_dir / name
+    image_path = sprite_dir / f"{name}.png"
+    original_path = sprite_dir / f"{name}.original.png"
+
+    if not image_path.exists():
+        raise HTTPException(status_code=404, detail="Sprite image not found")
+
+    try:
+        # Rotate primary image
+        img = Image.open(image_path)
+        # PIL rotate is counter-clockwise. User expects clockwise for positive values usually?
+        # Actually standard mathematical is CCW.
+        # But UI usually has "Rotate Right" -> Clockwise (negative math angle).
+        # Let's assume input is degrees CW or let's stick to standard.
+        # ImageViewer UI: Rotate Right (+90 in state? No, ImageViewer implement shows +90).
+        # CSS rotate(90deg) is Clockwise.
+        # PIL rotate(90) is Counter-Clockwise.
+        # So to match CSS rotate(90), we need PIL rotate(-90).
+        rotated_img = img.rotate(-request.angle, expand=True)
+        rotated_img.save(image_path)
+
+        # Rotate original if exists
+        if original_path.exists():
+            orig_img = Image.open(original_path)
+            rotated_orig = orig_img.rotate(-request.angle, expand=True)
+            rotated_orig.save(original_path)
+
+        asset_logger.log_action(
+            "sprites",
+            name,
+            "ROTATE",
+            f"Sprite rotated by {request.angle} degrees",
+            "",
+            user_id=user_id,
+        )
+
+        return {"name": name, "message": f"Sprite rotated by {request.angle} degrees"}
+
+    except Exception as e:
+        logger.error(f"Rotation failed for {name}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Rotation failed: {e}")

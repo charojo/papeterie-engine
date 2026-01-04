@@ -65,7 +65,7 @@ export function DeleteConfirmationDialog({ isOpen, onClose, onConfirm, type, ass
             display: 'flex', alignItems: 'center', justifyContent: 'center'
         }}>
             <div style={{
-                backgroundColor: 'var(--color-bg-surface)', padding: '24px', borderRadius: '8px',
+                backgroundColor: 'var(--color-bg-base)', padding: '24px', borderRadius: '8px',
                 width: '400px', maxWidth: '90%', border: '1px solid var(--color-border)',
                 boxShadow: '0 4px 20px rgba(0,0,0,0.5)'
             }}>
@@ -80,7 +80,7 @@ export function DeleteConfirmationDialog({ isOpen, onClose, onConfirm, type, ass
                         return (
                             <label key={mode.id} style={{
                                 display: 'flex', gap: '12px', padding: '12px',
-                                border: isSelected ? '1px solid var(--color-border)' : '1px solid var(--color-border-muted)',
+                                border: isSelected ? '1px solid var(--color-primary)' : '1px solid var(--color-border-muted)',
                                 borderRadius: '8px', cursor: 'pointer',
                                 backgroundColor: isSelected
                                     ? 'var(--color-bg-elevated)'
@@ -98,7 +98,7 @@ export function DeleteConfirmationDialog({ isOpen, onClose, onConfirm, type, ass
                                 <span style={{
                                     fontSize: '1.3rem',
                                     display: 'flex', alignItems: 'center',
-                                    opacity: 0.4 + (intensity * 0.3)
+                                    opacity: isSelected ? 1 : (0.4 + (intensity * 0.3))
                                 }}>{mode.icon}</span>
                                 <div style={{ flex: 1 }}>
                                     <div style={{
@@ -110,7 +110,7 @@ export function DeleteConfirmationDialog({ isOpen, onClose, onConfirm, type, ass
                                     </div>
                                 </div>
                                 {isSelected && (
-                                    <span style={{ color: 'var(--color-text-subtle)', fontSize: '1rem' }}>●</span>
+                                    <span style={{ color: 'var(--color-text-subtle)', fontSize: '1rem' }}></span>
                                 )}
                             </label>
                         );

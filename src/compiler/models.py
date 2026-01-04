@@ -238,6 +238,19 @@ class User(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class StructuredSpriteInfo(BaseModel):
+    sprite_name: str = Field(..., description="Unique snake_case identifier")
+    behaviors: List[BehaviorConfig] = Field(default_factory=list)
+
+
+class StructuredSceneData(BaseModel):
+    # Match the JSON output structure from prompt
+    # { "background": {...}, "sprites": [...] }
+
+    background: Optional[dict] = Field(None, description="Background layer info with behaviors")
+    sprites: List[StructuredSpriteInfo] = Field(default_factory=list)
+
+
 class UserCreate(BaseModel):
     username: str
     email: str
