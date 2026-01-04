@@ -44,7 +44,10 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
         handleSpritePositionChanged,
         handleKeyframeMove,
         handleShare,
-        handleSaveRotation
+        handleSaveRotation,
+        showDeleteDialog,
+        setShowDeleteDialog,
+        handleConfirmDelete
     } = useAssetController(type, asset, refresh, onDelete);
 
     // ... (keep existing useState/useEffect) ...
@@ -60,14 +63,13 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
 
     return (
         <>
-            {/* DeleteConfirmationDialog removed to implement optimistic Undo/Redo flow
             <DeleteConfirmationDialog
                 isOpen={showDeleteDialog}
                 onClose={() => setShowDeleteDialog(false)}
                 onConfirm={handleConfirmDelete}
                 type={type}
                 assetName={asset.name}
-            /> */}
+            />
             <AssetDetailLayout
                 title={
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -715,9 +717,7 @@ function useAssetController(type, asset, refresh, onDelete) {
     };
 
     const handleDeleteClick = () => {
-        // Optimistic delete without confirmation
-        // Defaulting to 'delete' mode for now. TODO: Implement Undo Stack
-        handleConfirmDelete('delete');
+        setShowDeleteDialog(true);
     };
 
     const handleConfirmDelete = async (mode) => {

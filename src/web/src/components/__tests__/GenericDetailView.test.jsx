@@ -150,7 +150,10 @@ describe('GenericDetailView', () => {
 
         await act(async () => { fireEvent.click(deleteBtn); });
 
-        // Confirmation dialog removed, should call fetch directly
+        // Confirm in dialog
+        const confirmBtn = screen.getByText('Confirm');
+        await act(async () => { fireEvent.click(confirmBtn); });
+
         expect(global.fetch).toHaveBeenCalledWith(
             expect.stringContaining('/sprites/dragon'),
             expect.objectContaining({ method: 'DELETE' })
