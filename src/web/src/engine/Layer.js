@@ -192,6 +192,18 @@ class LocationRuntime extends EventRuntime {
                 const newBaseY = layer._calculateBaseY(screenH, prevKeyframe.vertical_percent);
                 transform.base_y = newBaseY + layer.y_offset;
             }
+
+            if (prevKeyframe.horizontal_percent !== undefined && nextKeyframe.horizontal_percent !== undefined) {
+                const interpolatedHP = prevKeyframe.horizontal_percent + (nextKeyframe.horizontal_percent - prevKeyframe.horizontal_percent) * smoothT;
+                // Recalculate base_x (we need screenW pass here? handle in getTransform)
+                // Wait, getTransform only passes screenH. We need screenW for horizontal percent.
+                // We'll store the percent in transform and calculate base_x later or update getTransform signature.
+                // Actually, let's update getTransform signature to accept screenW.
+                // But for now, let's store it in transform to be resolved.
+                transform.horizontal_percent = interpolatedHP;
+            } else if (prevKeyframe.horizontal_percent !== undefined) {
+                transform.horizontal_percent = prevKeyframe.horizontal_percent;
+            }
         } else if (prevKeyframe) {
             // Use the most recent keyframe
             if (prevKeyframe.x !== undefined) transform.x += prevKeyframe.x;
@@ -199,6 +211,9 @@ class LocationRuntime extends EventRuntime {
             if (prevKeyframe.vertical_percent !== undefined) {
                 const newBaseY = layer._calculateBaseY(screenH, prevKeyframe.vertical_percent);
                 transform.base_y = newBaseY + layer.y_offset;
+            }
+            if (prevKeyframe.horizontal_percent !== undefined) {
+                transform.horizontal_percent = prevKeyframe.horizontal_percent;
             }
         }
     }
@@ -219,6 +234,7 @@ export class Layer {
         // Read positioning from LocationBehavior first, fall back to flat config
         this.z_depth = initialLocation?.z_depth ?? config.z_depth ?? 1;
         this.vertical_percent = initialLocation?.vertical_percent ?? config.vertical_percent ?? 0.5;
+        this.horizontal_percent = initialLocation?.horizontal_percent ?? config.horizontal_percent ?? undefined;
         this.x_offset = initialLocation?.x ?? config.x_offset ?? 0;
         this.y_offset = initialLocation?.y ?? config.y_offset ?? 0;
 
@@ -325,13 +341,13 @@ export class Layer {
         if (!this.processedImage || !this.visible) return false;
         if (this.is_background) return false; // Backgrounds not selectable
 
-        const tf = this.getTransform(screenH, 0, 0);
+        const tf = this.getTransform(screenH, screenW, 0, 0); // pass proper args
         const { width: baseW, height: baseH } = this._getBaseDimensions(screenH);
         const imgW = baseW * Math.max(0.001, tf.scale);
         const imgH = baseH * Math.max(0.001, tf.scale);
 
         const parallaxScroll = this.scroll_speed * scrollX;
-        const scrollOffset = (parallaxScroll + this.x_offset + tf.x);
+        const scrollOffset = (parallaxScroll + this.x_offset + tf.x + (tf.base_x || 0));
 
         let finalY = tf.base_y + tf.y;
 
@@ -434,14 +450,28 @@ export class Layer {
         return this._calculateBaseY(screenH, this.vertical_percent);
     }
 
-    getTransform(screenH, dt, elapsedTime = 0) {
+    _calculateBaseX(screenW, screenH, horizontalPercent) {
+        if (horizontalPercent === undefined || horizontalPercent === null) return 0;
+        const { width } = this._getBaseDimensions(screenH);
+
+        const baseX = screenW * horizontalPercent;
+        return baseX - (width / 2); // Center on percent
+    }
+
+    _getBaseX(screenW, screenH) {
+        return this._calculateBaseX(screenW, screenH, this.horizontal_percent);
+    }
+
+    getTransform(screenH, screenW, dt, elapsedTime = 0) {
         const transform = {
             x: 0.0,
             y: 0.0,
             base_y: this._getBaseY(screenH) + this.y_offset,
+            base_x: this._getBaseX(screenW, screenH),
             scale: this._baseScale ?? 1.0,
             rotation: 0.0,
-            opacity: 1.0
+            opacity: 1.0,
+            horizontal_percent: this.horizontal_percent // Default
         };
 
         // Apply events
@@ -452,21 +482,26 @@ export class Layer {
         // Apply time-based location keyframes
         LocationRuntime.applyKeyframes(this, elapsedTime, transform, screenH);
 
+        // Resolve horizontal_percent if modified by keyframes
+        if (transform.horizontal_percent !== undefined && transform.horizontal_percent !== null) {
+            transform.base_x = this._calculateBaseX(screenW, screenH, transform.horizontal_percent);
+        }
+
         return transform;
     }
 
-    getYAtX(screenH, scrollX, targetX, elapsedTime) {
+    getYAtX(screenW, screenH, scrollX, targetX, elapsedTime) {
         if (!this.processedImage) return screenH;
 
         // 1. Calculate the actual drawn width (base scaling * transform scale)
-        const tf = this.getTransform(screenH, 0, elapsedTime); // No dt for static sample
+        const tf = this.getTransform(screenH, screenW, 0, elapsedTime);
         const { width: baseW } = this._getBaseDimensions(screenH);
         const drawnW = baseW * Math.max(0.001, tf.scale);
         const baseY = tf.base_y + tf.y;
 
         // 2. Map screen X to local normalized X (0 to drawnW)
         const parallaxScroll = this.scroll_speed * scrollX;
-        const scrollOffset = (parallaxScroll + this.x_offset + tf.x);
+        const scrollOffset = (parallaxScroll + this.x_offset + tf.x + (tf.base_x || 0));
 
         let localX = (targetX - scrollOffset) % drawnW;
         if (localX < 0) localX += drawnW;
@@ -515,9 +550,9 @@ export class Layer {
             return;
         }
 
-        const tf = this.getTransform(screenH, frameDt, elapsedTime);
+        const tf = this.getTransform(screenH, screenW, frameDt, elapsedTime);
 
-        const finalX = tf.x;
+        const finalX = tf.x + (tf.base_x || 0); // Include base_x from horizontal_percent
         let finalY = tf.base_y + tf.y;
         let finalScale = Math.max(0.001, tf.scale);
         let finalRot = tf.rotation;
@@ -542,8 +577,9 @@ export class Layer {
             const xBow = centerX + offsetW;
 
             // 2. Sample environment heights
-            const yStern = envLayer.getYAtX(screenH, scrollX, xStern, elapsedTime);
-            const yBow = envLayer.getYAtX(screenH, scrollX, xBow, elapsedTime);
+            const yStern = envLayer.getYAtX(screenW, screenH, scrollX, xStern, elapsedTime);
+            const yBow = envLayer.getYAtX(screenW, screenH, scrollX, xBow, elapsedTime);
+
 
             // 3. Calculate target position and tilt
             const targetEnvY = (yStern + yBow) / 2.0;

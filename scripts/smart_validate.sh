@@ -8,22 +8,23 @@ cd "$ROOT_DIR"
 # Ensure logs directory exists
 mkdir -p logs
 
-{
-    echo "Starting Smart Verification (Impact Analysis) at $(date)"
-    echo "-----------------------------------------------------"
+# Start log
+LOG_FILE="logs/smart_validate.log"
+echo "Starting Smart Verification (Impact Analysis) at $(date)" | tee "$LOG_FILE"
+echo "-----------------------------------------------------" | tee -a "$LOG_FILE"
 
-    echo "Running Backend Impact Analysis (pytest-testmon)..."
-    # First run might take longer to build database if it doesn't exist
-    uv run pytest --testmon
+echo "Running Backend Impact Analysis (pytest-testmon)..." | tee -a "$LOG_FILE"
+# First run might take longer to build database if it doesn't exist
+uv run pytest --testmon 2>&1 | tee -a "$LOG_FILE"
 
-    echo ""
-    echo "Running Frontend Impact Analysis (vitest --changed)..."
-    pushd src/web > /dev/null
-    # vitest --changed runs tests related to uncommitted changes
-    # If no changes, it might run nothing, which is expected.
-    npm run test:run -- --changed
-    popd > /dev/null
+echo "" | tee -a "$LOG_FILE"
+echo "Running Frontend Impact Analysis (vitest --changed)..." | tee -a "$LOG_FILE"
+cd src/web
+# vitest --changed runs tests related to uncommitted changes
+# If no changes, it might run nothing, which is expected.
+npm run test:run -- --changed 2>&1 | tee -a "../../$LOG_FILE"
+cd "$ROOT_DIR"
 
-    echo "-----------------------------------------------------"
-    echo "Smart Verification Complete!"
-} | tee >(sed 's/\x1b\[[0-9;]*m//g' > logs/smart_validate.log)
+echo "-----------------------------------------------------" | tee -a "$LOG_FILE"
+echo "Smart Verification Complete!" | tee -a "$LOG_FILE"
+

@@ -16,12 +16,15 @@ export class Theatre {
         this.scroll = 0;
         this.elapsedTime = 0;
         this.isRunning = false;
+        this.isPaused = false;
         this.animationFrameId = null;
         this.lastTime = 0;
 
         // Optimization: Index layers by name
         this.layersByName = new Map();
         this.envYData = new Map();
+        this.lastUpdateTime = 0;
+        this.lastTelemetryTime = 0;
 
         // Telemetry for environmental reactions
         this.previousEnvY = {};
@@ -177,25 +180,49 @@ export class Theatre {
         // For editor experience, stop is safer.
     }
 
+    pause() {
+        this.isPaused = true;
+        this.audioManager.stopAll(); // Or pause?
+    }
+
+    resume() {
+        this.isPaused = false;
+        this.lastTime = performance.now(); // Reset lastTime prevents huge dt jump
+        // Audio might need resume logic if we support it
+    }
+
+    togglePause() {
+        if (this.isPaused) this.resume();
+        else this.pause();
+    }
+
     loop(timestamp) {
         if (!this.isRunning) return;
 
         const dt = (timestamp - this.lastTime) / 1000.0;
         this.lastTime = timestamp;
-        this.elapsedTime += dt;
 
-        if (this.onTimeUpdate) {
-            this.onTimeUpdate(this.elapsedTime);
+        if (this.isPaused) {
+            // Draw static frame for interaction, dt=0
+            this.updateAndDraw(0);
+        } else {
+            this.elapsedTime += dt;
+
+            // Throttle React state updates to ~30fps to avoid "Maximum update depth exceeded"
+            if (this.onTimeUpdate && (timestamp - this.lastUpdateTime > 33)) {
+                this.onTimeUpdate(this.elapsedTime);
+                this.lastUpdateTime = timestamp;
+            }
+
+            // Scroll speed: Python uses `self.scroll += 3` per frame (at 60fps supposedly, or just loop speed)
+            // If python ticks at 60fps, that's 180 units per second.
+            this.scroll += 180 * dt;
+
+            // Update Audio
+            this.audioManager.update(this.elapsedTime);
+
+            this.updateAndDraw(dt);
         }
-
-        // Scroll speed: Python uses `self.scroll += 3` per frame (at 60fps supposedly, or just loop speed)
-        // If python ticks at 60fps, that's 180 units per second.
-        this.scroll += 180 * dt;
-
-        // Update Audio
-        this.audioManager.update(this.elapsedTime);
-
-        this.updateAndDraw(dt);
 
         this.animationFrameId = requestAnimationFrame(this.loop);
     }
@@ -250,8 +277,9 @@ export class Theatre {
             });
         }
 
-        if (this.onTelemetry) {
+        if (this.onTelemetry && (performance.now() - this.lastTelemetryTime > 50)) {
             this.onTelemetry(telemetry);
+            this.lastTelemetryTime = performance.now();
         }
 
         // --- Visual Debug Overlay ---
@@ -276,6 +304,8 @@ export class Theatre {
     // --- Sprite Selection and Interaction ---
 
     selectSprite(name) {
+        if (this.selectedSprite === name) return; // Guard against redundant selections
+
         const layer = this.layersByName.get(name);
         if (layer) {
             // Deselect previous

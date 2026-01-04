@@ -33,7 +33,7 @@ describe('BehaviorEditor', () => {
 
         it('renders sprite name when provided', () => {
             render(<BehaviorEditor behaviors={[]} onChange={mockOnChange} spriteName="boat" />);
-            expect(screen.getByText('Editing: boat')).toBeInTheDocument();
+            expect(screen.getByText('boat')).toBeInTheDocument();
         });
 
         it('renders tabs for Motion and Sound', () => {
@@ -71,8 +71,10 @@ describe('BehaviorEditor', () => {
             expect(screen.getByText(/OSCILLATE/)).toBeInTheDocument();
         });
 
-        it('shows frequency label for oscillate behavior', () => {
+        it('shows frequency label for oscillate behavior when expanded', () => {
             render(<BehaviorEditor behaviors={[oscillateBehavior]} onChange={mockOnChange} />);
+            // Cards are collapsed by default, click to expand
+            fireEvent.click(screen.getByText(/OSCILLATE/));
             expect(screen.getByText(/Frequency/)).toBeInTheDocument();
         });
     });
@@ -80,13 +82,13 @@ describe('BehaviorEditor', () => {
     describe('add behavior', () => {
         it('shows add menu when Add Behavior is clicked', () => {
             render(<BehaviorEditor behaviors={[]} onChange={mockOnChange} />);
-            fireEvent.click(screen.getByText(/Add Behavior/));
+            fireEvent.click(screen.getByTitle("Add Behavior"));
             expect(screen.getByText('Oscillate')).toBeInTheDocument();
         });
 
         it('calls onChange when behavior is added', () => {
             render(<BehaviorEditor behaviors={[]} onChange={mockOnChange} />);
-            fireEvent.click(screen.getByText(/Add Behavior/));
+            fireEvent.click(screen.getByTitle("Add Behavior"));
             fireEvent.click(screen.getByText('Oscillate'));
 
             expect(mockOnChange).toHaveBeenCalledWith([
@@ -97,7 +99,7 @@ describe('BehaviorEditor', () => {
         it('shows only sound type in Sound tab', () => {
             render(<BehaviorEditor behaviors={[]} onChange={mockOnChange} />);
             fireEvent.click(screen.getAllByText('Sound')[0]); // Click tab
-            fireEvent.click(screen.getByText(/Add Behavior/));
+            fireEvent.click(screen.getByTitle("Add Behavior"));
             // Menu should show Sound option
             const menuItems = screen.getAllByText('Sound');
             expect(menuItems.length).toBeGreaterThan(0);
@@ -108,7 +110,7 @@ describe('BehaviorEditor', () => {
             render(<BehaviorEditor behaviors={[]} onChange={mockOnChange} />);
             const types = ['Drift', 'Pulse', 'Background', 'Location'];
             types.forEach(type => {
-                fireEvent.click(screen.getByText(/Add Behavior/));
+                fireEvent.click(screen.getByTitle("Add Behavior"));
                 fireEvent.click(screen.getByText(type));
                 expect(mockOnChange).toHaveBeenCalled();
             });
@@ -135,6 +137,9 @@ describe('BehaviorEditor', () => {
         it('calls onChange when field is updated', () => {
             render(<BehaviorEditor behaviors={[behavior]} onChange={mockOnChange} />);
 
+            // Cards are collapsed by default, click to expand
+            fireEvent.click(screen.getByText(/OSCILLATE/));
+
             // Get inputs by role - these are number inputs (spinbutton)
             const inputs = screen.getAllByRole('spinbutton');
             expect(inputs.length).toBeGreaterThan(0);
@@ -151,6 +156,8 @@ describe('BehaviorEditor', () => {
         it('handles pulse waveform update', () => {
             const pulse = { type: 'pulse', coordinate: 'opacity', frequency: 1, min_value: 0.5, max_value: 1.0, waveform: 'sine' };
             render(<BehaviorEditor behaviors={[pulse]} onChange={mockOnChange} />);
+            // Expand the card first
+            fireEvent.click(screen.getByText(/PULSE/));
             const selects = screen.getAllByRole('combobox');
             fireEvent.change(selects[1], { target: { value: 'spike' } });
             expect(mockOnChange).toHaveBeenCalled();
@@ -159,6 +166,8 @@ describe('BehaviorEditor', () => {
         it('renders and updates drift behavior with cap', () => {
             const drift = { type: 'drift', coordinate: 'y', velocity: 10, drift_cap: 100 };
             render(<BehaviorEditor behaviors={[drift]} onChange={mockOnChange} />);
+            // Expand the card first
+            fireEvent.click(screen.getByText(/DRIFT/));
             const inputs = screen.getAllByRole('spinbutton');
             fireEvent.change(inputs[1], { target: { value: '200' } });
             expect(mockOnChange).toHaveBeenCalledWith(expect.arrayContaining([
@@ -170,8 +179,14 @@ describe('BehaviorEditor', () => {
             const sound = { type: 'sound', sound_file: 'splash.mp3', volume: 0.8, loop: true };
             render(<BehaviorEditor behaviors={[sound]} onChange={mockOnChange} />);
 
+            // Switch to Sound tab
             act(() => {
                 fireEvent.click(screen.getAllByText('Sound')[0]);
+            });
+
+            // Expand the sound behavior card (cards are collapsed by default)
+            act(() => {
+                fireEvent.click(screen.getByText(/SOUND/));
             });
 
             // Await the sound options to load to avoid act warning
@@ -203,6 +218,8 @@ describe('BehaviorEditor', () => {
         it('renders and updates background behavior', () => {
             const bg = { type: 'background', scroll_speed: 0.5, coordinate: 'x' };
             render(<BehaviorEditor behaviors={[bg]} onChange={mockOnChange} />);
+            // Expand the card first
+            fireEvent.click(screen.getByText(/BACKGROUND/));
             const scrollInput = screen.getByLabelText(/Scroll Speed/);
             fireEvent.change(scrollInput, { target: { value: '1.0' } });
             expect(mockOnChange).toHaveBeenCalled();
@@ -210,7 +227,7 @@ describe('BehaviorEditor', () => {
 
         it('handles unknown behavior type in createDefaultBehavior', () => {
             render(<BehaviorEditor behaviors={[]} onChange={mockOnChange} />);
-            fireEvent.click(screen.getByText(/Add Behavior/));
+            fireEvent.click(screen.getByTitle("Add Behavior"));
             // We can't easily trigger the "unknown" branch via UI if we filter types, 
             // but we can test the migration/fallback logic if any.
         });
@@ -267,7 +284,7 @@ describe('BehaviorEditor', () => {
     describe('read-only mode', () => {
         it('hides add button in read-only mode', () => {
             render(<BehaviorEditor behaviors={[]} onChange={mockOnChange} readOnly={true} />);
-            expect(screen.queryByText(/Add Behavior/)).not.toBeInTheDocument();
+            expect(screen.queryByTitle("Add Behavior")).not.toBeInTheDocument();
         });
     });
 });

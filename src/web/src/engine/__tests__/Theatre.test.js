@@ -107,12 +107,13 @@ describe('Theatre', () => {
         };
 
         // Mock requestAnimationFrame
-        global.requestAnimationFrame = vi.fn((cb) => {
-            setTimeout(() => cb(performance.now()), 16);
-            return 123;
-        });
+        vi.stubGlobal('requestAnimationFrame', vi.fn((cb) => {
+            return setTimeout(() => cb(performance.now()), 16);
+        }));
 
-        global.cancelAnimationFrame = vi.fn();
+        vi.stubGlobal('cancelAnimationFrame', vi.fn((id) => {
+            clearTimeout(id);
+        }));
 
         theatre = new Theatre(canvas, sceneData, 'test_scene');
     });
@@ -193,6 +194,53 @@ describe('Theatre', () => {
 
             expect(theatre.isRunning).toBe(false);
             expect(global.cancelAnimationFrame).toHaveBeenCalled();
+        });
+    });
+
+    describe('pause control', () => {
+        beforeEach(() => {
+            theatre.start();
+        });
+
+        it('toggles pause state', () => {
+            theatre.pause();
+            expect(theatre.isPaused).toBe(true);
+            theatre.resume();
+            expect(theatre.isPaused).toBe(false);
+        });
+
+        it('togglePause switches state', () => {
+            theatre.togglePause();
+            expect(theatre.isPaused).toBe(true);
+            theatre.togglePause();
+            expect(theatre.isPaused).toBe(false);
+        });
+
+        it('does not advance time when paused', () => {
+            theatre.pause();
+            // Mock performance.now to advance
+            const initialTime = theatre.elapsedTime;
+
+            // Allow loop to run once with pause=true
+            // We need to invoke loop manually or wait for requestAnimationFrame mock call
+            // Our mock uses setTimeout.
+
+            // Simpler: spy on updateAndDraw
+            vi.spyOn(theatre, 'updateAndDraw');
+            theatre.lastTime = 1000;
+            theatre.loop(2000); // 1 sec later
+
+            expect(theatre.updateAndDraw).toHaveBeenCalledWith(0);
+            expect(theatre.elapsedTime).toBe(initialTime); // Should not change
+        });
+
+        it('advances time when running', () => {
+            vi.spyOn(theatre, 'updateAndDraw');
+            theatre.lastTime = 1000;
+            theatre.loop(2000); // 1 sec later
+
+            expect(theatre.updateAndDraw).toHaveBeenCalledWith(1.0);
+            expect(theatre.elapsedTime).toBeGreaterThan(0);
         });
     });
 

@@ -129,18 +129,8 @@ export function DeleteConfirmationDialog({ isOpen, onClose, onConfirm, type, ass
 
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
                     <button className="btn" onClick={onClose}>Cancel</button>
-                    <button
-                        className="btn btn-primary"
-                        onClick={handleConfirm}
-                        style={{
-                            backgroundColor: 'var(--color-danger)',
-                            color: 'white',
-                            borderColor: 'var(--color-danger)',
-                            padding: '10px 24px',
-                            fontWeight: '600'
-                        }}
-                    >
-                        Delete
+                    <button className="btn btn-primary" onClick={handleConfirm}>
+                        Confirm
                     </button>
                 </div>
             </div>

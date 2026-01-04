@@ -58,6 +58,16 @@ describe('Layer', () => {
             expect(layer._getBaseY(1000)).toBe(400);
         });
 
+        it('calculates _getBaseX correctly with horizontal_percent', () => {
+            const layer = new Layer({ horizontal_percent: 0.25 }, mockImage);
+            // screenW = 2000
+            // baseX = 2000 * 0.25 = 500
+            // imgW = 100
+            // result = 500 - (100 / 2) = 450
+            expect(layer._calculateBaseX(2000, 1000, 0.25)).toBe(450);
+            expect(layer._getBaseX(2000, 1000)).toBe(450);
+        });
+
         it('migrates legacy config to events', () => {
             const config = {
                 bob_frequency: 2.0,
@@ -100,7 +110,7 @@ describe('Layer', () => {
             const layer = new Layer(config, mockImage);
 
             // at t=0.25s (1/4 cycle), sin should be 1.0 * amplitude
-            const tf = layer.getTransform(1000, 0.25, 0.25); // dt, elapsed
+            const tf = layer.getTransform(1000, 1000, 0.25, 0.25); // dt, elapsed
             // Note: Our implementation increments timeAccum by dt.
             // But getTransform logic calls runtime.apply(this, dt, transform).
             // OscillateRuntime uses this.timeAccum += dt.
@@ -122,7 +132,7 @@ describe('Layer', () => {
             const layer = new Layer(config, mockImage);
 
             // 1 second => +100 drift
-            const tf = layer.getTransform(1000, 1.0);
+            const tf = layer.getTransform(1000, 1000, 1.0);
 
             expect(tf.y).toBe(100.0);
         });
@@ -148,7 +158,7 @@ describe('Layer', () => {
             // t=0.25 -> sin(pi/2)=1 -> val=1.0 -> final=0.5 + 0.5 = 1.0
             // t=0.75 -> sin(3pi/2)=-1 -> val=0 -> final=0.5 + 0 = 0.5
 
-            const tf = layer.getTransform(1000, 0.75);
+            const tf = layer.getTransform(1000, 1000, 0.75);
             expect(tf.opacity).toBeCloseTo(0.5, 4);
         });
     });
@@ -164,7 +174,7 @@ describe('Layer', () => {
             const layer = new Layer(config, mockImage);
 
             // at t=1.0 (50%)
-            const tf = layer.getTransform(1000, 0.0, 1.0);
+            const tf = layer.getTransform(1000, 1000, 0.0, 1.0);
             expect(tf.x).toBeCloseTo(50.0);
             expect(tf.y).toBeCloseTo(50.0);
         });
@@ -179,8 +189,24 @@ describe('Layer', () => {
             const layer = new Layer(config, mockImage);
 
             // at t=3.0
-            const tf = layer.getTransform(1000, 0.0, 3.0);
+            const tf = layer.getTransform(1000, 1000, 0.0, 3.0);
             expect(tf.x).toBeCloseTo(100.0);
+        });
+
+        it('interpolates horizontal_percent', () => {
+            const config = {
+                behaviors: [
+                    { type: 'location', time_offset: 0, horizontal_percent: 0.0, interpolate: true },
+                    { type: 'location', time_offset: 2, horizontal_percent: 1.0, interpolate: true }
+                ]
+            };
+            const layer = new Layer(config, mockImage);
+
+            // at t=1.0 (50%) -> hp=0.5
+            // screenW=1000. baseX = 1000 * 0.5 - 50 = 450
+            const tf = layer.getTransform(1000, 1000, 0.0, 1.0);
+            expect(tf.base_x).toBeCloseTo(450.0);
+            expect(tf.horizontal_percent).toBeCloseTo(0.5);
         });
     });
 
@@ -194,7 +220,7 @@ describe('Layer', () => {
 
             // baseY = (0.5 * 1000) - (1000 / 2) = 0
             // from static logic, x_offset is 0 from config
-            const y = layer.getYAtX(1000, 0, 50, 0);
+            const y = layer.getYAtX(1000, 1000, 0, 50, 0);
             expect(y).toBe(200);
         });
 

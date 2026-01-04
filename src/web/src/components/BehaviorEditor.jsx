@@ -12,7 +12,9 @@ const BehaviorTypes = {
 
 const CoordinateTypes = ["y", "x", "scale", "rotation", "opacity"];
 
-export function BehaviorEditor({ behaviors = [], onChange, readOnly = false, spriteName, isVisible, onToggleVisibility, onRemoveSprite }) {
+export function BehaviorEditor({ behaviors = [], onChange, readOnly = false, spriteName, isVisible, onToggleVisibility, onRemoveSprite, behaviorGuidance }) {
+    // Ensure the editor expands and scrolls within its container
+    const containerStyle = { display: 'flex', flexDirection: 'column', gap: '8px', height: '100%', overflowY: 'auto' };
     const [isAdding, setIsAdding] = useState(false);
 
     const handleAdd = (type) => {
@@ -51,61 +53,66 @@ export function BehaviorEditor({ behaviors = [], onChange, readOnly = false, spr
     });
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', height: '100%' }}>
+        <div style={containerStyle}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <h3 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 600 }}>
-                        {spriteName ? `Editing: ${spriteName}` : 'Active Behaviors'}
-                    </h3>
+                <h3 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 600, opacity: isVisible === false ? 0.5 : 1 }}>
+                    {spriteName || 'Active Behaviors'}
+                </h3>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
                     {onToggleVisibility && (
                         <button
                             className="btn-icon"
                             onClick={onToggleVisibility}
                             title={isVisible ? "Hide Sprite" : "Show Sprite"}
-                            style={{ opacity: isVisible ? 1 : 0.5 }}
                         >
                             <Icon name={isVisible ? "visible" : "hidden"} size={14} />
                         </button>
                     )}
-                </div>
-                {onRemoveSprite && !readOnly && (
-                    <button
-                        className="btn-icon"
-                        onClick={onRemoveSprite}
-                        title="Remove Sprite from Scene"
-                        style={{ marginLeft: '8px', opacity: 0.7 }}
-                    >
-                        <Icon name="delete" size={14} color="var(--color-danger)" />
-                    </button>
-                )}
-                {!readOnly && (
-                    <div style={{ position: 'relative' }}>
-                        <button className="btn btn-primary" onClick={() => setIsAdding(!isAdding)} style={{ fontSize: '0.8rem', padding: '4px 8px' }}>
-                            <Icon name="generate" size={12} /> Add Behavior
+
+                    {onRemoveSprite && !readOnly && (
+                        <button
+                            className="btn-icon"
+                            onClick={onRemoveSprite}
+                            title="Remove Sprite from Scene"
+                        >
+                            <Icon name="close" size={14} />
                         </button>
-                        {isAdding && (
-                            <div style={{
-                                position: 'absolute', top: '100%', right: 0, zIndex: 10,
-                                background: 'var(--color-bg-surface)', border: '1px solid var(--color-border)', borderRadius: '4px',
-                                boxShadow: '0 4px 12px rgba(0,0,0,0.5)', minWidth: '120px'
-                            }}>
-                                {Object.values(BehaviorTypes).filter(t =>
-                                    (activeTab === 'Motion' && [BehaviorTypes.OSCILLATE, BehaviorTypes.DRIFT, BehaviorTypes.PULSE, BehaviorTypes.BACKGROUND, BehaviorTypes.LOCATION].includes(t)) ||
-                                    (activeTab === 'Sound' && t === BehaviorTypes.SOUND)
-                                ).map(type => (
-                                    <div
-                                        key={type}
-                                        style={{ padding: '8px 12px', cursor: 'pointer', fontSize: '0.85rem' }}
-                                        className="hover-bg"
-                                        onClick={() => handleAdd(type)}
-                                    >
-                                        {type.charAt(0).toUpperCase() + type.slice(1)}
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                )}
+                    )}
+
+                    {!readOnly && (
+                        <div style={{ position: 'relative' }}>
+                            <button
+                                className="btn-icon"
+                                onClick={() => setIsAdding(!isAdding)}
+                                title="Add Behavior"
+                            >
+                                <Icon name="add" size={16} />
+                            </button>
+                            {isAdding && (
+                                <div style={{
+                                    position: 'absolute', top: '100%', right: 0, zIndex: 10,
+                                    background: 'var(--color-bg-surface)', border: '1px solid var(--color-border)', borderRadius: '4px',
+                                    boxShadow: '0 4px 12px rgba(0,0,0,0.5)', minWidth: '120px'
+                                }}>
+                                    {Object.values(BehaviorTypes).filter(t =>
+                                        (activeTab === 'Motion' && [BehaviorTypes.OSCILLATE, BehaviorTypes.DRIFT, BehaviorTypes.PULSE, BehaviorTypes.BACKGROUND, BehaviorTypes.LOCATION].includes(t)) ||
+                                        (activeTab === 'Sound' && t === BehaviorTypes.SOUND)
+                                    ).map(type => (
+                                        <div
+                                            key={type}
+                                            style={{ padding: '8px 12px', cursor: 'pointer', fontSize: '0.85rem' }}
+                                            className="hover-bg"
+                                            onClick={() => handleAdd(type)}
+                                        >
+                                            {type.charAt(0).toUpperCase() + type.slice(1)}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
             </div>
 
             {/* Tabs */}
@@ -126,9 +133,37 @@ export function BehaviorEditor({ behaviors = [], onChange, readOnly = false, spr
                 ))}
             </div>
 
-            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {/* Behavior Guidance from LLM - shown once at top */}
+            {behaviorGuidance && (
+                <div style={{
+                    padding: '8px 10px',
+                    background: 'rgba(139, 92, 246, 0.1)',
+                    borderLeft: '3px solid var(--color-primary, #8b5cf6)',
+                    borderRadius: '0 4px 4px 0',
+                    fontSize: '0.75rem'
+                }}>
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        marginBottom: '2px',
+                        fontSize: '0.65rem',
+                        fontWeight: 600,
+                        textTransform: 'uppercase',
+                        opacity: 0.7
+                    }}>
+                        <Icon name="generate" size={10} />
+                        Behavior Guidance
+                    </div>
+                    <p style={{ margin: 0, fontStyle: 'italic', lineHeight: '1.3' }}>
+                        {behaviorGuidance}
+                    </p>
+                </div>
+            )}
+
+            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 {filteredBehaviors.length === 0 && (
-                    <div style={{ padding: '20px', textAlign: 'center', opacity: 0.5, fontStyle: 'italic', fontSize: '0.9rem' }}>
+                    <div style={{ padding: '12px', textAlign: 'center', opacity: 0.5, fontStyle: 'italic', fontSize: '0.8rem' }}>
                         No {activeTab.toLowerCase()} behaviors defined.
                     </div>
                 )}
@@ -152,7 +187,7 @@ export function BehaviorEditor({ behaviors = [], onChange, readOnly = false, spr
 }
 
 function BehaviorCard({ behavior, onChange, onRemove, readOnly }) {
-    const [expanded, setExpanded] = useState(true);
+    const [expanded, setExpanded] = useState(false);
     const [soundOptions, setSoundOptions] = useState([]);
 
     // Fetch sound files for dropdown
@@ -177,37 +212,30 @@ function BehaviorCard({ behavior, onChange, onRemove, readOnly }) {
         onChange(newParams);
     };
 
-    const typeColor = {
-        [BehaviorTypes.OSCILLATE]: '#60a5fa', // Blue
-        [BehaviorTypes.DRIFT]: '#34d399',      // Emerald
-        [BehaviorTypes.PULSE]: '#fbbf24',      // Amber
-        [BehaviorTypes.BACKGROUND]: '#a78bfa', // Violet
-        [BehaviorTypes.LOCATION]: '#f472b6',   // Pink
-        [BehaviorTypes.SOUND]: '#facc15'        // Yellow
-    }[behavior.type] || 'var(--color-text-subtle)';
+
 
     return (
-        <div style={{ background: 'var(--color-bg-surface)', borderRadius: '6px', border: '1px solid var(--color-border)', overflow: 'hidden' }}>
+        <div style={{ background: 'var(--color-bg-surface)', borderRadius: '4px', border: '1px solid var(--color-border)', overflow: 'hidden' }}>
             <div
                 style={{
-                    padding: '8px 12px', background: 'var(--color-bg-elevated)', display: 'flex', alignItems: 'center', gap: '8px',
+                    padding: '4px 8px', background: 'var(--color-bg-elevated)', display: 'flex', alignItems: 'center', gap: '6px',
                     borderBottom: expanded ? '1px solid var(--color-border)' : 'none', cursor: 'pointer'
                 }}
                 onClick={() => setExpanded(!expanded)}
             >
-                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: typeColor }}></div>
-                <span style={{ fontWeight: 600, fontSize: '0.85rem', flex: 1 }}>
-                    {behavior.type.toUpperCase()} <span style={{ opacity: 0.6, fontSize: '0.75rem' }}>({behavior.coordinate || 'y'})</span>
+                <Icon name={behavior.type} size={14} />
+                <span style={{ fontWeight: 600, fontSize: '0.75rem', flex: 1 }}>
+                    {behavior.type.toUpperCase()} <span style={{ opacity: 0.6, fontSize: '0.65rem' }}>({behavior.coordinate || 'y'})</span>
                 </span>
                 {!readOnly && (
                     <button className="btn-icon" onClick={(e) => { e.stopPropagation(); onRemove(); }} title="Remove">
-                        <Icon name="delete" size={12} />
+                        <Icon name="delete" size={10} />
                     </button>
                 )}
             </div>
 
             {expanded && (
-                <div style={{ padding: '12px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div style={{ padding: '8px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
 
                     {/* Common Fields */}
                     {behavior.type !== BehaviorTypes.LOCATION && behavior.type !== BehaviorTypes.SOUND && (
@@ -252,8 +280,12 @@ function BehaviorCard({ behavior, onChange, onRemove, readOnly }) {
                     {/* Location Fields */}
                     {behavior.type === BehaviorTypes.LOCATION && (
                         <>
-                            <Field label="X Offset" value={behavior.x} type="number" onChange={v => updateParam('x', v)} readOnly={readOnly} />
-                            <Field label="Y Offset" value={behavior.y} type="number" onChange={v => updateParam('y', v)} readOnly={readOnly} />
+                            <Field label="X Offset (px)" value={behavior.x} type="number" onChange={v => updateParam('x', v)} readOnly={readOnly} />
+                            <Field label="Y Offset (px)" value={behavior.y} type="number" onChange={v => updateParam('y', v)} readOnly={readOnly} />
+                            <Field label="Vert % (0-1)" value={behavior.vertical_percent} type="number" step="0.01" onChange={v => updateParam('vertical_percent', v)} readOnly={readOnly} />
+                            <Field label="Horiz % (0-1)" value={behavior.horizontal_percent} type="number" step="0.01" onChange={v => updateParam('horizontal_percent', v)} readOnly={readOnly} />
+                            <Field label="Scale" value={behavior.scale} type="number" step="0.1" onChange={v => updateParam('scale', v)} readOnly={readOnly} />
+                            <Field label="Z Depth" value={behavior.z_depth} type="number" step="1" onChange={v => updateParam('z_depth', v)} readOnly={readOnly} />
                         </>
                     )}
 

@@ -177,7 +177,7 @@ def test_oscillate_runtime_all_coords(mock_pygame):
     for coord in coords:
         b = OscillateBehavior(frequency=1.0, amplitude=10.0, coordinate=coord)
         layer = ParallaxLayer("dummy.png", z_depth=1, behaviors=[b])
-        tf = layer.get_transform(720, 0, 0.25, 0.25)
+        tf = layer.get_transform(720, 0, 0.25, 0.25, 0.25)
         if coord == CoordinateType.X:
             assert tf["x"] == 10.0
         elif coord == CoordinateType.Y:
@@ -191,7 +191,7 @@ def test_oscillate_runtime_all_coords(mock_pygame):
 def test_drift_runtime_cap(mock_pygame):
     b = DriftBehavior(coordinate=CoordinateType.Y, velocity=1000.0, drift_cap=500.0)
     layer = ParallaxLayer("dummy.png", z_depth=1, behaviors=[b])
-    layer.get_transform(720, 0, 1.0, 1.0)
+    layer.get_transform(720, 0, 1.0, 1.0, 1.0)
     assert layer.behavior_runtimes[0].current_value == 0
 
 
@@ -225,16 +225,16 @@ def test_pulse_runtime(mock_pygame):
     layer = ParallaxLayer("dummy.png", z_depth=1, behaviors=[b])
 
     # t=0.0 -> sin(0)=0 -> value=0.5 -> final_val = 0.5
-    tf1 = layer.get_transform(720, 0, 0.0, 0.0)
+    tf1 = layer.get_transform(720, 0, 0.0, 0.0, 0.0)
     assert tf1["opacity"] == 0.5
 
     # t=0.25 -> cycle=0.25 -> sin(pi/2)=1 -> value=1.0 -> final_val = 1.0
-    tf2 = layer.get_transform(720, 0, 0.25, 0.25)
+    tf2 = layer.get_transform(720, 0, 0.25, 0.25, 0.25)
     assert tf2["opacity"] == 1.0
 
     b_spike = PulseBehavior(frequency=1.0, min_value=0.0, max_value=1.0, waveform="spike")
     layer_spike = ParallaxLayer("dummy.png", z_depth=1, behaviors=[b_spike])
-    tf_spike = layer_spike.get_transform(720, 0, 0.1, 0.1)
+    tf_spike = layer_spike.get_transform(720, 0, 0.1, 0.1, 0.1)
     assert tf_spike["opacity"] > 0.0
 
 
@@ -270,7 +270,7 @@ def test_location_runtime_anchors(mock_pygame):
         loc = LocationBehavior(vertical_percent=0.5)
         layer = ParallaxLayer("dummy.png", z_depth=1, behaviors=[loc], vertical_anchor=anchor)
         layer.original_image_size = (100, 100)
-        tf = layer.get_transform(1000, 0, 0.0, 0.0)
+        tf = layer.get_transform(1000, 1000, 0.0, 0.0, 0.0)
         if anchor == "top":
             assert tf["base_y"] == 500  # 1000*0.5
         else:
@@ -288,12 +288,12 @@ def test_parallax_layer_get_y_at_x_edge_cases(mock_pygame):
     layer = ParallaxLayer("dummy.png", z_depth=1)
     # image is None
     layer.image = None
-    assert layer.get_y_at_x(1000, 0, 10, 0) == 1000
+    assert layer.get_y_at_x(1000, 1000, 10, 0, 0.0) == 1000
 
     # original_image_size is (0,0)
     layer.image = mock_pygame
     layer.original_image_size = (0, 0)
-    layer.get_y_at_x(1000, 0, 10, 0)
+    layer.get_y_at_x(1000, 0, 10, 0, 0.0)
     # Should fallback to mock_pygame.get_width()
 
 
@@ -302,7 +302,7 @@ def test_oscillate_scale(mock_pygame):
 
     b = OscillateBehavior(frequency=1.0, amplitude=10.0, coordinate=CoordinateType.SCALE)
     layer = ParallaxLayer("dummy.png", z_depth=1, behaviors=[b])
-    tf = layer.get_transform(720, 0, 0.25, 0.25)
+    tf = layer.get_transform(720, 0, 0.25, 0.25, 0.25)
     assert tf["scale"] == 1.1
 
 

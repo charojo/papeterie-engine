@@ -21,6 +21,18 @@ import {
     Sparkles,
     RotateCw,
     RotateCcw,
+    Share2,
+    Square,
+    Eye,
+    EyeOff,
+    Activity,
+    Wind,
+    Zap,
+    Layers,
+    Move,
+    Music,
+    Waves,
+    Anchor,
 } from 'lucide-react';
 
 const icons = {
@@ -46,6 +58,16 @@ const icons = {
     zoomOut: ZoomOut,
     rotateCw: RotateCw,
     rotateCcw: RotateCcw,
+    share: Share2,
+    stop: Square,
+    visible: Eye,
+    hidden: EyeOff,
+    oscillate: Waves,
+    drift: Wind,
+    pulse: Zap,
+    background: Layers,
+    location: Anchor,
+    sound: Music,
 };
 
 export const Icon = ({ name, size = 16, className, ...props }) => {

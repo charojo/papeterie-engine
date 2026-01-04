@@ -3,12 +3,16 @@ import { render, fireEvent } from '@testing-library/react';
 import { TheatreStage } from '../TheatreStage';
 
 // Mock Theatre class
+const mockTheatreInstances = [];
 vi.mock('../../engine/Theatre', () => ({
     Theatre: class MockTheatre {
         constructor() {
             this.initialize = vi.fn().mockResolvedValue(undefined);
             this.start = vi.fn();
             this.stop = vi.fn();
+            this.pause = vi.fn();
+            this.resume = vi.fn();
+            this.togglePause = vi.fn();
             this.setLayerVisibility = vi.fn();
             this.selectSprite = vi.fn();
             this.handleDragStart = vi.fn().mockReturnValue(false);
@@ -20,6 +24,9 @@ vi.mock('../../engine/Theatre', () => ({
             this.onTelemetry = null;
             this.onSpriteSelected = null;
             this.onSpritePositionChanged = null;
+            this.isPaused = false;
+
+            mockTheatreInstances.push(this);
         }
     }
 }));
@@ -44,6 +51,8 @@ describe('TheatreStage', () => {
                 unobserve: vi.fn()
             };
         });
+
+        mockTheatreInstances.length = 0;
     });
 
     it('renders a canvas element', () => {
@@ -110,5 +119,49 @@ describe('TheatreStage', () => {
 
         const canvas = container.querySelector('canvas');
         expect(canvas).toBeInTheDocument();
+    });
+
+    it('persists pause state across scene updates', async () => {
+        const { getByText, rerender } = render(
+            <TheatreStage scene={mockScene} sceneName="test_scene" />
+        );
+
+        // wait for first effect
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(mockTheatreInstances.length).toBe(1);
+        const firstInstance = mockTheatreInstances[0];
+
+        // Simulate pause click
+        // Since we mocked togglePause, we need to mock its behavior of setting isPaused 
+        // OR just check if the button calls it.
+        // We need to trigger the state change in the component. 
+        // The component calls theatre.togglePause() then setIsPaused(theatre.isPaused).
+        // So we must make sure togglePause updates isPaused on the mock.
+        firstInstance.togglePause.mockImplementation(function () {
+            this.isPaused = !this.isPaused;
+        });
+
+        const pauseButton = getByText('⏸ Pause');
+        fireEvent.click(pauseButton);
+
+        // Component state should update and re-render
+        expect(getByText('▶ Resume')).toBeInTheDocument();
+
+        // Update scene (simulate drag end refresh)
+        const updatedScene = { ...mockScene, layers: [] };
+        rerender(<TheatreStage scene={updatedScene} sceneName="test_scene" />);
+
+        // Wait for effect
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(mockTheatreInstances.length).toBe(2);
+        const secondInstance = mockTheatreInstances[1];
+
+        // Verify start was called
+        expect(secondInstance.start).toHaveBeenCalled();
+
+        // Verify pause was called (due to persistence)
+        expect(secondInstance.pause).toHaveBeenCalled();
     });
 });

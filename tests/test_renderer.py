@@ -167,7 +167,7 @@ def test_environmental_reaction_pivot_on_crest(mocker, dummy_png):
     # Test 2: Rising wave (bow up)
     # With hull_length_factor=0.5 and img_w=100, sampling +/- 25px from center.
     # Center = 50+50=100 (from draw logic). Stern=75, Bow=125.
-    def side_effect_rising(screen_h, scroll_x, x_coord, *args):
+    def side_effect_rising(screen_w, screen_h, scroll_x, x_coord, *args):
         return 400.0 - (x_coord - 100) * 0.1  # Slope -0.1
 
     wave_layer.get_y_at_x = MagicMock(side_effect=side_effect_rising)
@@ -291,7 +291,7 @@ def test_location_behavior(dummy_png, mocker):
     layer = ParallaxLayer(dummy_png, z_depth=1, behaviors=[loc_behavior])
 
     # Get transform
-    tf = layer.get_transform(screen_h=600, scroll_x=0, elapsed_time=0, dt=0.016)
+    tf = layer.get_transform(screen_w=800, screen_h=600, scroll_x=0, elapsed_time=0, dt=0.016)
 
     assert tf["x"] == 50
     assert tf["y"] == 100

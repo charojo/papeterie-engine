@@ -49,14 +49,14 @@ def test_vertical_drift():
     elapsed_time = 0.0
 
     # Initial Y (base state check 0 dt)
-    tf0 = layer.get_transform(screen_h, scroll_x, elapsed_time, dt=0.0)
+    tf0 = layer.get_transform(1280, screen_h, scroll_x, elapsed_time, dt=0.0)
     y0_offset = tf0["y"]
     assert y0_offset == 0.0
 
     # Simulate 1 second step
     dt = 1.0
     elapsed_time += dt
-    tf1 = layer.get_transform(screen_h, scroll_x, elapsed_time, dt=dt)
+    tf1 = layer.get_transform(1280, screen_h, scroll_x, elapsed_time, dt=dt)
     y1_offset = tf1["y"]
 
     # y1 offset should be -50.0
@@ -65,7 +65,7 @@ def test_vertical_drift():
     # Simulate another 1 second step
     dt = 1.0
     elapsed_time += dt
-    tf2 = layer.get_transform(screen_h, scroll_x, elapsed_time, dt=dt)
+    tf2 = layer.get_transform(1280, screen_h, scroll_x, elapsed_time, dt=dt)
     y2_offset = tf2["y"]
 
     # y2 offset should be -100.0 (accumulated)

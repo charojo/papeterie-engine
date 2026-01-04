@@ -70,19 +70,23 @@ class BaseBehavior(BaseModel):
     type: BehaviorType
     enabled: bool = True
     coordinate: CoordinateType = Field(CoordinateType.Y, description="Property to affect")
+    llm_guidance: Optional[str] = Field(
+        None,
+        description="Original LLM-generated animation suggestion for this behavior",
+    )
 
 
 class OscillateBehavior(BaseBehavior):
     type: Literal[BehaviorType.OSCILLATE] = BehaviorType.OSCILLATE
-    frequency: float = Field(..., description="Cycles per second (Hz)")
-    amplitude: float = Field(..., description="Maximum offset")
+    frequency: float = Field(1.0, description="Cycles per second (Hz)")
+    amplitude: float = Field(10.0, description="Maximum offset")
     phase_offset: float = Field(0.0, description="Phase offset in radians")
 
 
 class DriftBehavior(BaseBehavior):
     type: Literal[BehaviorType.DRIFT] = BehaviorType.DRIFT
-    velocity: float = Field(..., description="Units per second")
-    acceleration: float = Field(0.0, description="Units per second squared")
+    velocity: float = Field(10.0, description="Pixels per second")
+    acceleration: float = Field(0.0, description="Pixels per second squared")
     drift_cap: Optional[float] = Field(None, description="Hard limit for the value")
     cap_behavior: Literal["stop", "bounce", "loop"] = Field(
         "stop", description="What happens at cap"
@@ -94,9 +98,9 @@ class DriftBehavior(BaseBehavior):
 class PulseBehavior(BaseBehavior):
     type: Literal[BehaviorType.PULSE] = BehaviorType.PULSE
     coordinate: CoordinateType = Field(CoordinateType.OPACITY, description="Property to affect")
-    frequency: float = Field(..., description="Pulses per second")
-    min_value: float = Field(..., description="Minimum value (e.g. min opacity/scale)")
-    max_value: float = Field(..., description="Maximum value")
+    frequency: float = Field(1.0, description="Pulses per second")
+    min_value: float = Field(0.5, description="Minimum value (e.g. min opacity/scale)")
+    max_value: float = Field(1.0, description="Maximum value")
     waveform: Literal["sine", "spike"] = Field("sine", description="Shape of the pulse")
     # Special condition for legacy "Twinkle only when scale < X"
     activation_threshold_scale: Optional[float] = None
@@ -126,6 +130,10 @@ class LocationBehavior(BaseBehavior):
     # Layering & Scale
     z_depth: Optional[int] = Field(None, ge=1, le=100, description="Layer stacking order")
     scale: Optional[float] = Field(None, ge=0.0, description="Size multiplier")
+
+    horizontal_percent: Optional[float] = Field(
+        None, ge=0.0, le=1.0, description="Position as % of screen width (0=left, 1=right)"
+    )
 
     # Timeline
     time_offset: float = Field(
@@ -204,8 +212,14 @@ class SceneLayer(BaseModel):
         default_factory=list, description="Scene-specific added behaviors"
     )
 
+    # LLM-generated animation suggestions for this layer
+    behavior_guidance: Optional[str] = Field(
+        None, description="LLM-generated animation intent for human review"
+    )
+
     # Optional overrides from SpriteMetadata
     vertical_percent: Optional[float] = None
+    visible: bool = Field(True, description="Whether the layer is visible in the scene")
 
 
 class SpriteDecompositionInfo(BaseModel):

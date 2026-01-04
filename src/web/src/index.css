@@ -6,6 +6,7 @@
   font-weight: 400;
   color-scheme: dark;
   --color-text-on-primary-base: #ffffff;
+  --color-text-on-primary: var(--color-text-on-primary-base);
   --contrast-factor: 0.60;
   --contrast-intensity: calc((1 - var(--contrast-factor)) / 0.40);
   /* 0.60 maps to Intensity 1.0 (Natural), 1.0 maps to Intensity 0.0 (Full) */
@@ -244,11 +245,31 @@ h6 {
 
 .btn-primary:hover {
   filter: brightness(1.1);
+  background-color: var(--color-primary);
+  color: var(--color-text-on-primary);
 }
 
 .btn-secondary {
   background-color: var(--color-bg-elevated);
   border: 1px solid var(--color-border);
+}
+
+.btn-icon {
+  background: transparent;
+  border: none;
+  color: var(--color-text-muted);
+  padding: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.btn-icon:hover {
+  background-color: var(--color-bg-elevated);
+  color: var(--color-text-main);
 }
 
 .input {

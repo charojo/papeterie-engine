@@ -150,12 +150,7 @@ describe('GenericDetailView', () => {
 
         await act(async () => { fireEvent.click(deleteBtn); });
 
-        // Confirm dialog should appear
-        await waitFor(() => expect(screen.getByTestId('delete-dialog')).toBeInTheDocument());
-
-        const confirmBtn = screen.getByText('Confirm');
-        await act(async () => { fireEvent.click(confirmBtn); });
-
+        // Confirmation dialog removed, should call fetch directly
         expect(global.fetch).toHaveBeenCalledWith(
             expect.stringContaining('/sprites/dragon'),
             expect.objectContaining({ method: 'DELETE' })
@@ -288,7 +283,7 @@ describe('GenericDetailView', () => {
         expect(screen.getByText('Select a sprite from the tabs above to edit its behaviors.')).toBeInTheDocument();
 
         // Switch to JSON
-        const jsonTab = screen.getByText('JSON Config');
+        const jsonTab = screen.getByText('Config');
         await act(async () => {
             fireEvent.click(jsonTab);
         });

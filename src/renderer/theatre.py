@@ -168,6 +168,23 @@ class LocationRuntime(BehaviorRuntime):
 
                 transform["base_y"] = new_base_y + layer.y_offset
 
+        if self.config.horizontal_percent is not None:
+            screen_w = transform.get("_screen_w")
+            if screen_w is not None:
+                # Calculate X offset to center sprite at horizontal_percent
+                # We need to account for the weird "x=0 means off-screen left" coordinate system
+                # x = 0  => logical_x = -width  => center = -width/2
+                # Target: center = screen_w * percent
+                w = layer.original_image_size[0] * transform["scale"]
+
+                # Formula derived: transform["x"] += (screen_w * percent) + (w / 2)
+                # This moves the sprite from its default "just off left" position to the
+                # target percent
+                required_offset = (screen_w * self.config.horizontal_percent) + (w / 2)
+
+                # Since transform["x"] accumulates, we add this "base positioning" offset
+                transform["x"] += required_offset
+
 
 class BackgroundRuntime(BehaviorRuntime):
     def apply(self, layer, dt, transform):
@@ -192,6 +209,7 @@ class ParallaxLayer:
         y_offset: int = 0,
         environmental_reaction: Optional[EnvironmentalReaction] = None,
         behaviors: List[BehaviorConfig] = None,
+        visible: bool = True,
     ):
         self.z_depth = z_depth
         self.asset_path = Path(asset_path)
@@ -207,7 +225,7 @@ class ParallaxLayer:
         self.x_offset = x_offset
         self.y_offset = y_offset
         self.environmental_reaction = environmental_reaction
-        self.visible = True
+        self.visible = visible
 
         # Initialize Behavior Runtimes
         self.behavior_runtimes: List[BehaviorRuntime] = []
@@ -217,10 +235,6 @@ class ParallaxLayer:
                     self.behavior_runtimes.append(OscillateRuntime(b_config))
                 elif b_config.type == BehaviorType.DRIFT:
                     self.behavior_runtimes.append(DriftRuntime(b_config))
-                    # Extract scroll_speed from DriftBehavior with X coordinate
-                    # This handles the migration from scroll_speed field to DriftBehavior
-                    if b_config.coordinate == CoordinateType.X and b_config.velocity is not None:
-                        self.scroll_speed = b_config.velocity
                 elif b_config.type == BehaviorType.PULSE:
                     self.behavior_runtimes.append(PulseRuntime(b_config))
                 elif b_config.type == BehaviorType.BACKGROUND:
@@ -381,6 +395,7 @@ class ParallaxLayer:
                 else None
             ),
             behaviors=behavior_list,
+            visible=meta_data.get("visible", True),
         )
 
     def _get_base_y(self, screen_h: int) -> float:
@@ -394,7 +409,9 @@ class ParallaxLayer:
         else:
             return base - (pos_h / 2)
 
-    def get_transform(self, screen_h: int, scroll_x: float, elapsed_time: float, dt: float):
+    def get_transform(
+        self, screen_w: int, screen_h: int, scroll_x: float, elapsed_time: float, dt: float
+    ):
         """Calculate the final transform for this frame."""
 
         # Base state
@@ -406,6 +423,7 @@ class ParallaxLayer:
             "rotation": 0.0,
             "opacity": 1.0,
             "_screen_h": screen_h,  # Internal context for behaviors
+            "_screen_w": screen_w,
         }
 
         # Apply Behaviors
@@ -415,10 +433,9 @@ class ParallaxLayer:
         return transform
 
     def get_y_at_x(
-        self, screen_h: int, scroll_x: float, x_coord: float, elapsed_time: float
+        self, screen_w: int, screen_h: int, scroll_x: float, x_coord: float, elapsed_time: float
     ) -> float:
         # 1. Transform x_coord (screen space) to local image space
-        # screen_w = 800 # TODO: Pass screen_w? Assuming 800 for now or calculating?
         # Ideally we know the screen dimensions.
 
         # Recalculate transform to find where the image is drawn
@@ -428,7 +445,7 @@ class ParallaxLayer:
         parallax_scroll = scroll_x * self.scroll_speed
 
         # Calculate transforms (assumes dt small or 0 for static sampling)
-        tf = self.get_transform(screen_h, scroll_x, elapsed_time, 0.0)
+        tf = self.get_transform(screen_w, screen_h, scroll_x, elapsed_time, 0.0)
 
         if self.image is None:
             return screen_h
@@ -486,7 +503,7 @@ class ParallaxLayer:
 
     def get_screen_pos(self, screen_w: int, screen_h: int, scroll_x: float, elapsed_time: float):
         """Calculate the logical screen position of the sprite."""
-        tf = self.get_transform(screen_h, scroll_x, elapsed_time, 0.0)
+        tf = self.get_transform(screen_w, screen_h, scroll_x, elapsed_time, 0.0)
         final_x = tf["x"]
         final_y = tf["base_y"] + tf["y"]
         final_scale = max(0.001, tf["scale"])
@@ -526,7 +543,7 @@ class ParallaxLayer:
             return
 
         # Calculate Transform
-        tf = self.get_transform(screen_h, scroll_x, elapsed_time, dt)
+        tf = self.get_transform(screen_w, screen_h, scroll_x, elapsed_time, dt)
 
         # Resolve final values
         final_x = tf["x"]
@@ -568,8 +585,8 @@ class ParallaxLayer:
             x_bow = center_x + offset_w
 
             # 2. Sample environment heights
-            y_stern = env_layer.get_y_at_x(screen_h, scroll_x, x_stern, elapsed_time)
-            y_bow = env_layer.get_y_at_x(screen_h, scroll_x, x_bow, elapsed_time)
+            y_stern = env_layer.get_y_at_x(screen_w, screen_h, scroll_x, x_stern, elapsed_time)
+            y_bow = env_layer.get_y_at_x(screen_w, screen_h, scroll_x, x_bow, elapsed_time)
 
             # 3. Calculate target position and tilt
             # Average height of these two points defines the surface level for the boat center
@@ -962,7 +979,9 @@ class Theatre:
             if self.layers and self.debug_target_layer_index < len(self.layers):
                 sampled_layer = self.layers[self.debug_target_layer_index]
                 mx, my = pygame.mouse.get_pos()
-                physics_y = sampled_layer.get_y_at_x(screen_h, self.scroll, mx, self.elapsed_time)
+                physics_y = sampled_layer.get_y_at_x(
+                    screen_w, screen_h, self.scroll, mx, self.elapsed_time
+                )
                 pygame.draw.circle(self.screen, (255, 0, 255), (mx, physics_y), 5)
 
             # DEBUG: Interactive Menu & Overlay
@@ -974,7 +993,7 @@ class Theatre:
                     sampled_layer = self.layers[self.debug_target_layer_index]
                     mx, my = pygame.mouse.get_pos()
                     physics_y = sampled_layer.get_y_at_x(
-                        screen_h, self.scroll, mx, self.elapsed_time
+                        screen_w, screen_h, self.scroll, mx, self.elapsed_time
                     )
                     msg = (
                         f"Sampling Layer: {sampled_layer.asset_path.parent.name} | "
@@ -1040,7 +1059,9 @@ class Theatre:
 
         idx = self.debug_target_layer_index % len(self.layers)
         sampled_layer = self.layers[idx]
-        physics_y = sampled_layer.get_y_at_x(screen_h, self.scroll, mx, self.elapsed_time)
+        physics_y = sampled_layer.get_y_at_x(
+            self.screen.get_width(), screen_h, self.scroll, mx, self.elapsed_time
+        )
         sprite_x, sprite_y = sampled_layer.get_screen_pos(
             self.screen.get_width(), screen_h, self.scroll, self.elapsed_time
         )

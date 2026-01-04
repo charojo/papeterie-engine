@@ -19,6 +19,12 @@ export function TheatreStage({
     const theatreRef = useRef(null);
     const containerRef = useRef(null);
     const [isDragging, setIsDragging] = useState(false);
+    const [isPaused, setIsPaused] = useState(false);
+    const isPausedRef = useRef(isPaused);
+
+    useEffect(() => {
+        isPausedRef.current = isPaused;
+    }, [isPaused]);
 
     // Sync debugMode and layerVisibility
     useEffect(() => {
@@ -74,6 +80,11 @@ export function TheatreStage({
                 Object.entries(layerVisibility).forEach(([name, visible]) => {
                     theatre.setLayerVisibility(name, visible);
                 });
+
+                if (isPausedRef.current) {
+                    theatre.pause();
+                }
+
                 theatre.start();
             }
         };
@@ -158,7 +169,39 @@ export function TheatreStage({
                 onMouseUp={handleMouseUp}
                 onMouseLeave={handleMouseUp}
             />
-            {/* Loading overlay or controls could go here */}
+            {/* UI Controls Overlay */}
+            <div style={{
+                position: 'absolute',
+                bottom: 20,
+                left: '50%',
+                transform: 'translateX(-50%)',
+                zIndex: 10,
+                display: 'flex',
+                gap: '10px'
+            }}>
+                <button
+                    onClick={() => {
+                        if (theatreRef.current) {
+                            theatreRef.current.togglePause();
+                            setIsPaused(theatreRef.current.isPaused);
+                        }
+                    }}
+                    style={{
+                        padding: '8px 16px',
+                        background: 'rgba(0, 0, 0, 0.6)',
+                        color: 'white',
+                        border: '1px solid rgba(255, 255, 255, 0.3)',
+                        borderRadius: '20px',
+                        cursor: 'pointer',
+                        backdropFilter: 'blur(5px)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                    }}
+                >
+                    {isPaused ? "▶ Resume" : "⏸ Pause"}
+                </button>
+            </div>
         </div>
     );
 }

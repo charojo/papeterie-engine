@@ -115,7 +115,7 @@ function App() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
           <h3 style={{ margin: 0 }}>Papeterie</h3>
           <div style={{ display: 'flex', gap: '4px' }}>
-            <button className="btn btn-primary" style={{ padding: '4px 8px' }} onClick={() => setView('create')} title="Add">
+            <button className="btn btn-secondary" style={{ padding: '4px 8px' }} onClick={() => setView('create')} title="Add">
               <Icon name="add" size={16} />
             </button>
             <SettingsMenu

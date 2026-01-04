@@ -76,7 +76,7 @@ export const AssetDetailLayout = ({
                         <h3 style={{ fontSize: '0.9rem', opacity: 0.7, margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
                             <Icon name="config" size={14} /> Configuration
                         </h3>
-                        <div className="card glass" style={{ flex: 1, padding: '16px', overflowY: 'auto' }}>
+                        <div className="card glass" style={{ flex: 1, padding: '16px', overflowY: 'hidden', display: 'flex', flexDirection: 'column' }}>
                             {configContent}
                         </div>
                     </section>

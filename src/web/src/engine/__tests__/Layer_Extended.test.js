@@ -44,7 +44,7 @@ describe('Layer Extended', () => {
 
             configs.forEach(cfg => {
                 const layer = new Layer({ behaviors: [cfg] }, mockImage);
-                const tf = layer.getTransform(1000, 0.25, 0.25);
+                const tf = layer.getTransform(1000, 1000, 0.25, 0.25);
                 if (cfg.coordinate === CoordinateType.X) expect(tf.x).toBeCloseTo(10, 4);
                 if (cfg.coordinate === CoordinateType.SCALE) expect(tf.scale).toBeCloseTo(1.1, 4);
                 if (cfg.coordinate === CoordinateType.ROTATION) expect(tf.rotation).toBeCloseTo(10, 4);
@@ -59,7 +59,7 @@ describe('Layer Extended', () => {
 
             configs.forEach(cfg => {
                 const layer = new Layer({ behaviors: [cfg] }, mockImage);
-                const tf = layer.getTransform(1000, 1.0, 1.0);
+                const tf = layer.getTransform(1000, 1000, 1.0, 1.0);
                 if (cfg.coordinate === CoordinateType.X) expect(tf.x).toBe(100);
                 if (cfg.coordinate === CoordinateType.SCALE) expect(tf.scale).toBe(1.5);
             });
@@ -77,7 +77,7 @@ describe('Layer Extended', () => {
             const layer = new Layer({ behaviors: [behavior] }, mockImage);
 
             // dt=0.75 -> cycle = 0.75, sin = -1, val = 0, final = 0.5
-            const tf = layer.getTransform(1000, 0.75, 0.75);
+            const tf = layer.getTransform(1000, 1000, 0.75, 0.75);
             expect(tf.scale).toBeCloseTo(0.5, 4);
         });
 
@@ -93,7 +93,7 @@ describe('Layer Extended', () => {
             };
             // Base scale 1.0 > 0.5, pulse should not apply
             const layer = new Layer({ behaviors: [config], scale: 1.0 }, mockImage);
-            const tf = layer.getTransform(1000, 0.5, 0.5);
+            const tf = layer.getTransform(1000, 1000, 0.5, 0.5);
             expect(tf.opacity).toBe(1.0);
         });
     });
@@ -109,7 +109,7 @@ describe('Layer Extended', () => {
             const layer = new Layer(config, mockImage);
             // t=1.0 (50%) -> vertical_percent=0.5
             // screenH=1000. baseY = 1000*0.5 - 50 = 450
-            const tf = layer.getTransform(1000, 0, 1.0);
+            const tf = layer.getTransform(1000, 1000, 0, 1.0);
             expect(tf.base_y).toBe(450);
         });
 
@@ -120,7 +120,7 @@ describe('Layer Extended', () => {
                 ]
             };
             const layer = new Layer(config, mockImage);
-            const tf = layer.getTransform(1000, 0, 0);
+            const tf = layer.getTransform(1000, 1000, 0, 0);
             expect(tf.x).toBe(50);
             expect(tf.y).toBe(50);
         });

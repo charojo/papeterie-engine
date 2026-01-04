@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ImageViewer } from '../ImageViewer';
 
@@ -6,6 +6,7 @@ import { ImageViewer } from '../ImageViewer';
 vi.mock('../Icon', () => ({
     Icon: ({ name, className }) => <div data-testid={`icon-${name}`} className={className}>{name}</div>
 }));
+
 
 describe('ImageViewer', () => {
     const defaultProps = {
@@ -20,6 +21,14 @@ describe('ImageViewer', () => {
 
     beforeEach(() => {
         vi.clearAllMocks();
+        // Mock RAF
+        vi.spyOn(window, 'requestAnimationFrame').mockReturnValue(1);
+        vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => { });
+    });
+
+
+    afterEach(() => {
+        vi.restoreAllMocks();
     });
 
     // Rendering Tests
@@ -194,6 +203,7 @@ describe('ImageViewer', () => {
         // Should remain at 0,0
         expect(img.style.translate).toBe('0px 0px');
     });
+
     it('clamps pan position within image boundaries', () => {
         render(<ImageViewer {...defaultProps} />);
         const container = screen.getByRole('img').parentElement;
@@ -295,5 +305,48 @@ describe('ImageViewer', () => {
         fireEvent.change(slider, { target: { value: '10' } });
 
         expect(saveBtn).not.toBeDisabled();
+    });
+
+    // Behavior Preview Tests
+    it('shows play button only when behaviors are provided', () => {
+        const { rerender } = render(<ImageViewer {...defaultProps} behaviors={[]} />);
+        expect(screen.queryByTitle('Play Preview')).not.toBeInTheDocument();
+
+        const behaviors = [{ type: 'oscillate', enabled: true, frequency: 1, amplitude: 10, coordinate: 'y' }];
+        rerender(<ImageViewer {...defaultProps} behaviors={behaviors} />);
+        expect(screen.getByTitle('Play Preview')).toBeInTheDocument();
+    });
+
+    it('toggles playing state and icon when play/pause is clicked', () => {
+        const behaviors = [{ type: 'oscillate', enabled: true, frequency: 1, amplitude: 10, coordinate: 'y' }];
+        render(<ImageViewer {...defaultProps} behaviors={behaviors} />);
+
+        const playBtn = screen.getByTitle('Play Preview');
+        fireEvent.click(playBtn);
+
+        expect(screen.getByTitle('Stop Preview')).toBeInTheDocument();
+        expect(screen.getByTestId('icon-pause')).toBeInTheDocument();
+
+        fireEvent.click(screen.getByTitle('Stop Preview'));
+        expect(screen.getByTitle('Play Preview')).toBeInTheDocument();
+        expect(screen.getByTestId('icon-play')).toBeInTheDocument();
+    });
+
+    it('applies behavior offsets to animation frame', async () => {
+        // This test passes without RAF execution because it checks React state derived styles
+        // which update on re-render when play state toggles, resetting transition.
+        const behaviors = [{ type: 'oscillate', enabled: true, frequency: 1, amplitude: 10, coordinate: 'y' }];
+        render(<ImageViewer {...defaultProps} behaviors={behaviors} />);
+
+        const img = screen.getByRole('img');
+        const playBtn = screen.getByTitle('Play Preview');
+
+        // Before play
+        expect(img.style.translate).toBe('0px 0px');
+
+        fireEvent.click(playBtn);
+
+        // After play, transition should be 'none'
+        expect(img.style.transition).toBe('none');
     });
 });

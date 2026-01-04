@@ -46,7 +46,8 @@ def test_fixup_mechanism(mock_generate_metadata):
         {
             "z_depth": 5,
             "behaviors": [
-                {"type": "oscillate"}  # Missing required frequency and amplitude
+                # Invalid type to trigger validation error
+                {"type": "oscillate", "frequency": "bad_value"}
             ],
         }
     )

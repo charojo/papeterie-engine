@@ -514,10 +514,14 @@ def optimize_scene(
                     (s for s in structured_data.sprites if s.sprite_name == s_raw_name), None
                 )
 
-                # Default behaviors if not found
+                # Get the animation_intent from Stage 1 for LLM guidance preservation
+                animation_intent = sprite_info.get("animation_intent", "")
+
+                # Build behaviors WITHOUT per-behavior llm_guidance (moved to layer level)
                 s_behaviors = []
                 if matching_struct:
-                    s_behaviors = matching_struct.behaviors
+                    # Use behaviors from structured data directly
+                    s_behaviors = list(matching_struct.behaviors)
                 else:
                     # Fallback default
                     from src.compiler.models import LocationBehavior
@@ -532,10 +536,12 @@ def optimize_scene(
 
                 # --- INCREMENTAL UPDATE START ---
                 # Add this sprite to the scene config immediately
+                # Store behavior_guidance at layer level (not per-behavior)
                 active_config.layers.append(
                     SceneLayer(
                         sprite_name=s_name,
-                        behaviors=s_behaviors,  # Use the same behaviors we derived
+                        behaviors=s_behaviors,
+                        behavior_guidance=animation_intent if animation_intent else None,
                     )
                 )
 
@@ -795,15 +801,38 @@ async def update_scene_config(
     config_path = scene_dir / "scene.json"
 
     try:
+        # Load existing for diffing
+        old_config = None
+        if config_path.exists():
+            try:
+                with open(config_path, "r") as f:
+                    old_config = json.load(f)
+            except Exception:
+                pass
+
         # Validate with Pydantic
         scene_config = SceneConfig(**config)
 
         with open(config_path, "w") as f:
             f.write(scene_config.model_dump_json(indent=2))
 
-        asset_logger.log_action(
-            "scenes", name, "UPDATE_CONFIG", "Scene config updated", "", user_id=user_id
-        )
+        # Generate descriptive log
+        log_msg = "Scene config updated"
+        if old_config:
+            old_layers = {layer.get("sprite_name") for layer in old_config.get("layers", [])}
+            new_layers = {layer.get("sprite_name") for layer in config.get("layers", [])}
+
+            added = new_layers - old_layers
+            removed = old_layers - new_layers
+
+            if added:
+                log_msg = f"Added sprites: {', '.join(added)}"
+            elif removed:
+                log_msg = f"Removed sprites: {', '.join(removed)}"
+            else:
+                log_msg = "Modified layer behaviors or properties"
+
+        asset_logger.log_action("scenes", name, "UPDATE_CONFIG", log_msg, "", user_id=user_id)
         return {
             "name": name,
             "message": "Config updated successfully",

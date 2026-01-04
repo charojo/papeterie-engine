@@ -14,6 +14,7 @@ You must use the following Behavior Types to achieve the desired animation inten
    - `y`: (float, pixels, 0=center)
    - `z_depth`: (int, 1-100, higher is closer to camera)
    - `vertical_percent`: (float, 0.0=top, 1.0=bottom, overrides y)
+   - `horizontal_percent`: (float, 0.0=left, 1.0=right, overrides x)
 
 **2. OscillateBehavior** (Bobbing, swaying, swinging)
    - `type`: "oscillate"
@@ -77,5 +78,7 @@ You must use the following Behavior Types to achieve the desired animation inten
 IMPORTANT:
 - Always include a `LocationBehavior` for every sprite to set z_depth and initial pos.
 - Use `vertical_percent` for vague vertical descriptions (e.g. "top of screen"->0.1, "bottom"->0.9).
+- Use `horizontal_percent` for vague horizontal descriptions (e.g. "left side"->0.2, "center"->0.5).
 - Generate random `phase_offset` for oscillating items so they don't all move in sync.
 - For `PulseBehavior`, ALWAYS provide `min_value` and `max_value`.
+- Each behavior may include an optional `llm_guidance` field to preserve the original animation description.

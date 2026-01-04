@@ -24,13 +24,11 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
         handleUpdateConfig,
         handleEventsChange,
         currentBehaviors,   // Added here
+        behaviorGuidance,
         activeConfigTab,
         setActiveConfigTab,
         handleRevert,
         handleDeleteClick,
-        handleConfirmDelete,
-        showDeleteDialog,
-        setShowDeleteDialog,
         mainSrc,
         tabs,
         statusLabel,
@@ -53,6 +51,7 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
     const [currentTime, setCurrentTime] = useState(0);
 
     const [isPlaying, setIsPlaying] = useState(false);
+    const configScrollRef = useRef(null);
 
 
     useEffect(() => {
@@ -61,13 +60,14 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
 
     return (
         <>
+            {/* DeleteConfirmationDialog removed to implement optimistic Undo/Redo flow
             <DeleteConfirmationDialog
                 isOpen={showDeleteDialog}
                 onClose={() => setShowDeleteDialog(false)}
                 onConfirm={handleConfirmDelete}
                 type={type}
                 assetName={asset.name}
-            />
+            /> */}
             <AssetDetailLayout
                 title={
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -84,10 +84,9 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
                 isExpanded={isExpanded}
                 actions={
                     <>
-                        <button className="btn" title="Refresh" onClick={refresh}><Icon name="revert" size={16} /></button>
                         {!asset.is_community && (
                             <button className="btn" title="Share with Community" onClick={handleShare}>
-                                <Icon name="generate" size={16} style={{ opacity: 0.7 }} /> Share
+                                <Icon name="share" size={16} style={{ opacity: 0.7 }} />
                             </button>
                         )}
                         {type === 'scene' && (
@@ -96,7 +95,7 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
                                 title={isPlaying ? "Stop Scene" : "Play Scene"}
                                 onClick={() => setIsPlaying(!isPlaying)}
                             >
-                                <Icon name={isPlaying ? "delete" : "generate"} size={16} style={{ opacity: 0.7 }} /> {/* Using icons available for now */}
+                                <Icon name={isPlaying ? "stop" : "play"} size={16} style={{ opacity: 0.7 }} />
                                 {isPlaying ? " Stop" : " Play"}
                             </button>
                         )}
@@ -146,6 +145,7 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
                             isExpanded={isExpanded}
                             toggleExpand={toggleExpand}
                             onSaveRotation={handleSaveRotation}
+                            behaviors={currentBehaviors}
                             actions={
                                 type === 'sprite' && asset.has_original && (
                                     <button className="btn" title="Revert to Original" onClick={handleRevert} style={{ padding: '2px 6px' }}>
@@ -217,7 +217,10 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
                                 className={`btn ${activeConfigTab === 'behaviors' ? 'active-tab' : ''}`}
                                 style={{
                                     borderBottom: activeConfigTab === 'behaviors' ? '2px solid var(--color-primary)' : 'none',
-                                    borderRadius: 0, padding: '8px 16px', color: activeConfigTab === 'behaviors' ? 'var(--color-text-main)' : 'var(--color-text-muted)'
+                                    borderRadius: 0,
+                                    padding: '8px 16px',
+                                    color: activeConfigTab === 'behaviors' ? 'var(--color-text-on-primary)' : 'var(--color-text-muted)',
+                                    background: activeConfigTab === 'behaviors' ? 'var(--color-primary)' : 'transparent'
                                 }}
                                 onClick={() => setActiveConfigTab('behaviors')}
                             >
@@ -227,18 +230,24 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
                                 className={`btn ${activeConfigTab === 'json' ? 'active-tab' : ''}`}
                                 style={{
                                     borderBottom: activeConfigTab === 'json' ? '2px solid var(--color-primary)' : 'none',
-                                    borderRadius: 0, padding: '8px 16px', color: activeConfigTab === 'json' ? 'var(--color-text-main)' : 'var(--color-text-muted)'
+                                    borderRadius: 0,
+                                    padding: '8px 16px',
+                                    color: activeConfigTab === 'json' ? 'var(--color-text-on-primary)' : 'var(--color-text-muted)',
+                                    background: activeConfigTab === 'json' ? 'var(--color-primary)' : 'transparent'
                                 }}
                                 onClick={() => setActiveConfigTab('json')}
                             >
-                                JSON Config
+                                Config
                             </button>
                             {type === 'scene' && (
                                 <button
                                     className={`btn ${activeConfigTab === 'debug' ? 'active-tab' : ''}`}
                                     style={{
                                         borderBottom: activeConfigTab === 'debug' ? '2px solid var(--color-primary)' : 'none',
-                                        borderRadius: 0, padding: '8px 16px', color: activeConfigTab === 'debug' ? 'var(--color-text-main)' : 'var(--color-text-muted)'
+                                        borderRadius: 0,
+                                        padding: '8px 16px',
+                                        color: activeConfigTab === 'debug' ? 'var(--color-text-on-primary)' : 'var(--color-text-muted)',
+                                        background: activeConfigTab === 'debug' ? 'var(--color-primary)' : 'transparent'
                                     }}
                                     onClick={() => setActiveConfigTab('debug')}
                                 >
@@ -248,7 +257,7 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
                         </div>
 
                         {activeConfigTab === 'behaviors' && (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', height: '100%' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1, minHeight: 0 }}>
                                 {type === 'scene' && selectedImage === 'original' ? (
                                     <div style={{ padding: '20px', textAlign: 'center', opacity: 0.5 }}>
                                         Select a sprite from the tabs above to edit its behaviors.
@@ -262,6 +271,7 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
                                         isVisible={layerVisibility[selectedImage] !== false}
                                         onToggleVisibility={() => toggleLayerVisibility(selectedImage)}
                                         onRemoveSprite={type === 'scene' && selectedImage !== 'original' ? (() => handleRemoveLayer(selectedImage)) : null}
+                                        behaviorGuidance={behaviorGuidance}
                                     />
                                 )}
                             </div>
@@ -328,9 +338,9 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
                         )}
 
                         {activeConfigTab === 'json' && (
-                            <>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, minHeight: 0, overflow: 'hidden' }}>
                                 {/* Unified Prompt Box & Actions for Config */}
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flexShrink: 0 }}>
                                     <label style={{ fontSize: '0.8rem', opacity: 0.7 }}>Refine Configuration</label>
                                     <div style={{ display: 'flex', gap: '8px' }}>
                                         <textarea
@@ -351,18 +361,95 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
                                     </div>
                                 </div>
 
-                                <div style={{ flex: 1, overflow: 'auto', background: 'rgba(0,0,0,0.2)', padding: '12px', borderRadius: '6px' }}>
-                                    <pre style={{ margin: 0, fontSize: '0.8rem', fontFamily: 'monospace', opacity: configData ? 1 : 0.5 }}>
-                                        {configData ? JSON.stringify(configData, null, 2) : "No configuration data."}
-                                    </pre>
+                                <div ref={configScrollRef} style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+                                    <SmartConfigViewer configData={configData} selectedImage={selectedImage} type={type} scrollContainerRef={configScrollRef} />
                                 </div>
-                            </>
+                            </div>
                         )}
 
-                    </div>
+                    </div >
                 }
             />
         </>
+    );
+}
+
+// Helper to render JSON with auto-scroll focus
+function SmartConfigViewer({ configData, selectedImage, type, scrollContainerRef }) {
+    // containerRef is now passed from parent
+    const fallbackRef = useRef(null);
+    const containerRef = scrollContainerRef || fallbackRef;
+
+    // Auto-scroll when selectedImage changes
+    useEffect(() => {
+        if (!selectedImage || !containerRef.current) return;
+
+        // Find target element
+        const targetId = `json-layer-${selectedImage}`;
+        const el = document.getElementById(targetId);
+
+        if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            // Highlight effect
+            el.style.backgroundColor = 'rgba(255, 255, 0, 0.1)';
+            setTimeout(() => {
+                if (el) el.style.backgroundColor = 'transparent';
+            }, 1000);
+        } else if (selectedImage === 'original') {
+            // Scroll to top for general config
+            if (containerRef.current && containerRef.current.scrollTo) {
+                containerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        }
+    }, [selectedImage, configData, containerRef]);
+
+    if (!configData) return <div style={{ opacity: 0.5, fontSize: '0.8rem' }}>No configuration data.</div>;
+
+    // For sprites, simplified view
+    if (type === 'sprite') {
+        return (
+            <pre style={{ margin: 0, fontSize: '0.8rem', fontFamily: 'monospace' }}>
+                {JSON.stringify(configData, null, 2)}
+            </pre>
+        );
+    }
+
+    // For scenes, split structure
+    const { layers, ...rest } = configData;
+
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', fontFamily: 'monospace', fontSize: '0.8rem' }}>
+            {/* General Settings */}
+            <div>
+                <div style={{ opacity: 0.5, marginBottom: '4px', fontWeight: 'bold' }}>// Scene Settings</div>
+                <pre style={{ margin: 0 }}>{JSON.stringify(rest, null, 2)}</pre>
+            </div>
+
+            {/* Layers */}
+            {layers && layers.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div style={{ opacity: 0.5, fontWeight: 'bold' }}>// Layers</div>
+                    {layers.map((layer, idx) => (
+                        <div
+                            key={idx}
+                            id={`json-layer-${layer.sprite_name}`}
+                            style={{
+                                padding: '8px',
+                                border: layer.sprite_name === selectedImage ? '1px solid var(--color-primary)' : '1px solid transparent',
+                                background: layer.sprite_name === selectedImage ? 'var(--color-bg-elevated)' : 'rgba(255,255,255,0.03)',
+                                borderRadius: '4px',
+                                transition: 'all 0.3s'
+                            }}
+                        >
+                            <div style={{ opacity: 0.7, marginBottom: '4px', color: 'var(--color-primary)' }}>
+                                {`[${idx}] ${layer.sprite_name}`}
+                            </div>
+                            <pre style={{ margin: 0 }}>{JSON.stringify(layer, null, 2)}</pre>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
     );
 }
 
@@ -565,12 +652,51 @@ function useAssetController(type, asset, refresh, onDelete) {
     const [debugOverlayMode, setDebugOverlayMode] = useState('auto'); // 'auto' | 'on' | 'off'
     const [layerVisibility, setLayerVisibility] = useState({}); // { layerName: boolean }
 
-    const toggleLayerVisibility = (name) => {
+    const toggleLayerVisibility = async (name) => {
+        // Optimistic update
+        const newVisibility = layerVisibility[name] === false ? true : false;
+
         setLayerVisibility(prev => ({
             ...prev,
-            [name]: prev[name] === false ? true : false
+            [name]: newVisibility
         }));
+
+        if (type === 'scene' && asset.config) {
+            try {
+                const updatedConfig = JSON.parse(JSON.stringify(asset.config));
+                const layer = updatedConfig.layers?.find(l => l.sprite_name === name);
+                if (layer) {
+                    layer.visible = newVisibility;
+                    const res = await fetch(`${API_BASE}/scenes/${asset.name}/config`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(updatedConfig)
+                    });
+                    if (!res.ok) throw new Error(await res.text());
+                    await refresh();
+                }
+            } catch (e) {
+                console.error("Failed to persist visibility:", e);
+                toast.error(`Failed to save visibility state: ${e.message}`);
+                // Revert
+                setLayerVisibility(prev => ({
+                    ...prev,
+                    [name]: !newVisibility
+                }));
+            }
+        }
     };
+
+    // Initialize visibility from config
+    useEffect(() => {
+        if (type === 'scene' && asset.config?.layers) {
+            const visibilityMap = {};
+            asset.config.layers.forEach(l => {
+                visibilityMap[l.sprite_name] = l.visible !== false;
+            });
+            setLayerVisibility(visibilityMap);
+        }
+    }, [asset.config, type]);
 
     // Forward visibility to engine whenever telemetry updates (poor man's sync)
     // Actually, it's better to pass layerVisibility to TheatreStage and let it sync.
@@ -589,7 +715,9 @@ function useAssetController(type, asset, refresh, onDelete) {
     };
 
     const handleDeleteClick = () => {
-        setShowDeleteDialog(true);
+        // Optimistic delete without confirmation
+        // Defaulting to 'delete' mode for now. TODO: Implement Undo Stack
+        handleConfirmDelete('delete');
     };
 
     const handleConfirmDelete = async (mode) => {
@@ -607,6 +735,8 @@ function useAssetController(type, asset, refresh, onDelete) {
             }
 
             if (mode === 'reset') {
+                setSelectedImage(type === 'sprite' ? 'current' : 'original');
+                setLogs('');
                 refresh();
             } else if (onDelete) {
                 onDelete();
@@ -619,7 +749,8 @@ function useAssetController(type, asset, refresh, onDelete) {
     };
 
     const handleRemoveLayer = async (spriteName) => {
-        if (!confirm(`Are you sure you want to remove sprite '${spriteName}' from this scene?`)) return;
+        // Confirmation removed for optmistic undo flow
+        // if (!confirm(`Are you sure you want to remove sprite '${spriteName}' from this scene?`)) return;
 
         if (!asset.config) return;
         const updatedConfig = JSON.parse(JSON.stringify(asset.config));
@@ -818,7 +949,16 @@ function useAssetController(type, asset, refresh, onDelete) {
     } else {
         tabs.push({ id: 'original', label: 'Original', onClick: () => setSelectedImage('original'), isActive: selectedImage === 'original' });
         (asset.used_sprites || []).forEach(s => {
-            tabs.push({ id: s, label: s, onClick: () => setSelectedImage(s), isActive: selectedImage === s });
+            tabs.push({
+                id: s,
+                label: s,
+                onClick: () => setSelectedImage(s),
+                isActive: selectedImage === s,
+                isSprite: true,
+                isVisible: layerVisibility[s] !== false,
+                onToggleVisibility: () => toggleLayerVisibility(s),
+                onDelete: () => handleRemoveLayer(s)
+            });
         });
     }
 
@@ -846,6 +986,11 @@ function useAssetController(type, asset, refresh, onDelete) {
         ? (asset.metadata?.behaviors || asset.metadata?.events || [])
         : (activeLayer ? (activeLayer.behaviors || activeLayer.events || []) : []);
 
+    // Extract behavior_guidance from the active layer (scene) or metadata (sprite)
+    const behaviorGuidance = type === 'sprite'
+        ? (asset.metadata?.behavior_guidance || null)
+        : (activeLayer?.behavior_guidance || null);
+
     return {
         logs,
         isOptimizing,
@@ -859,6 +1004,7 @@ function useAssetController(type, asset, refresh, onDelete) {
         handleUpdateConfig,
         handleEventsChange,
         currentBehaviors,
+        behaviorGuidance,
         activeConfigTab,
         setActiveConfigTab,
         handleRevert,

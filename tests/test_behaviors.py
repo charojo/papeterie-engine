@@ -48,3 +48,29 @@ def test_create_and_delete_behavior():
 def test_delete_nonexistent_behavior():
     response = client.delete("/api/behaviors/nonexistent_behavior_123")
     assert response.status_code == 404
+
+
+def test_behavior_with_llm_guidance():
+    """Test that llm_guidance field is properly serialized and persisted."""
+    behavior_name = "test_llm_guidance_behavior"
+    behavior_data = {
+        "name": behavior_name,
+        "behavior": {
+            "type": "oscillate",
+            "frequency": 0.5,
+            "amplitude": 15.0,
+            "coordinate": "y",
+            "phase_offset": 0.0,
+            "llm_guidance": "Gentle vertical bobbing like a balloon floating in the wind",
+        },
+    }
+
+    # Create
+    response = client.post("/api/behaviors", json=behavior_data)
+    assert response.status_code == 200
+    created = response.json()
+    assert created["name"] == behavior_name
+    assert created["behavior"]["llm_guidance"] == behavior_data["behavior"]["llm_guidance"]
+
+    # Cleanup
+    client.delete(f"/api/behaviors/{behavior_name}")

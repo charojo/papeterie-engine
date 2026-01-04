@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Icon } from './Icon';
 
+// Define stable empty array for default prop to avoid infinite effect loops
+const EMPTY_BEHAVIORS = [];
+
 export const ImageViewer = ({
     mainSrc,
     alt,
@@ -9,8 +12,10 @@ export const ImageViewer = ({
     actions,
     isExpanded,
     toggleExpand,
-    onSaveRotation
+    onSaveRotation,
+    behaviors = EMPTY_BEHAVIORS
 }) => {
+    // console.log removed
     const [scale, setScale] = useState(1);
     const [rotation, setRotation] = useState(0);
     const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -20,6 +25,10 @@ export const ImageViewer = ({
     const imgRef = useRef(null);
     const containerRef = useRef(null);
     const scaleRef = useRef(1);
+    const [isPlayingBehaviors, setIsPlayingBehaviors] = useState(false);
+    const [behaviorOffsets, setBehaviorOffsets] = useState({ x: 0, y: 0, scale: 1, rotation: 0, opacity: 1 });
+    const requestRef = useRef();
+    const startTimeRef = useRef();
 
     // Sync scaleRef for event listener
     useEffect(() => {
@@ -39,7 +48,65 @@ export const ImageViewer = ({
     useEffect(() => {
         setPosition({ x: 0, y: 0 });
         setRotation(0);
+        // Persistence: We intentionally do NOT reset isPlayingBehaviors here
     }, [mainSrc]);
+
+    // Behavior Preview Animation Loop
+    useEffect(() => {
+        const animate = (time) => {
+            if (!startTimeRef.current) startTimeRef.current = time;
+            const elapsed = (time - startTimeRef.current) / 1000; // seconds
+
+            const offsets = { x: 0, y: 0, scale: 1, rotation: 0, opacity: 1 };
+
+            behaviors.forEach(b => {
+                if (!b.enabled) return;
+
+                if (b.type === 'oscillate') {
+                    const phase = (elapsed * b.frequency * 2 * Math.PI) + (b.phase_offset || 0);
+                    const val = Math.sin(phase) * b.amplitude;
+
+                    if (b.coordinate === 'y') offsets.y += val;
+                    else if (b.coordinate === 'x') offsets.x += val;
+                    else if (b.coordinate === 'scale') offsets.scale += val / 100;
+                    else if (b.coordinate === 'rotation') offsets.rotation += val;
+                } else if (b.type === 'pulse') {
+                    const cycle = (elapsed * b.frequency) % 1.0;
+                    let value = 0;
+                    if (b.waveform === 'sine') {
+                        value = (Math.sin(cycle * 2 * Math.PI) + 1) / 2;
+                    } else if (b.waveform === 'spike') {
+                        value = Math.pow((Math.sin(cycle * 2 * Math.PI) + 1.0) / 2.0, 10);
+                    }
+                    const factor = b.min_value + (value * (b.max_value - b.min_value));
+
+                    if (b.coordinate === 'opacity') offsets.opacity *= factor;
+                    else if (b.coordinate === 'scale') offsets.scale *= factor;
+                } else if (b.type === 'drift') {
+                    // Drift is cumulative: use total elapsed time, not delta
+                    const val = (b.velocity || 0) * elapsed;
+                    if (b.coordinate === 'y') offsets.y += val;
+                    else if (b.coordinate === 'x') offsets.x += val;
+                    else if (b.coordinate === 'scale') offsets.scale += val / 100;
+                }
+            });
+
+            setBehaviorOffsets(offsets);
+            requestRef.current = requestAnimationFrame(animate);
+        };
+
+        if (isPlayingBehaviors && behaviors.length > 0) {
+            startTimeRef.current = null; // Reset start time
+            requestRef.current = requestAnimationFrame(animate);
+        } else {
+            setBehaviorOffsets({ x: 0, y: 0, scale: 1, rotation: 0, opacity: 1 });
+            if (requestRef.current) cancelAnimationFrame(requestRef.current);
+        }
+
+        return () => {
+            if (requestRef.current) cancelAnimationFrame(requestRef.current);
+        };
+    }, [isPlayingBehaviors, behaviors]);
 
     const clampPosition = (x, y, s) => {
         const container = containerRef.current;
@@ -194,10 +261,11 @@ export const ImageViewer = ({
                             maxWidth: '100%',
                             maxHeight: '100%',
                             objectFit: 'contain',
-                            translate: `${position.x}px ${position.y}px`,
-                            scale: `${scale}`,
-                            rotate: `${rotation}deg`,
-                            transition: (isDragging || isRotating) ? 'none' : 'translate 0.1s ease-out, scale 0.1s ease-out, rotate 0.1s ease-out',
+                            translate: `${position.x + behaviorOffsets.x}px ${position.y + behaviorOffsets.y}px`,
+                            scale: `${scale * behaviorOffsets.scale}`,
+                            rotate: `${rotation + behaviorOffsets.rotation}deg`,
+                            opacity: behaviorOffsets.opacity,
+                            transition: (isDragging || isRotating || isPlayingBehaviors) ? 'none' : 'translate 0.1s ease-out, scale 0.1s ease-out, rotate 0.1s ease-out',
                             pointerEvents: 'none' // Let container handle events
                         }}
                     />
@@ -216,13 +284,30 @@ export const ImageViewer = ({
                     display: 'flex', gap: '8px', zIndex: 10
                 }}>
                     <div style={{ display: 'flex', background: 'rgba(0,0,0,0.6)', borderRadius: '4px', overflow: 'hidden' }}>
-                        <button onClick={zoomOut} className="btn-icon" title="Zoom Out" style={{ borderRadius: 0, borderRight: '1px solid rgba(255,255,255,0.2)' }}>
+                        <button onClick={zoomOut} className="btn-icon" title="Zoom Out" style={{ borderRadius: 0, borderRight: '1px solid rgba(255,255,255,0.2)', color: 'white' }}>
                             <Icon name="zoomOut" size={16} />
                         </button>
-                        <button onClick={zoomIn} className="btn-icon" title="Zoom In" style={{ borderRadius: 0 }}>
+                        <button onClick={zoomIn} className="btn-icon" title="Zoom In" style={{ borderRadius: 0, color: 'white' }}>
                             <Icon name="zoomIn" size={16} />
                         </button>
                     </div>
+
+                    {/* Behavior Playback Control */}
+                    {behaviors.length > 0 && (
+                        <button
+                            onClick={() => setIsPlayingBehaviors(!isPlayingBehaviors)}
+                            className={`btn-icon ${isPlayingBehaviors ? 'active' : ''}`}
+                            title={isPlayingBehaviors ? "Stop Preview" : "Play Preview"}
+                            style={{
+                                background: isPlayingBehaviors ? 'var(--color-primary)' : 'rgba(0,0,0,0.6)',
+                                border: 'none', borderRadius: '4px',
+                                color: isPlayingBehaviors ? 'var(--color-text-on-primary)' : 'white',
+                                padding: '6px'
+                            }}
+                        >
+                            <Icon name={isPlayingBehaviors ? "pause" : "play"} size={16} />
+                        </button>
+                    )}
 
                     {/* Fine Rotation Slider */}
                     <div
@@ -261,11 +346,11 @@ export const ImageViewer = ({
 
                     <button
                         onClick={toggleExpand}
+                        className="btn-icon"
                         style={{
                             background: isExpanded ? 'var(--color-primary)' : 'rgba(0,0,0,0.6)',
                             border: 'none', borderRadius: '4px',
-                            color: isExpanded ? 'var(--color-text-on-primary)' : 'white', padding: '6px', cursor: 'pointer',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            color: isExpanded ? 'var(--color-text-on-primary)' : 'white', cursor: 'pointer',
                         }}
                         title={isExpanded ? "Minimize" : "Maximize (Zen Mode)"}
                     >
@@ -310,10 +395,50 @@ export const ImageViewer = ({
                                 color: tab.isActive ? 'var(--color-text-on-primary)' : 'var(--color-text-main)',
                                 fontSize: '0.75rem',
                                 fontWeight: tab.isActive ? '600' : '400',
-                                border: tab.isActive ? '1px solid var(--color-primary)' : '1px solid var(--color-border)'
+                                border: tab.isActive ? '1px solid var(--color-primary)' : '1px solid var(--color-border)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px'
                             }}
                         >
-                            {tab.label}
+                            {tab.isSprite && (
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); tab.onToggleVisibility?.(); }}
+                                    title={tab.isVisible ? 'Hide sprite' : 'Show sprite'}
+                                    className="btn-icon"
+                                    style={{
+                                        padding: 0,
+                                        width: 'auto',
+                                        height: 'auto',
+                                        opacity: tab.isVisible ? 0.7 : 0.5,
+                                        color: 'currentColor',
+                                        background: 'transparent'
+                                    }}
+                                >
+                                    <Icon name={tab.isVisible ? "visible" : "hidden"} size={12} />
+                                </button>
+                            )}
+                            <span style={{ opacity: (tab.isSprite && !tab.isVisible) ? 0.5 : 1 }}>
+                                {tab.label}
+                            </span>
+                            {tab.isSprite && (
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); tab.onDelete?.(); }}
+                                    title="Remove from scene"
+                                    className="btn-icon"
+                                    style={{
+                                        marginLeft: '2px',
+                                        opacity: 0.5,
+                                        padding: 0,
+                                        width: 'auto',
+                                        height: 'auto',
+                                        color: 'currentColor',
+                                        background: 'transparent'
+                                    }}
+                                >
+                                    <Icon name="close" size={10} />
+                                </button>
+                            )}
                         </div>
                     ))}
                 </div>
@@ -323,21 +448,7 @@ export const ImageViewer = ({
             </div>
 
             {/* Inline Styles for btn-icon helper */}
-            <style>{`
-                .btn-icon {
-                    background: transparent;
-                    border: none;
-                    color: white;
-                    padding: 6px;
-                    cursor: pointer;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                }
-                .btn-icon:hover {
-                    background: rgba(255,255,255,0.1);
-                }
-            `}</style>
+            {/* Styles moved to global CSS */}
         </div>
     );
 };
