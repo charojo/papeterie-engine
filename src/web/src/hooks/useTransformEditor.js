@@ -180,10 +180,43 @@ export function useTransformEditor(asset, refresh) {
         }
     }, [asset.config, asset.name, refresh]);
 
+    const handleKeyframeDelete = useCallback(async (layerName, behaviorIndex) => {
+        if (!confirm(`Are you sure you want to delete this keyframe?`)) return;
+
+        try {
+            if (!asset.config) return;
+            const updatedConfig = JSON.parse(JSON.stringify(asset.config));
+            const layer = (updatedConfig.layers || []).find(l => l.sprite_name === layerName);
+
+            if (!layer || !layer.behaviors || !layer.behaviors[behaviorIndex]) {
+                toast.error(`Keyframe not found`);
+                return;
+            }
+
+            // Remove behavior
+            layer.behaviors.splice(behaviorIndex, 1);
+
+            const res = await fetch(`${API_BASE}/scenes/${asset.name}/config`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updatedConfig)
+            });
+
+            if (!res.ok) throw new Error(await res.text());
+
+            toast.success(`Deleted keyframe for ${layerName}`);
+            await refresh();
+        } catch (e) {
+            console.error('Failed to delete keyframe:', e);
+            toast.error(`Failed to delete keyframe: ${e.message}`);
+        }
+    }, [asset.config, asset.name, refresh]);
+
     return {
         handleSpritePositionChanged,
         handleSpriteRotationChanged,
         handleSpriteScaleChanged,
-        handleKeyframeMove
+        handleKeyframeMove,
+        handleKeyframeDelete
     };
 }

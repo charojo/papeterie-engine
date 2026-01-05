@@ -161,5 +161,64 @@ describe('TimelineEditor', () => {
                 behaviorIndex: 0
             });
         });
+
+        it('shows context menu on right click', () => {
+            const layers = [
+                {
+                    sprite_name: 'hopper',
+                    z_depth: 10,
+                    behaviors: [{ type: 'location', time_offset: 5, z_depth: 10 }]
+                }
+            ];
+            render(<TimelineEditor {...defaultProps} layers={layers} />);
+
+            const keyframe = screen.getByTitle(/at 5.00s/);
+            fireEvent.contextMenu(keyframe, { clientX: 100, clientY: 100 });
+
+            // Check if "Delete Keyframe" is visible
+            expect(screen.getByText('Delete Keyframe')).toBeInTheDocument();
+        });
+
+        it('calls onKeyframeDelete when delete is clicked in context menu', () => {
+            const onKeyframeDelete = vi.fn();
+            const layers = [
+                {
+                    sprite_name: 'hopper',
+                    z_depth: 10,
+                    behaviors: [{ type: 'location', time_offset: 5, z_depth: 10 }]
+                }
+            ];
+            render(<TimelineEditor {...defaultProps} layers={layers} onKeyframeDelete={onKeyframeDelete} />);
+
+            const keyframe = screen.getByTitle(/at 5.00s/);
+            fireEvent.contextMenu(keyframe, { clientX: 100, clientY: 100 });
+
+            const deleteBtn = screen.getByText('Delete Keyframe');
+            fireEvent.click(deleteBtn);
+
+            expect(onKeyframeDelete).toHaveBeenCalledWith('hopper', 0);
+        });
+
+        it('snaps keyframe to 0.1s during drag', () => {
+            const onKeyframeMove = vi.fn();
+            const layers = [
+                {
+                    sprite_name: 'hopper',
+                    z_depth: 10,
+                    behaviors: [{ type: 'location', time_offset: 5, z_depth: 10 }]
+                }
+            ];
+            render(<TimelineEditor {...defaultProps} layers={layers} onKeyframeMove={onKeyframeMove} />);
+
+            const keyframe = screen.getByTitle(/at 5.00s/);
+
+            // 5s * 20 + 40 + 200 + 0 = 340px (assuming rect left=0)
+            fireEvent.mouseDown(keyframe, { clientX: 340 });
+
+            // Move by 3px => 3 / 20 = 0.15s offset. 5 + 0.15 = 5.15s. Snap to 5.2s
+            fireEvent(document, new MouseEvent('mousemove', { clientX: 343 }));
+
+            expect(onKeyframeMove).toHaveBeenCalledWith('hopper', 0, 5.2, false);
+        });
     });
 });

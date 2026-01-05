@@ -99,6 +99,7 @@ export function useOptimization(type, asset, refresh) {
     return {
         isOptimizing,
         imageTimestamp,
+        setImageTimestamp,
         visualPrompt,
         setVisualPrompt,
         processingMode,

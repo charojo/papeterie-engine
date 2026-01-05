@@ -8,6 +8,7 @@ export function TimelineEditor({
     selectedLayer = null,
     onTimeChange,
     onKeyframeMove,
+    onKeyframeDelete,
     onPlayPause,
     onLayerUpdate,
     onSelectLayer,
@@ -18,6 +19,7 @@ export function TimelineEditor({
     const containerRef = useRef(null);
     const laneRefs = useRef({});
     const [draggingKeyframe, setDraggingKeyframe] = useState(null);
+    const [contextMenu, setContextMenu] = useState(null); // { x, y, item, z }
 
     const HEADER_WIDTH = 200;
     const TRACK_HEIGHT = 48; // Taller tracks for thumbnails
@@ -154,19 +156,25 @@ export function TimelineEditor({
         setDraggingKeyframe({
             id: item.key,
             spriteName: item.sprite.sprite_name,
-            behaviorIndex: item.type === 'behavior' ? item.behaviorIndex : null
+            behaviorIndex: item.type === 'behavior' ? item.behaviorIndex : null,
+            initialX: (item.time * zoom) + PADDING_LEFT
         });
 
         const handleDragMove = (moveEvent) => {
             const dx = moveEvent.clientX - startX;
-            const newTime = Math.max(0, initialTime + (dx / zoom));
+            const newTimeRaw = initialTime + (dx / zoom);
+            // Snap to 0.1s
+            const newTime = Math.max(0, Math.min(duration, Math.round(newTimeRaw * 10) / 10));
 
             // Preview Time Update
             if (item.type === 'behavior') {
                 onKeyframeMove && onKeyframeMove(item.sprite.sprite_name, item.behaviorIndex, newTime, false);
             }
-            // Note: Base items (t=0) usually can't change time (it's base). 
-            // We could allow dragging base to become a keyframe? For now, lock Base time to 0.
+
+            setDraggingKeyframe(prev => ({
+                ...prev,
+                currentX: (newTime * zoom) + PADDING_LEFT
+            }));
         };
 
         const handleDragUp = (upEvent) => {
@@ -175,7 +183,8 @@ export function TimelineEditor({
             // 1. Calculate New Time
             let newTime = initialTime;
             if (item.type === 'behavior') {
-                newTime = Math.max(0, initialTime + (dx / zoom));
+                const newTimeRaw = initialTime + (dx / zoom);
+                newTime = Math.max(0, Math.min(duration, Math.round(newTimeRaw * 10) / 10));
             }
 
             // 2. Calculate New Z-Depth (Vertical Drop)
@@ -196,13 +205,10 @@ export function TimelineEditor({
 
                 // Update Z if changed
                 if (finalZ !== initialZ && onLayerUpdate) {
-                    if (onLayerUpdate) {
-                        onLayerUpdate(item.sprite.sprite_name, {
-                            z_depth: finalZ,
-                            // Signal that this is for a behavior
-                            behaviorIndex: item.behaviorIndex
-                        });
-                    }
+                    onLayerUpdate(item.sprite.sprite_name, {
+                        z_depth: finalZ,
+                        behaviorIndex: item.behaviorIndex
+                    });
                 }
             } else {
                 // Base Item
@@ -219,6 +225,26 @@ export function TimelineEditor({
         document.addEventListener('mousemove', handleDragMove);
         document.addEventListener('mouseup', handleDragUp);
     };
+
+    const handleContextMenu = (e, item, z) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setContextMenu({
+            x: e.clientX,
+            y: e.clientY,
+            item,
+            z
+        });
+    };
+
+    const closeContextMenu = () => setContextMenu(null);
+
+    useEffect(() => {
+        if (contextMenu) {
+            window.addEventListener('click', closeContextMenu);
+            return () => window.removeEventListener('click', closeContextMenu);
+        }
+    }, [contextMenu]);
 
     return (
         <div style={{
@@ -378,7 +404,7 @@ export function TimelineEditor({
                                                 key={item.key}
                                                 style={{
                                                     position: 'absolute',
-                                                    left: (item.time * zoom) + PADDING_LEFT,
+                                                    left: (isDragging && draggingKeyframe.currentX !== undefined) ? draggingKeyframe.currentX : (item.time * zoom) + PADDING_LEFT,
                                                     top: '8px',
                                                     width: '32px', // Thumbnail size
                                                     height: '32px',
@@ -394,10 +420,12 @@ export function TimelineEditor({
                                                     display: 'flex',
                                                     alignItems: 'center',
                                                     justifyContent: 'center',
-                                                    overflow: 'hidden'
+                                                    overflow: 'hidden',
+                                                    opacity: isDragging ? 0.6 : 1
                                                 }}
                                                 title={`${item.sprite.sprite_name} (${item.type}) at ${item.time.toFixed(2)}s`}
                                                 onMouseDown={(e) => handleItemDragStart(e, item, z)}
+                                                onContextMenu={(e) => handleContextMenu(e, item, z)}
                                                 onClick={(e) => {
                                                     e.stopPropagation();
                                                     onSelectLayer && onSelectLayer(item.sprite.sprite_name);
@@ -435,6 +463,47 @@ export function TimelineEditor({
 
                 </div>
             </div>
+
+            {/* Context Menu Overlay */}
+            {contextMenu && (
+                <div style={{
+                    position: 'fixed',
+                    left: contextMenu.x,
+                    top: contextMenu.y,
+                    zIndex: 1000,
+                    background: 'var(--color-bg-elevated)',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: '4px',
+                    boxShadow: 'var(--shadow-lg)',
+                    padding: '4px 0',
+                    minWidth: '120px'
+                }}>
+                    {contextMenu.item.type === 'behavior' && (
+                        <button
+                            className="btn-ghost"
+                            style={{ width: '100%', textAlign: 'left', padding: '8px 12px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--color-danger)' }}
+                            onClick={() => {
+                                onKeyframeDelete && onKeyframeDelete(contextMenu.item.sprite.sprite_name, contextMenu.item.behaviorIndex);
+                                closeContextMenu();
+                            }}
+                        >
+                            <Icon name="delete" size={14} />
+                            Delete Keyframe
+                        </button>
+                    )}
+                    <button
+                        className="btn-ghost"
+                        style={{ width: '100%', textAlign: 'left', padding: '8px 12px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '8px' }}
+                        onClick={() => {
+                            onSelectLayer && onSelectLayer(contextMenu.item.sprite.sprite_name);
+                            closeContextMenu();
+                        }}
+                    >
+                        <Icon name="edit" size={14} />
+                        Focus {contextMenu.item.sprite.sprite_name}
+                    </button>
+                </div>
+            )}
         </div>
     );
 }

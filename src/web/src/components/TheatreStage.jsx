@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Theatre } from '../engine/Theatre';
 import { Icon } from './Icon';
 import { createLogger } from '../utils/logger';
+import { useCameraController } from '../hooks/useCameraController';
 
 const log = createLogger('TheatreStage');
 
@@ -49,31 +50,26 @@ export function TheatreStage({
         (window.API_BASE ? window.API_BASE.replace('/api', '/assets') :
             `${window.location.protocol}//${window.location.hostname}:8000/assets`);
 
-    // Unified Camera State for atomic updates (prevents zoom/pan desync during wheel)
-    const [camera, setCamera] = useState({ zoom: 1.0, pan: { x: 0, y: 0 } });
-    const zoom = camera.zoom;
-    const pan = camera.pan;
+    // Camera Controller - single source of truth
+    const {
+        zoom, panX, panY, state: _cameraState,
+        setZoom, setPan: _setPan, reset: resetCamera, handleWheel: cameraHandleWheel, controller: cameraController
+    } = useCameraController(theatreRef.current);
+
+    // Derive pan object for compatibility
+    const pan = { x: panX, y: panY };
 
     useEffect(() => {
         isPausedRef.current = isPaused;
     }, [isPaused]);
 
-    // Safety: Reset State if NaN (Fixes Blank Screen Issue)
+    // Bind camera controller to Theatre when it's ready
     useEffect(() => {
-        if (isNaN(camera.zoom) || isNaN(camera.pan.x) || isNaN(camera.pan.y) || !Number.isFinite(camera.zoom)) {
-            log.error('Camera state corruption detected. Resetting.');
-            setCamera({ zoom: 1.0, pan: { x: 0, y: 0 } });
+        if (theatreRef.current && cameraController) {
+            cameraController.bindTheatre(theatreRef.current);
         }
-    }, [camera]);
-
-    // Sync camera to engine
-    useEffect(() => {
-        if (theatreRef.current) {
-            theatreRef.current.cameraZoom = zoom;
-            theatreRef.current.cameraPanX = pan.x;
-            theatreRef.current.cameraPanY = pan.y;
-        }
-    }, [zoom, pan]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [cameraController]);
 
     // Sync debugMode
     useEffect(() => {
@@ -183,11 +179,7 @@ export function TheatreStage({
         }
     }, [onSpriteSelected, onSpritePositionChanged, onSpriteScaleChanged, onSpriteRotationChanged, onTimeUpdate]);
 
-    // Use Ref to avoid re-binding wheel listener on every camera change
-    const cameraRef = useRef(camera);
-    useEffect(() => {
-        cameraRef.current = camera;
-    }, [camera]);
+    // Wheel handler now managed by useCameraController
 
     // Re-implemented fully correct version below:
     useEffect(() => {
@@ -198,90 +190,18 @@ export function TheatreStage({
         }
 
         const onWheel = (e) => {
-            // Debug Log: Check if event is firing at all
-            log.debug(`Raw Wheel: deltaY=${e.deltaY.toFixed(1)}, ctrl=${e.ctrlKey}, meta=${e.metaKey}`);
-
             if (!theatreRef.current) return;
-            e.preventDefault();
-
-            const rect = canvas.getBoundingClientRect();
-            // ClientX/Y relative to viewport, minus rect.left = local X
-            const mouseX = e.clientX - rect.left;
-            const mouseY = e.clientY - rect.top;
-
-            // Use functional update to guarantee 'prev' is the LATEST state
-            // This fixes the concurrency/race condition with rapid scrolling
-            setCamera(prev => {
-                const isZoom = e.ctrlKey || e.metaKey;
-
-                if (isZoom) {
-                    // Adaptive Sensitivity:
-                    // Trackpads send small deltas (1-10). Mice send large deltas (100+).
-                    const absDelta = Math.abs(e.deltaY);
-                    const isTrackpad = absDelta > 0 && absDelta < 50;
-                    const ZOOM_SENSITIVITY = isTrackpad ? 0.015 : 0.002;
-
-                    // Protect against weird deltas
-                    const safeDeltaY = isNaN(e.deltaY) ? 0 : e.deltaY;
-                    const scaleFactor = Math.exp(-safeDeltaY * ZOOM_SENSITIVITY);
-
-                    const newZoom = Math.max(0.05, Math.min(20, prev.zoom * scaleFactor));
-
-                    log.debug(`ZOOM (${isTrackpad ? 'Trackpad' : 'Mouse'}) | dY=${safeDeltaY.toFixed(1)} | Target: ${newZoom.toFixed(2)}`);
-
-                    // Safety Check: NaN
-                    if (isNaN(newZoom)) {
-                        log.error('Calculated NaN zoom:', prev.zoom, scaleFactor);
-                        return prev;
-                    }
-
-                    // Helper to get world pos from screen pos
-                    // Must calc strictly on 'prev' state
-                    const worldX = (mouseX - rect.width / 2) / prev.zoom - prev.pan.x + rect.width / 2;
-                    const worldY = (mouseY - rect.height / 2) / prev.zoom - prev.pan.y + rect.height / 2;
-
-                    // Safety Check: World Pos
-                    if (isNaN(worldX) || isNaN(worldY)) {
-                        log.error('World calc failed', worldX, worldY);
-                        return prev;
-                    }
-
-                    // Calculate new Pan to keep worldPos under mouse
-                    const newPanX = (mouseX - rect.width / 2) / newZoom + rect.width / 2 - worldX;
-                    const newPanY = (mouseY - rect.height / 2) / newZoom + rect.height / 2 - worldY;
-
-                    return {
-                        zoom: newZoom,
-                        pan: { x: newPanX, y: newPanY }
-                    };
-                } else {
-                    // Pan
-                    const newPanX = prev.pan.x - e.deltaX / prev.zoom;
-                    const newPanY = prev.pan.y - e.deltaY / prev.zoom;
-
-                    if (Math.abs(e.deltaX) > 1 || Math.abs(e.deltaY) > 1) {
-                        log.debug(`PAN | dX=${e.deltaX.toFixed(1)} dY=${e.deltaY.toFixed(1)} | Target: (${newPanX.toFixed(1)}, ${newPanY.toFixed(1)})`);
-                    }
-
-                    return {
-                        ...prev,
-                        pan: {
-                            x: newPanX,
-                            y: newPanY
-                        }
-                    };
-                }
-            });
+            cameraHandleWheel(e, canvas);
         };
 
-        log.debug('Attaching wheel listener');
+        log.debug('Attaching wheel listener (via useCameraController)');
         canvas.addEventListener('wheel', onWheel, { passive: false });
 
         return () => {
             log.debug('Removing wheel listener');
             canvas.removeEventListener('wheel', onWheel);
         };
-    }, []); // Empty dependency array ensures listener is bound ONCE
+    }, [cameraHandleWheel]); // Depend on the hook's handleWheel
 
     // Resize Observer Logic(Static)
     useEffect(() => {
@@ -539,7 +459,7 @@ export function TheatreStage({
                         className="btn-icon"
                         onClick={() => {
                             log.debug('Button Zoom In');
-                            setCamera(prev => ({ ...prev, zoom: Math.min(20, prev.zoom * 1.2) }));
+                            setZoom(zoom * 1.2);
                         }}
                         title="Zoom In"
                         style={{ background: 'transparent', color: 'white', padding: '6px' }}
@@ -550,7 +470,7 @@ export function TheatreStage({
                         className="btn-icon"
                         onClick={() => {
                             log.debug('Button Zoom Out');
-                            setCamera(prev => ({ ...prev, zoom: Math.max(0.05, prev.zoom / 1.2) }));
+                            setZoom(zoom / 1.2);
                         }}
                         title="Zoom Out"
                         style={{ background: 'transparent', color: 'white', padding: '6px' }}
@@ -559,7 +479,7 @@ export function TheatreStage({
                     </button>
                     <button
                         className="btn-icon"
-                        onClick={() => setCamera({ zoom: 1.0, pan: { x: 0, y: 0 } })}
+                        onClick={() => resetCamera()}
                         title="Reset View"
                         disabled={zoom === 1.0 && pan.x === 0 && pan.y === 0}
                         style={{

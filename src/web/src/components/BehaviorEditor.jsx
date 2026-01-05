@@ -274,18 +274,53 @@ function BehaviorCard({ behavior, onChange, onRemove, readOnly }) {
                             <div style={{ gridColumn: 'span 2' }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                     <label style={{ fontSize: '0.75rem', opacity: 0.7 }}>Sound File</label>
-                                    <select
-                                        className="input"
-                                        value={behavior.sound_file || ''}
-                                        onChange={e => updateParam('sound_file', e.target.value)}
-                                        disabled={readOnly}
-                                        style={{ padding: '4px 8px', fontSize: '0.8rem' }}
-                                    >
-                                        <option value="">Select a sound...</option>
-                                        {soundOptions.map(s => (
-                                            <option key={s.filename} value={s.filename}>{s.name}</option>
-                                        ))}
-                                    </select>
+                                    <div style={{ display: 'flex', gap: '4px' }}>
+                                        <select
+                                            className="input"
+                                            value={behavior.sound_file || ''}
+                                            onChange={e => updateParam('sound_file', e.target.value)}
+                                            disabled={readOnly}
+                                            style={{ flex: 1, padding: '4px 8px', fontSize: '0.8rem' }}
+                                        >
+                                            <option value="">Select a sound...</option>
+                                            {soundOptions.map(s => (
+                                                <option key={s.filename} value={s.filename}>{s.name}</option>
+                                            ))}
+                                        </select>
+                                        <button
+                                            className="btn btn-xs"
+                                            onClick={() => {
+                                                const input = document.createElement('input');
+                                                input.type = 'file';
+                                                input.accept = 'audio/*';
+                                                input.onchange = async (e) => {
+                                                    const file = e.target.files[0];
+                                                    if (!file) return;
+                                                    const formData = new FormData();
+                                                    formData.append('file', file);
+                                                    try {
+                                                        const res = await fetch('http://localhost:8000/api/sounds/upload', {
+                                                            method: 'POST',
+                                                            body: formData
+                                                        });
+                                                        if (res.ok) {
+                                                            // Refresh options
+                                                            const data = await fetch('http://localhost:8000/api/sounds').then(r => r.json());
+                                                            setSoundOptions(data.sounds || []);
+                                                            updateParam('sound_file', file.name);
+                                                        }
+                                                    } catch (err) {
+                                                        console.error("Upload failed", err);
+                                                    }
+                                                };
+                                                input.click();
+                                            }}
+                                            title="Upload Sound"
+                                            style={{ padding: '0 8px' }}
+                                        >
+                                            <Icon name="add" size={12} />
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                             <Field label="Volume" value={behavior.volume} type="number" step="0.1" onChange={v => updateParam('volume', v)} readOnly={readOnly} />

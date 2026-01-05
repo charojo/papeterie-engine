@@ -8,6 +8,11 @@ import { BehaviorEditor } from './BehaviorEditor';
 import { SpriteListEditor } from './SpriteListEditor';
 import { TimelineEditor } from './TimelineEditor';
 import { SpriteLibraryDialog } from './SpriteLibraryDialog';
+import { useAssetLogs } from '../hooks/useAssetLogs';
+import { useLayerOperations } from '../hooks/useLayerOperations';
+import { useTransformEditor } from '../hooks/useTransformEditor';
+import { useOptimization } from '../hooks/useOptimization';
+import { useBehaviorEditor } from '../hooks/useBehaviorEditor';
 
 const API_BASE = "http://localhost:8000/api";
 
@@ -43,6 +48,7 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
         handleSpriteSelected,
         handleSpritePositionChanged,
         handleKeyframeMove,
+        handleKeyframeDelete,
         handleShare,
         handleSaveRotation,
         handleSpriteRotationChanged,
@@ -272,6 +278,7 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
                                         }
                                     }}
                                     onKeyframeMove={handleKeyframeMove}
+                                    onKeyframeDelete={handleKeyframeDelete}
                                     onSelectLayer={handleSpriteSelected}
                                     assetBaseUrl={window.API_BASE ? window.API_BASE.replace('/api', '/assets') : undefined}
                                     onPlayPause={() => {
@@ -529,14 +536,25 @@ function SmartConfigViewer({ configData, selectedImage, type, scrollContainerRef
 
 // Hook to encapsulate logic
 function useAssetController(type, asset, refresh, onDelete) {
-    const [logs, setLogs] = useState('');
-    const [isOptimizing, setIsOptimizing] = useState(false);
     const [selectedImage, setSelectedImage] = useState(type === 'sprite' ? asset.name : 'original');
-    const [visualPrompt, setVisualPrompt] = useState('');
     const [configPrompt, setConfigPrompt] = useState('');
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-    const [imageTimestamp, setImageTimestamp] = useState(Date.now());
-    const [processingMode, setProcessingMode] = useState('local'); // 'local' (free) or 'llm' (quality)
+
+    const {
+        isOptimizing,
+        imageTimestamp,
+        setImageTimestamp,
+        visualPrompt,
+        setVisualPrompt,
+        processingMode,
+        setProcessingMode,
+        handleOptimize,
+        handleRevert,
+        handleSaveRotation
+    } = useOptimization(type, asset, refresh);
+
+    // Use extracted hook for log fetching and polling
+    const logs = useAssetLogs(type, asset.name, isOptimizing, type === 'scene' ? refresh : null);
 
     // Initialization & Reset
     useEffect(() => {
@@ -593,36 +611,7 @@ function useAssetController(type, asset, refresh, onDelete) {
         }
     }, [visualPrompt, asset.name, type]);
 
-    // Fetch & Poll Logs
-    useEffect(() => {
-        let interval;
-        const fetchLogs = () => {
-            const endpoint = type === 'sprite' ? `sprites` : `scenes`;
-            fetch(`${API_BASE}/logs/${endpoint}/${asset.name}`)
-                .then(res => res.json())
-                .then(data => {
-                    const raw = data.content || "";
-                    // Show all logs including DEBUG
-                    setLogs(raw);
-                })
-                .catch(() => { });
-        };
-
-        fetchLogs(); // Initial fetch
-
-        if (isOptimizing) {
-            interval = setInterval(() => {
-                fetchLogs();
-                // Incrementally refresh asset data during optimization for scenes 
-                // to show sprites as they are extracted.
-                if (type === 'scene') {
-                    refresh();
-                }
-            }, 1000);
-        }
-
-        return () => clearInterval(interval);
-    }, [asset.name, type, isOptimizing, refresh]);
+    // NOTE: Log fetching is now handled by useAssetLogs hook above
 
     // --- Actions ---
 
@@ -633,96 +622,27 @@ function useAssetController(type, asset, refresh, onDelete) {
         localStorage.setItem('lastActiveTab', tab);
     };
 
-    // --- Actions ---
+    const { handleBehaviorsChange: handleEventsChange } = useBehaviorEditor(type, asset, selectedImage, refresh);
 
-    // Note: This is an optimistic update helper. Real persistence needs a backend endpoint for "update metadata".
-    // For now we assume we just update it locally to verify UI. 
-    // In a real flow, we'd POST to /sprites/{name}/config or similar.
-    const handleEventsChange = async (newBehaviors) => {
-        try {
-            if (type === 'sprite') {
-                const updatedMetadata = {
-                    ...asset.metadata,
-                    behaviors: newBehaviors
-                };
-                const res = await fetch(`${API_BASE}/sprites/${asset.name}/config`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(updatedMetadata)
-                });
-                if (!res.ok) throw new Error(await res.text());
-                toast.success("Sprite behaviors updated");
-            } else {
-                // Scene mode
-                if (selectedImage === 'original') {
-                    toast.error("Cannot add behaviors to original scene background directly. Select a sprite layer.");
-                    return;
-                }
 
-                if (!asset.config) return;
-                const updatedConfig = JSON.parse(JSON.stringify(asset.config)); // Deep clone
-                const layer = updatedConfig.layers?.find(l => l.sprite_name === selectedImage);
-                if (layer) {
-                    layer.behaviors = newBehaviors;
-                    const res = await fetch(`${API_BASE}/scenes/${asset.name}/config`, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(updatedConfig)
-                    });
-                    if (!res.ok) throw new Error(await res.text());
-                    toast.success(`Updated behaviors for ${selectedImage}`);
-                } else {
-                    toast.error(`Layer ${selectedImage} not found in scene config`);
-                }
-            }
-            await refresh();
-        } catch (e) {
-            console.error("Failed to update behaviors:", e);
-            toast.error(`Failed to save changes: ${e.message}`);
-        }
-    };
+    const {
+        layerVisibility,
+        showSpriteLibrary,
+        setShowSpriteLibrary,
+        toggleLayerVisibility,
+        handleAddSprite,
+        handleRemoveLayer,
+        handleDeleteSprite,
+        initializeVisibility
+    } = useLayerOperations(asset, refresh);
 
-    const handleOptimize = async () => {
-        setIsOptimizing(true);
-        const actionName = type === 'sprite' ? "Transformation" : "Optimization";
-
-        try {
-            let promise;
-            if (type === 'sprite') {
-                promise = fetch(`${API_BASE}/sprites/${asset.name}/process`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ optimize: true, remove_background: true })
-                });
-            } else {
-                promise = fetch(`${API_BASE}/scenes/${asset.name}/optimize`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ prompt_guidance: visualPrompt, processing_mode: processingMode })
-                });
-            }
-
-            const res = await promise;
-            if (!res.ok) throw new Error((await res.json()).detail);
-
-            toast.success(`${actionName} Complete`);
-            setImageTimestamp(Date.now());
-            await refresh();
-        } catch (e) {
-            let msg = e.message;
-            if (msg === 'Failed to fetch') {
-                msg = "Network error: Connection to server lost or timed out. Please check server logs.";
-            }
-            toast.error(msg);
-        } finally {
-            setIsOptimizing(false);
-        }
-    };
-
-    const handleUpdateConfig = async () => {
-        toast.info("Config refinement coming soon!", { description: `Prompt: ${configPrompt}` });
-        setConfigPrompt('');
-    };
+    const {
+        handleSpritePositionChanged,
+        handleSpriteRotationChanged,
+        handleSpriteScaleChanged: handleSaveScale,
+        handleKeyframeMove,
+        handleKeyframeDelete
+    } = useTransformEditor(asset, refresh);
 
     const [telemetry, setTelemetry] = useState(null);
     const handleTelemetry = (data) => {
@@ -730,68 +650,15 @@ function useAssetController(type, asset, refresh, onDelete) {
     };
 
     const [debugOverlayMode, setDebugOverlayMode] = useState('auto'); // 'auto' | 'on' | 'off'
-    const [layerVisibility, setLayerVisibility] = useState({}); // { layerName: boolean }
-
-    const toggleLayerVisibility = async (name) => {
-        // Optimistic update
-        const newVisibility = layerVisibility[name] === false ? true : false;
-
-        setLayerVisibility(prev => ({
-            ...prev,
-            [name]: newVisibility
-        }));
-
-        if (type === 'scene' && asset.config) {
-            try {
-                const updatedConfig = JSON.parse(JSON.stringify(asset.config));
-                const layer = updatedConfig.layers?.find(l => l.sprite_name === name);
-                if (layer) {
-                    layer.visible = newVisibility;
-                    const res = await fetch(`${API_BASE}/scenes/${asset.name}/config`, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(updatedConfig)
-                    });
-                    if (!res.ok) throw new Error(await res.text());
-                    await refresh();
-                }
-            } catch (e) {
-                console.error("Failed to persist visibility:", e);
-                toast.error(`Failed to save visibility state: ${e.message}`);
-                // Revert
-                setLayerVisibility(prev => ({
-                    ...prev,
-                    [name]: !newVisibility
-                }));
-            }
-        }
-    };
 
     // Initialize visibility from config
     useEffect(() => {
-        if (type === 'scene' && asset.config?.layers) {
-            const visibilityMap = {};
-            asset.config.layers.forEach(l => {
-                visibilityMap[l.sprite_name] = l.visible !== false;
-            });
-            setLayerVisibility(visibilityMap);
-        }
-    }, [asset.config, type]);
+        initializeVisibility(asset.config);
+    }, [asset.config, initializeVisibility]);
 
-    // Forward visibility to engine whenever telemetry updates (poor man's sync)
-    // Actually, it's better to pass layerVisibility to TheatreStage and let it sync.
-
-    const handleRevert = async () => {
-        if (!confirm("Are you sure you want to revert to original? Any changes will be lost.")) return;
-        toast.info("Reverting...");
-        try {
-            const res = await fetch(`${API_BASE}/sprites/${asset.name}/revert`, { method: 'POST' });
-            if (!res.ok) throw new Error((await res.json()).detail);
-            toast.success("Reverted to original");
-            await refresh();
-        } catch (e) {
-            toast.error(e.message);
-        }
+    const handleUpdateConfig = async () => {
+        toast.info("Config refinement coming soon!", { description: `Prompt: ${configPrompt}` });
+        setConfigPrompt('');
     };
 
     const handleDeleteClick = () => {
@@ -814,7 +681,6 @@ function useAssetController(type, asset, refresh, onDelete) {
 
             if (mode === 'reset') {
                 setSelectedImage(type === 'sprite' ? asset.name : 'original');
-                setLogs('');
                 refresh();
             } else if (onDelete) {
                 onDelete();
@@ -826,214 +692,10 @@ function useAssetController(type, asset, refresh, onDelete) {
         }
     };
 
-    const [showSpriteLibrary, setShowSpriteLibrary] = useState(false);
-
-    const handleAddSprite = async (sprite) => {
-        if (!asset.config) return;
-
-        // Check if already exists
-        const exists = (asset.config.layers || []).find(l => l.sprite_name === sprite.name);
-        if (exists) {
-            toast.warning(`Sprite '${sprite.name}' is already in the scene.`);
-            return;
-        }
-
-        // Determine Z-depth from metadata
-        let zDepth = 50; // Sensible default
-        if (sprite.metadata) {
-            // Check for LocationBehavior first
-            const locationBehavior = (sprite.metadata.behaviors || []).find(b => b.type === 'location');
-            if (locationBehavior && locationBehavior.z_depth !== undefined) {
-                zDepth = locationBehavior.z_depth;
-            } else if (sprite.metadata.z_depth !== undefined) {
-                zDepth = sprite.metadata.z_depth;
-            }
-        }
-
-        const newLayer = {
-            sprite_name: sprite.name,
-            z_depth: zDepth,
-            x_offset: 0,
-            y_offset: 0,
-            scale: 1.0,
-            visible: true,
-            behaviors: []
-        };
-
-        const updatedConfig = JSON.parse(JSON.stringify(asset.config));
-        updatedConfig.layers = [...(updatedConfig.layers || []), newLayer];
-
-        try {
-            const res = await fetch(`${API_BASE}/scenes/${asset.name}/config`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(updatedConfig)
-            });
-            if (!res.ok) throw new Error(await res.text());
-            toast.success(`Added sprite '${sprite.name}' at Z=${zDepth}`);
-            setShowSpriteLibrary(false);
-            setSelectedImage(sprite.name); // Select the newly added sprite
-            handleTabChange('sprites'); // Switch to sprites tab
-            await refresh();
-        } catch (e) {
-            toast.error(`Failed to add sprite: ${e.message}`);
-        }
-    };
-
-    const handleRemoveLayer = async (spriteName) => {
-        // Confirmation removed for optmistic undo flow
-        // if (!confirm(`Are you sure you want to remove sprite '${spriteName}' from this scene?`)) return;
-
-        if (!asset.config) return;
-        const updatedConfig = JSON.parse(JSON.stringify(asset.config));
-        updatedConfig.layers = (updatedConfig.layers || []).filter(l => l.sprite_name !== spriteName);
-
-        try {
-            const res = await fetch(`${API_BASE}/scenes/${asset.name}/config`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(updatedConfig)
-            });
-            if (!res.ok) throw new Error(await res.text());
-            toast.success(`Removed layer ${spriteName}`);
-            setSelectedImage('original'); // Reset selection
-            await refresh();
-        } catch (e) {
-            toast.error(`Failed to remove layer: ${e.message}`);
-        }
-    };
-
-    const handleDeleteSprite = async (spriteName) => {
-        // Delete sprite permanently via API
-        try {
-            // First remove from scene if present
-            if (type === 'scene' && asset.config) {
-                const updatedConfig = JSON.parse(JSON.stringify(asset.config));
-                updatedConfig.layers = (updatedConfig.layers || []).filter(l => l.sprite_name !== spriteName);
-
-                await fetch(`${API_BASE}/scenes/${asset.name}/config`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(updatedConfig)
-                });
-            }
-
-            // Then delete the sprite asset
-            const res = await fetch(`${API_BASE}/sprites/${spriteName}?mode=delete`, { method: 'DELETE' });
-            if (!res.ok) throw new Error((await res.json()).detail);
-
-            toast.success(`Deleted sprite "${spriteName}" permanently`);
-            setSelectedImage('original');
-            await refresh();
-        } catch (e) {
-            toast.error(`Failed to delete sprite: ${e.message}`);
-        }
-    };
-
     const handleSpriteSelected = (spriteName) => {
-        // Update selected image when sprite is clicked in theatre
         if (type === 'scene') {
             setSelectedImage(spriteName);
-            // Optionally switch to sprites tab (where behavior now lives)
             handleTabChange('sprites');
-        }
-    };
-
-    const handleSpritePositionChanged = async (spriteName, x, y, time) => {
-        if (type !== 'scene') return;
-
-        try {
-            if (!asset.config) return;
-            const updatedConfig = JSON.parse(JSON.stringify(asset.config));
-            const layer = (updatedConfig.layers || []).find(l => l.sprite_name === spriteName);
-
-            if (!layer) {
-                toast.error(`Layer ${spriteName} not found`);
-                return;
-            }
-
-            // Update x_offset and y_offset
-            layer.x_offset = Math.round(x);
-            layer.y_offset = Math.round(y);
-
-            // Create or update LocationBehavior with current time
-            if (!layer.behaviors) layer.behaviors = [];
-
-            // Find existing location behavior at this time (within 0.5s tolerance)
-            const existingIndex = layer.behaviors.findIndex(
-                b => b.type === 'location' && Math.abs(b.time_offset - time) < 0.5
-            );
-
-            const locationBehavior = {
-                type: 'location',
-                x: Math.round(x),
-                y: Math.round(y),
-                time_offset: parseFloat(time.toFixed(2)),
-                interpolate: true,
-                enabled: true
-            };
-
-            if (existingIndex >= 0) {
-                // Update existing
-                layer.behaviors[existingIndex] = locationBehavior;
-            } else {
-                // Add new
-                layer.behaviors.push(locationBehavior);
-                // Sort by time_offset
-                layer.behaviors.sort((a, b) => {
-                    const aTime = a.time_offset || 0;
-                    const bTime = b.time_offset || 0;
-                    return aTime - bTime;
-                });
-            }
-
-            const res = await fetch(`${API_BASE}/scenes/${asset.name}/config`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(updatedConfig)
-            });
-
-            if (!res.ok) throw new Error(await res.text());
-
-            toast.success(`Updated position for ${spriteName} at ${time.toFixed(1)}s`);
-            await refresh();
-        } catch (e) {
-            console.error('Failed to update position:', e);
-            toast.error(`Failed to save position: ${e.message}`);
-        }
-    };
-
-    const handleKeyframeMove = async (layerName, behaviorIndex, newTime, commit) => {
-        if (type !== 'scene' || !commit) return; // Only commit=true saves
-
-        try {
-            if (!asset.config) return;
-            const updatedConfig = JSON.parse(JSON.stringify(asset.config));
-            const layer = (updatedConfig.layers || []).find(l => l.sprite_name === layerName);
-
-            if (!layer || !layer.behaviors || !layer.behaviors[behaviorIndex]) {
-                toast.error(`Keyframe not found`);
-                return;
-            }
-
-            layer.behaviors[behaviorIndex].time_offset = parseFloat(newTime.toFixed(2));
-
-            // Re-sort behaviors by time
-            layer.behaviors.sort((a, b) => (a.time_offset || 0) - (b.time_offset || 0));
-
-            const res = await fetch(`${API_BASE}/scenes/${asset.name}/config`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(updatedConfig)
-            });
-
-            if (!res.ok) throw new Error(await res.text());
-
-            toast.success(`Moved keyframe to ${newTime.toFixed(2)}s`);
-            await refresh();
-        } catch (e) {
-            console.error('Failed to move keyframe:', e);
-            toast.error(`Failed to move keyframe: ${e.message}`);
         }
     };
 
@@ -1051,144 +713,6 @@ function useAssetController(type, asset, refresh, onDelete) {
         }
     };
 
-    const handleSaveRotation = async (degrees) => {
-        if (!confirm(`Apply ${degrees} degree rotation permanently? This will modify the image file.`)) return;
-
-        setIsOptimizing(true);
-        try {
-            // Normalize degrees to be within reasonable bounds if needed, but backend handles int
-            // degrees is usually 90, 180, -90 etc.
-
-            // Sprite and Scene rotation both supported now
-            const endpoint = type === 'sprite' ? 'sprites' : 'scenes';
-
-            const res = await fetch(`${API_BASE}/${endpoint}/${asset.name}/rotate`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ angle: degrees })
-            });
-
-            if (!res.ok) throw new Error(await res.text());
-
-            const data = await res.json();
-            toast.success(data.message);
-            setImageTimestamp(Date.now());
-            await refresh();
-            // We rely on ImageViewer to reset its internal rotation state via prop or effect if needed,
-            // but currently ImageViewer resets on mount or new image.
-            // Since refresh() might update the image URL (timestamp), it should trigger a re-render.
-            // However, ImageViewer only resets pos on mainSrc change. It doesn't reset rotation explicitly on mainSrc change yet.
-            // Check ImageViewer implementation:
-            // useEffect(() => {setPosition... }, [mainSrc]);
-            // It does NOT reset rotation on mainSrc change. I should fix that in ImageViewer or force it here.
-            // Actually, if we refresh, mainSrc changes (timestamp), so we want rotation to go back to 0.
-
-        } catch (e) {
-            toast.error(`Rotation failed: ${e.message}`);
-        } finally {
-            setIsOptimizing(false);
-        }
-    };
-
-    const handleSpriteRotationChanged = async (spriteName, degrees) => {
-        if (type !== 'scene') return;
-        try {
-            if (!asset.config) return;
-            const updatedConfig = JSON.parse(JSON.stringify(asset.config));
-            const layer = (updatedConfig.layers || []).find(l => l.sprite_name === spriteName);
-            if (!layer) return;
-
-            // Updated base rotation or location behavior if it exists
-            const loc = (layer.behaviors || []).find(b => b.type === 'location' && b.time_offset === undefined);
-            if (loc) {
-                loc.rotation = degrees;
-            } else {
-                layer.rotation = degrees;
-            }
-
-            const res = await fetch(`${API_BASE}/scenes/${asset.name}/config`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(updatedConfig)
-            });
-            if (!res.ok) throw new Error(await res.text());
-            await refresh();
-        } catch (e) {
-            console.error("Failed to update rotation:", e);
-        }
-    };
-
-    const handleSaveScale = async (arg1, arg2, arg3) => {
-        // Handle varying signatures: (scale) or (spriteName, scale) or (spriteName, scale, time)
-        let targetSprite = selectedImage;
-        let newScale = arg1;
-        let time = 0;
-
-        if (typeof arg1 === 'string' && typeof arg2 === 'number') {
-            targetSprite = arg1;
-            newScale = arg2;
-            if (typeof arg3 === 'number') time = arg3;
-        }
-
-        if (type !== 'scene' || !targetSprite || targetSprite === 'original') return;
-
-        try {
-            const updatedConfig = JSON.parse(JSON.stringify(asset.config));
-            const layer = (updatedConfig.layers || []).find(l => l.sprite_name === targetSprite);
-            if (!layer) throw new Error(`Layer ${targetSprite} not found`);
-
-            // Always update base scale if at t=0 or if it's the intended base edit
-            // But if t > 0, we create a keyframe.
-            if (time > 0.1) {
-                if (!layer.behaviors) layer.behaviors = [];
-                // Find existing keyframe at this time
-                const existingIndex = layer.behaviors.findIndex(
-                    b => b.type === 'location' && Math.abs((b.time_offset || 0) - time) < 0.1
-                );
-
-                const kf = {
-                    type: 'location',
-                    scale: newScale,
-                    time_offset: parseFloat(time.toFixed(2)),
-                    interpolate: true,
-                    enabled: true
-                };
-
-                // Merge with existing keyframe props if updating
-                if (existingIndex >= 0) {
-                    const existing = layer.behaviors[existingIndex];
-                    layer.behaviors[existingIndex] = { ...existing, scale: newScale };
-                } else {
-                    layer.behaviors.push(kf);
-                    // Sort
-                    layer.behaviors.sort((a, b) => (a.time_offset || 0) - (b.time_offset || 0));
-                }
-                toast.success(`Keyframed scale for ${targetSprite} at ${time.toFixed(1)}s`);
-            } else {
-                // Base Scale
-                layer.scale = newScale;
-                // Also update any static LocationBehavior (time_offset undefined)
-                if (layer.behaviors) {
-                    const baseLoc = layer.behaviors.find(b => b.type === 'location' && b.time_offset === undefined);
-                    if (baseLoc) baseLoc.scale = newScale;
-                }
-                toast.success(`Updated base scale for ${targetSprite}`);
-            }
-
-            const res = await fetch(`${API_BASE}/scenes/${asset.name}/config`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(updatedConfig)
-            });
-            if (!res.ok) throw new Error(await res.text());
-
-            await refresh();
-        } catch (e) {
-            const msg = `Failed to save scale: ${e.message}`;
-            toast.error(msg, { duration: 8000 }); // Longer duration
-            setLogs(prev => prev + `\n[UI ERROR] ${msg}`); // Append to visible log
-        }
-    };
 
     // --- Computed State ---
 
@@ -1293,6 +817,7 @@ function useAssetController(type, asset, refresh, onDelete) {
         handleSpriteSelected,
         handleSpritePositionChanged,
         handleKeyframeMove,
+        handleKeyframeDelete,
         handleShare,
         handleSaveRotation,
         handleSpriteRotationChanged,
