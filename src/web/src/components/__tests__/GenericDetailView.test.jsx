@@ -93,6 +93,9 @@ vi.mock('sonner', () => ({
 // Mock window.confirm
 window.confirm = vi.fn(() => true);
 
+// Mock scrollIntoView
+window.HTMLElement.prototype.scrollIntoView = vi.fn();
+
 describe('GenericDetailView', () => {
     beforeEach(() => {
         vi.clearAllMocks();

@@ -30,6 +30,10 @@ asyncio_default_fixture_loop_scope = "function"
 markers = [
     "live: marks tests as live integration tests (deselect with '-m \"not live\"')",
 ]
+filterwarnings = [
+    "ignore::DeprecationWarning:rembg.*",
+    "ignore::DeprecationWarning:Pillow.*",
+]
 
 [dependency-groups]
 dev = [

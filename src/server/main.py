@@ -32,6 +32,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+# Intercept .prompt.json requests to handle 404s gracefully
+@app.get("/assets/users/{user_id}/sprites/{sprite_name}/{filename}")
+async def get_sprite_asset(user_id: str, sprite_name: str, filename: str):
+    file_path = ASSETS_DIR / "users" / user_id / "sprites" / sprite_name / filename
+    if filename.endswith(".prompt.json") and not file_path.exists():
+        return {}  # Return empty JSON instead of 404
+
+    if not file_path.exists():
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=404, detail="Asset not found")
+
+    from fastapi.responses import FileResponse
+
+    return FileResponse(file_path)
+
+
 # Mount static files
 app.mount("/assets", StaticFiles(directory=str(ASSETS_DIR)), name="assets")
 

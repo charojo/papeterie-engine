@@ -345,6 +345,7 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
                                     onBehaviorsChange={handleEventsChange}
                                     behaviorGuidance={behaviorGuidance}
                                     onAddSprite={() => setShowSpriteLibrary(true)}
+                                    currentTime={currentTime}
                                 />
                             </div>
                         )}
@@ -837,12 +838,24 @@ function useAssetController(type, asset, refresh, onDelete) {
             return;
         }
 
+        // Determine Z-depth from metadata
+        let zDepth = 50; // Sensible default
+        if (sprite.metadata) {
+            // Check for LocationBehavior first
+            const locationBehavior = (sprite.metadata.behaviors || []).find(b => b.type === 'location');
+            if (locationBehavior && locationBehavior.z_depth !== undefined) {
+                zDepth = locationBehavior.z_depth;
+            } else if (sprite.metadata.z_depth !== undefined) {
+                zDepth = sprite.metadata.z_depth;
+            }
+        }
+
         const newLayer = {
             sprite_name: sprite.name,
-            d: 100, // Default depth
+            z_depth: zDepth,
             x_offset: 0,
             y_offset: 0,
-            scale: 1.0, // Added actual size explicit default
+            scale: 1.0,
             visible: true,
             behaviors: []
         };
@@ -857,7 +870,7 @@ function useAssetController(type, asset, refresh, onDelete) {
                 body: JSON.stringify(updatedConfig)
             });
             if (!res.ok) throw new Error(await res.text());
-            toast.success(`Added sprite '${sprite.name}'`);
+            toast.success(`Added sprite '${sprite.name}' at Z=${zDepth}`);
             setShowSpriteLibrary(false);
             setSelectedImage(sprite.name); // Select the newly added sprite
             handleTabChange('sprites'); // Switch to sprites tab

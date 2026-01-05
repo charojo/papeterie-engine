@@ -1,5 +1,8 @@
 import { Layer } from './Layer.js';
 import { AudioManager } from './AudioManager.js';
+import { createLogger } from '../utils/logger.js';
+
+const log = createLogger('Theatre');
 
 // Safe global access with fallback for tests/environments without RAF
 const _requestAnimationFrame = (cb) => (globalThis.requestAnimationFrame || ((c) => setTimeout(() => c(Date.now()), 16)))(cb);
@@ -50,18 +53,62 @@ export class Theatre {
         this.initialRotation = 0;
         this.isCropMode = false;
 
-        // Camera state
-        this.cameraZoom = 1.0;
-        this.cameraPanX = 0;
-        this.cameraPanY = 0;
+        // Camera state (private backing fields)
+        this._cameraZoom = 1.0;
+        this._cameraPanX = 0;
+        this._cameraPanY = 0;
 
         // Event callbacks
         this.onTimeUpdate = null;
 
         this.soloSprite = null;
 
+        // Sprite Cache: Map<string, Promise<HTMLImageElement>>
+        this.spriteCache = new Map();
+
         // Bind for loop
         this.loop = this.loop.bind(this);
+    }
+
+    // Camera Accessors with Invariant Validation
+    get cameraZoom() { return this._cameraZoom; }
+    set cameraZoom(v) {
+        // Invariant: zoom must be finite positive number
+        if (!Number.isFinite(v) || v <= 0) {
+            log.error(`Invalid cameraZoom rejected: ${v}`);
+            return; // Silently reject instead of throwing to not break existing code
+        }
+        if (v !== this._cameraZoom) {
+            this._cameraZoom = v;
+            // If paused, force a draw so we see the zoom immediately
+            if (this.isPaused) this.updateAndDraw(0);
+        }
+    }
+
+    get cameraPanX() { return this._cameraPanX; }
+    set cameraPanX(v) {
+        // Invariant: pan must be finite
+        if (!Number.isFinite(v)) {
+            log.error(`Invalid cameraPanX rejected: ${v}`);
+            return;
+        }
+        if (v !== this._cameraPanX) {
+            this._cameraPanX = v;
+            if (this.isPaused) this.updateAndDraw(0);
+        }
+    }
+
+    get cameraPanY() { return this._cameraPanY; }
+    set cameraPanY(v) {
+        // Invariant: pan must be finite
+        if (!Number.isFinite(v)) {
+            log.error(`Invalid cameraPanY rejected: ${v}`);
+            return;
+        }
+        if (v !== this._cameraPanY) {
+            this._cameraPanY = v;
+            if (this.isPaused) this.updateAndDraw(0);
+        }
     }
 
     setTime(time) {
@@ -95,7 +142,7 @@ export class Theatre {
             try {
                 image = await this._loadSprite(spriteName);
             } catch (err) {
-                console.error(`[Theatre] Failed to load sprite '${spriteName}':`, err);
+                log.error(`Failed to load sprite '${spriteName}':`, err);
                 // Return a null image, Layer class should handle it (or we skip it)
             }
 
@@ -154,14 +201,15 @@ export class Theatre {
                             });
                         }
                     } catch (e) {
-                        console.warn("[Theatre] Failed to load sound:", sound.sound_file, e);
+                        log.warn('Failed to load sound:', sound.sound_file, e);
                     }
                 }
             }
         }
 
         this.lastTime = performance.now();
-        this.isRunning = true;
+        // FIXED: Do NOT set isRunning=true here, because it prevents start() from actually starting the RAF loop!
+        // this.isRunning = true; 
 
         // One initial draw to ensure something is visible before loop starts
         this.updateAndDraw(0);
@@ -172,6 +220,7 @@ export class Theatre {
         // Resume specific audio context if needed (browsers require user interaction usually)
         this.isRunning = true;
         this.lastTime = performance.now();
+        log.info('Starting render loop');
         this.animationFrameId = requestAnimationFrame(this.loop);
     }
 
@@ -181,45 +230,54 @@ export class Theatre {
      * @returns {Promise<HTMLImageElement|null>}
      */
     async _loadSprite(spriteName) {
-        // Construct target URL
-        // SPRITES are located at: /assets/users/{user}/sprites/{spriteName}/{spriteName}.png
-        const paths = this.userType === 'community'
-            ? ['community', 'default']
-            : ['default', 'community'];
-
-        let image = null;
-        let lastError = null;
-
-        for (const user of paths) {
-            const assetUrl = `${this.assetBaseUrl}/users/${user}/sprites/${spriteName}/${spriteName}.png`;
-            try {
-                console.log(`[Theatre] Attempting to load sprite '${spriteName}' from: ${assetUrl}`);
-                image = await this._loadImage(assetUrl);
-                console.log(`[Theatre] Successfully loaded sprite '${spriteName}' from ${user}: ${assetUrl}`);
-                return image;
-            } catch (err) {
-                console.warn(`[Theatre] Failed to load sprite '${spriteName}' from ${user}.`);
-                lastError = err;
-            }
+        if (this.spriteCache.has(spriteName)) {
+            return this.spriteCache.get(spriteName);
         }
 
-        // Last ditch fallback - check if assetBaseUrl is actually correct (local dev mismatch)
-        if (this.assetBaseUrl.includes('localhost') && !window.location.hostname.includes('localhost')) {
-            const fallbackUser = paths[0];
-            const assetUrl = `${this.assetBaseUrl}/users/${fallbackUser}/sprites/${spriteName}/${spriteName}.png`;
-            const altUrl = assetUrl.replace(/https?:\/\/[^/]+/, window.location.origin);
-            console.warn(`[Theatre] Retrying with local origin fallback: ${altUrl}`);
-            try {
-                image = await this._loadImage(altUrl);
-                console.log(`[Theatre] Success on retry with origin fallback.`);
-                return image;
-            } catch {
-                console.error(`[Theatre] Origin fallback failed for ${spriteName}`);
-            }
-        }
+        const loadPromise = (async () => {
+            // Construct target URL
+            // SPRITES are located at: /assets/users/{user}/sprites/{spriteName}/{spriteName}.png
+            const paths = this.userType === 'community'
+                ? ['community', 'default']
+                : ['default', 'community'];
 
-        console.error(`[Theatre] CRITICAL: Failed to load sprite '${spriteName}' from all paths.`, lastError);
-        return null; // Return null so we can proceed without crashing
+            let image = null;
+            let lastError = null;
+
+            for (const user of paths) {
+                const assetUrl = `${this.assetBaseUrl}/users/${user}/sprites/${spriteName}/${spriteName}.png`;
+                try {
+                    log.debug(`Loading sprite '${spriteName}' from: ${assetUrl}`);
+                    image = await this._loadImage(assetUrl);
+                    log.debug(`Loaded sprite '${spriteName}' from ${user}`);
+                    return image;
+                } catch (err) {
+                    log.warn(`Failed to load sprite '${spriteName}' from ${user}.`);
+                    lastError = err;
+                }
+            }
+
+            // Last ditch fallback - check if assetBaseUrl is actually correct (local dev mismatch)
+            if (this.assetBaseUrl.includes('localhost') && !window.location.hostname.includes('localhost')) {
+                const fallbackUser = paths[0];
+                const assetUrl = `${this.assetBaseUrl}/users/${fallbackUser}/sprites/${spriteName}/${spriteName}.png`;
+                const altUrl = assetUrl.replace(/https?:\/\/[^/]+/, window.location.origin);
+                log.warn(`Retrying with origin fallback: ${altUrl}`);
+                try {
+                    image = await this._loadImage(altUrl);
+                    log.debug('Success on origin fallback');
+                    return image;
+                } catch {
+                    log.error(`Origin fallback failed for ${spriteName}`);
+                }
+            }
+
+            log.error(`CRITICAL: Failed to load sprite '${spriteName}' from all paths.`, lastError);
+            return null; // Return null so we can proceed without crashing
+        })();
+
+        this.spriteCache.set(spriteName, loadPromise);
+        return loadPromise;
     }
 
     _loadImage(url, retry = true) {
@@ -230,16 +288,16 @@ export class Theatre {
             img.onerror = () => {
                 if (retry) {
                     // Retry with cache buster
-                    console.warn(`[Theatre] Retrying image load with cache buster: ${url}`);
+                    log.warn(`Retrying image load with cache buster: ${url}`);
                     const bustUrl = url + (url.includes('?') ? '&' : '?') + 't=' + Date.now();
                     const retryImg = new Image();
                     retryImg.crossOrigin = "Anonymous";
                     retryImg.onload = () => {
-                        console.log(`[Theatre] Recovered image with cache buster: ${url}`);
+                        log.debug(`Recovered image with cache buster: ${url}`);
                         resolve(retryImg);
                     };
                     retryImg.onerror = (err) => {
-                        console.error(`[Theatre] Image load error for URL (retry failed): ${url}`, err);
+                        log.error(`Image load retry failed: ${url}`, err);
                         reject(new Error(`Failed to load image: ${url}`));
                     };
                     retryImg.src = bustUrl;
@@ -286,7 +344,7 @@ export class Theatre {
 
     async updateScene(newSceneData) {
         this.sceneData = newSceneData;
-        console.log("[Theatre] Updating scene data...");
+        log.info('Updating scene data...');
 
         // Smart update: Sync layers with new config, preserving state/images where possible
         const newLayerConfigs = newSceneData.layers || [];
@@ -327,7 +385,7 @@ export class Theatre {
                 // We'll fetch the image if it's new.
                 const img = await this._loadSprite(spriteName);
                 if (!img) {
-                    console.warn("Failed to load new sprite in update from all paths", spriteName);
+                    log.warn('Failed to load new sprite from all paths', spriteName);
                     continue;
                 }
                 layer = new Layer({ ...layerData }, img);
@@ -393,30 +451,70 @@ export class Theatre {
     updateAndDraw(dt) {
         const { width, height } = this.canvas;
 
-        // Clear screen (outer background)
+        // Debug: Log render state occasionally
+        if (!this._lastDebugTime || (performance.now() - this._lastDebugTime > 2000)) {
+            log.debug(`Render: ${width}x${height} | Zoom=${this.cameraZoom.toFixed(3)} Pan=(${this.cameraPanX.toFixed(1)}, ${this.cameraPanY.toFixed(1)}) | Layers=${this.layers.length}`);
+            this._lastDebugTime = performance.now();
+        }
+
+        // Clear screen
         this.ctx.fillStyle = "#1a1a1a";
         this.ctx.fillRect(0, 0, width, height);
 
         this.ctx.save();
+        this._applyCameraTransform(width, height);
 
-        // Apply Camera Transform
-        this.ctx.translate(width / 2, height / 2);
-        this.ctx.scale(this.cameraZoom, this.cameraZoom);
-        this.ctx.translate(-width / 2 + this.cameraPanX, -height / 2 + this.cameraPanY);
-
-        // Draw Scene Background (the 1080p frame)
+        // Draw scene background
         this.ctx.fillStyle = "rgb(200, 230, 255)";
         this.ctx.fillRect(0, 0, width, height);
 
+        // Draw layers and collect telemetry
+        const { telemetry, selectedLayer, selectedEnvLayer } = this._drawLayers(dt, width, height);
+
+        // Draw selected layer on top
+        if (selectedLayer) {
+            this._drawSelectedLayer(selectedLayer, selectedEnvLayer, width, height, telemetry);
+        }
+
+        // Emit telemetry to React
+        this._emitTelemetry(telemetry);
+
+        // Debug overlay
+        if (this.debugMode) {
+            this._drawDebugOverlay(width, height);
+        }
+
+        this.ctx.restore();
+    }
+
+    /**
+     * Apply camera transform (zoom/pan) to canvas context.
+     */
+    _applyCameraTransform(width, height) {
+        // Validate camera state
+        if (!Number.isFinite(this.cameraZoom) || !Number.isFinite(this.cameraPanX) || !Number.isFinite(this.cameraPanY)) {
+            log.error('CRITICAL: Camera state is invalid!', this.cameraZoom, this.cameraPanX, this.cameraPanY);
+            this.cameraZoom = 1.0;
+            this.cameraPanX = 0;
+            this.cameraPanY = 0;
+        }
+
+        this.ctx.translate(width / 2, height / 2);
+        this.ctx.scale(this.cameraZoom, this.cameraZoom);
+        this.ctx.translate(-width / 2 + this.cameraPanX, -height / 2 + this.cameraPanY);
+    }
+
+    /**
+     * Draw all layers except selected, collecting telemetry.
+     */
+    _drawLayers(dt, width, height) {
         const telemetry = [];
         let selectedLayer = null;
         let selectedEnvLayer = null;
 
-        // Draw Layers (skip selected layer, draw it last for visibility)
         for (const layer of this.layers) {
             const isSelected = this.selectedSprite === layer.config.sprite_name;
 
-            // Skip selected layer in normal order, we'll draw it on top
             if (isSelected) {
                 selectedLayer = layer;
                 if (layer.environmental_reaction) {
@@ -433,9 +531,6 @@ export class Theatre {
             }
 
             const isSolo = this.soloSprite === layer.config.sprite_name;
-
-            // Stability: If sprite is selected, force dt=0 to pause behaviors (stop bobbling)
-            // effectiveDt is 0 if not solo (when solo active) OR if selected (stabilized)
             let effectiveDt = dt;
             let effectiveTime = this.elapsedTime;
 
@@ -443,8 +538,6 @@ export class Theatre {
                 effectiveDt = 0;
                 effectiveTime = 0;
             }
-
-            const forceHandles = this.isPaused;
 
             layer.draw(
                 this.ctx,
@@ -454,7 +547,7 @@ export class Theatre {
                 effectiveTime,
                 effectiveDt,
                 envLayerForTilt,
-                forceHandles,
+                this.isPaused,
                 this.isCropMode
             );
 
@@ -470,105 +563,114 @@ export class Theatre {
             });
         }
 
-        // Draw selected layer LAST (on top) for editing visibility
-        if (selectedLayer) {
-            // Check if it's occluded by any layer that was drawn AFTER it (higher Z-depth)
-            // Layers are sorted by z_depth ascending, so we check layers that were drawn after skip.
-            // Wait, updateAndDraw loop draws all but selected. 
-            // Let's check overlap with all layers that have higher Z-depth.
-            let isOccluded = false;
-            for (const other of this.layers) {
-                if (other.config.sprite_name === this.selectedSprite) continue;
-                if (other.z_depth > selectedLayer.z_depth && other.visible) {
-                    // Simple bounding box check for occlusion
-                    const otherTf = other.getTransform(height, width, 0, this.elapsedTime);
-                    const selTf = selectedLayer.getTransform(height, width, 0, this.elapsedTime);
-                    const { width: oW, height: oH } = other._getBaseDimensions(height);
-                    const { width: sW, height: sH } = selectedLayer._getBaseDimensions(height);
+        return { telemetry, selectedLayer, selectedEnvLayer };
+    }
 
-                    const actualOW = oW * otherTf.scale;
-                    const actualOH = oH * otherTf.scale;
-                    const actualSW = sW * selTf.scale;
-                    const actualSH = sH * selTf.scale;
+    /**
+     * Draw selected layer on top with occlusion detection.
+     */
+    _drawSelectedLayer(selectedLayer, selectedEnvLayer, width, height, telemetry) {
+        const isOccluded = this._checkOcclusion(selectedLayer, width, height);
 
-                    const oX = (other.scroll_speed * this.scroll) + other.x_offset + otherTf.x + (otherTf.base_x || 0);
-                    const oY = otherTf.base_y + otherTf.y;
-                    const sX = (selectedLayer.scroll_speed * this.scroll) + selectedLayer.x_offset + selTf.x + (selTf.base_x || 0);
-                    const sY = selTf.base_y + selTf.y;
+        selectedLayer.draw(
+            this.ctx,
+            width,
+            height,
+            this.scroll,
+            this.elapsedTime,
+            0, // dt=0 to freeze behaviors for editing
+            selectedEnvLayer,
+            true,
+            this.isCropMode
+        );
 
-                    if (oX < sX + actualSW && oX + actualOW > sX && oY < sY + actualSH && oY + actualOH > sY) {
-                        isOccluded = true;
-                        break;
-                    }
-                }
-            }
+        if (isOccluded) {
+            this._drawOcclusionIndicator(selectedLayer, width, height);
+        }
 
-            selectedLayer.draw(
-                this.ctx,
-                width,
-                height,
-                this.scroll,
-                this.elapsedTime,
-                0, // dt=0 to freeze behaviors for editing
-                selectedEnvLayer,
-                true, // Always show handles for selected
-                this.isCropMode
-            );
+        // Add to telemetry
+        const currentY = selectedLayer._currentYPhys !== undefined ? selectedLayer._currentYPhys : (selectedLayer._getBaseY(height) + selectedLayer.y_offset);
+        telemetry.push({
+            name: selectedLayer.config.sprite_name,
+            x: selectedLayer.lastDrawnX || 0,
+            y: currentY,
+            tilt: selectedLayer.currentTilt || 0,
+            z_depth: selectedLayer.z_depth,
+            visible: selectedLayer.visible
+        });
+    }
 
-            if (isOccluded) {
-                // Draw "Hidden" indicator
-                this.ctx.save();
+    /**
+     * Check if selected layer is occluded by higher Z-depth layers.
+     */
+    _checkOcclusion(selectedLayer, width, height) {
+        for (const other of this.layers) {
+            if (other.config.sprite_name === this.selectedSprite) continue;
+            if (other.z_depth > selectedLayer.z_depth && other.visible) {
+                const otherTf = other.getTransform(height, width, 0, this.elapsedTime);
                 const selTf = selectedLayer.getTransform(height, width, 0, this.elapsedTime);
-                const { width: sW } = selectedLayer._getBaseDimensions(height);
+                const { width: oW, height: oH } = other._getBaseDimensions(height);
+                const { width: sW, height: sH } = selectedLayer._getBaseDimensions(height);
+
+                const actualOW = oW * otherTf.scale;
+                const actualOH = oH * otherTf.scale;
+                const actualSW = sW * selTf.scale;
+                const actualSH = sH * selTf.scale;
+
+                const oX = (other.scroll_speed * this.scroll) + other.x_offset + otherTf.x + (otherTf.base_x || 0);
+                const oY = otherTf.base_y + otherTf.y;
                 const sX = (selectedLayer.scroll_speed * this.scroll) + selectedLayer.x_offset + selTf.x + (selTf.base_x || 0);
                 const sY = selTf.base_y + selTf.y;
 
-                this.ctx.fillStyle = "rgba(255, 100, 100, 0.9)";
-                this.ctx.font = "bold 12px Inter, system-ui, sans-serif";
-                this.ctx.textBaseline = "bottom";
-                const label = "HIDDEN BEHIND LAYERS";
-                const metrics = this.ctx.measureText(label);
-
-                this.ctx.fillRect(sX + (sW * selTf.scale) / 2 - metrics.width / 2 - 4, sY - 20, metrics.width + 8, 18);
-                this.ctx.fillStyle = "white";
-                this.ctx.fillText(label, sX + (sW * selTf.scale) / 2 - metrics.width / 2, sY - 6);
-
-                // Draw eye-slash icon-like shape
-                this.ctx.strokeStyle = "white";
-                this.ctx.lineWidth = 2;
-                this.ctx.beginPath();
-                this.ctx.arc(sX + (sW * selTf.scale) / 2, sY - 30, 4, 0, Math.PI * 2);
-                this.ctx.stroke();
-                this.ctx.moveTo(sX + (sW * selTf.scale) / 2 - 6, sY - 36);
-                this.ctx.lineTo(sX + (sW * selTf.scale) / 2 + 6, sY - 24);
-                this.ctx.stroke();
-
-                this.ctx.restore();
+                if (oX < sX + actualSW && oX + actualOW > sX && oY < sY + actualSH && oY + actualOH > sY) {
+                    return true;
+                }
             }
-
-            // Add to telemetry
-            const currentY = selectedLayer._currentYPhys !== undefined ? selectedLayer._currentYPhys : (selectedLayer._getBaseY(height) + selectedLayer.y_offset);
-            telemetry.push({
-                name: selectedLayer.config.sprite_name,
-                x: selectedLayer.lastDrawnX || 0,
-                y: currentY,
-                tilt: selectedLayer.currentTilt || 0,
-                z_depth: selectedLayer.z_depth,
-                visible: selectedLayer.visible
-            });
         }
+        return false;
+    }
 
+    /**
+     * Draw "HIDDEN BEHIND LAYERS" indicator.
+     */
+    _drawOcclusionIndicator(selectedLayer, width, height) {
+        this.ctx.save();
+        const selTf = selectedLayer.getTransform(height, width, 0, this.elapsedTime);
+        const { width: sW } = selectedLayer._getBaseDimensions(height);
+        const sX = (selectedLayer.scroll_speed * this.scroll) + selectedLayer.x_offset + selTf.x + (selTf.base_x || 0);
+        const sY = selTf.base_y + selTf.y;
+
+        this.ctx.fillStyle = "rgba(255, 100, 100, 0.9)";
+        this.ctx.font = "bold 12px Inter, system-ui, sans-serif";
+        this.ctx.textBaseline = "bottom";
+        const label = "HIDDEN BEHIND LAYERS";
+        const metrics = this.ctx.measureText(label);
+
+        this.ctx.fillRect(sX + (sW * selTf.scale) / 2 - metrics.width / 2 - 4, sY - 20, metrics.width + 8, 18);
+        this.ctx.fillStyle = "white";
+        this.ctx.fillText(label, sX + (sW * selTf.scale) / 2 - metrics.width / 2, sY - 6);
+
+        // Draw eye-slash icon
+        this.ctx.strokeStyle = "white";
+        this.ctx.lineWidth = 2;
+        this.ctx.beginPath();
+        this.ctx.arc(sX + (sW * selTf.scale) / 2, sY - 30, 4, 0, Math.PI * 2);
+        this.ctx.stroke();
+        this.ctx.moveTo(sX + (sW * selTf.scale) / 2 - 6, sY - 36);
+        this.ctx.lineTo(sX + (sW * selTf.scale) / 2 + 6, sY - 24);
+        this.ctx.stroke();
+
+        this.ctx.restore();
+    }
+
+    /**
+     * Emit telemetry data to React callback.
+     */
+    _emitTelemetry(telemetry) {
         if (this.onTelemetry && (performance.now() - this.lastTelemetryTime > 50)) {
             this.onTelemetry(telemetry);
             this.lastTelemetryTime = performance.now();
         }
-
-        // --- Visual Debug Overlay ---
-        if (this.debugMode) {
-            this._drawDebugOverlay(width, height);
-        }
-
-        this.ctx.restore();
     }
 
     setMousePosition(x, y) {

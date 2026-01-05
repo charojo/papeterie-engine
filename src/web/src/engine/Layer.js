@@ -1,3 +1,13 @@
+import { createLogger } from '../utils/logger.js';
+
+const log = createLogger('Layer');
+
+/**
+ * Behavior Runtime Version - Must match theatre.py BEHAVIOR_RUNTIME_VERSION
+ * Increment when changing behavior logic to track JS/Python parity.
+ */
+export const BEHAVIOR_RUNTIME_VERSION = '2.1.0';
+
 export const EventType = {
     OSCILLATE: "oscillate",
     DRIFT: "drift",
@@ -250,18 +260,19 @@ export class Layer {
         );
 
         // Read positioning from LocationBehavior first, fall back to flat config
-        this.z_depth = initialLocation?.z_depth ?? config.z_depth ?? 1;
+        this.z_depth = Number(initialLocation?.z_depth ?? config.z_depth ?? 0);
         this.vertical_percent = initialLocation?.vertical_percent ?? config.vertical_percent ?? 0.5;
         this.horizontal_percent = initialLocation?.horizontal_percent ?? config.horizontal_percent ?? undefined;
-        this.x_offset = initialLocation?.x ?? config.x_offset ?? 0;
-        this.y_offset = initialLocation?.y ?? config.y_offset ?? 0;
+        this.x_offset = Number(initialLocation?.x ?? config.x_offset ?? 0);
+        this.y_offset = Number(initialLocation?.y ?? config.y_offset ?? 0);
 
         // Scale from LocationBehavior (used as base scale, behaviors may modify)
-        this._baseScale = initialLocation?.scale ?? config.scale ?? 1.0;
-        this._baseRotation = initialLocation?.rotation ?? config.rotation ?? 0.0;
+        this._baseScale = Number(initialLocation?.scale ?? config.scale ?? 1.0);
+        this._baseRotation = Number(initialLocation?.rotation ?? config.rotation ?? 0.0);
 
         // Other props (not in LocationBehavior)
-        this.scroll_speed = config.scroll_speed ?? 0.0;
+        // Other props (not in LocationBehavior)
+        this.scroll_speed = Number(config.scroll_speed ?? 0.0);
         this.is_background = config.is_background ?? false;
         this.tile_horizontal = config.tile_horizontal ?? false;
         this.tile_border = config.tile_border ?? 0;
@@ -283,52 +294,10 @@ export class Layer {
         this.visible = true;
         this.isSelected = false; // For visual highlighting during interaction
         this.environmental_reaction = config.environmental_reaction || null;
-        if (!this.environmental_reaction && config.reacts_to_environment) {
-            // Legacy migration logic (duplicating backend logic)
-            // If strictly needed for frontend-only loading without backend compilation
-            this.environmental_reaction = {
-                reaction_type: "pivot_on_crest",
-                target_sprite_name: "wave1", // legacy default
-                max_tilt_angle: config.max_env_tilt || 30.0,
-                vertical_follow_factor: 1.0
-            };
-        }
     }
 
     _initEvents(config) {
-        let events = config.behaviors || config.events || [];
-
-        // MIGRATION: Logic to convert legacy overrides to events on the fly if events are missing?
-        // Ideally backend does this, but for pure frontend loaded overrides, we do it here.
-        if (events.length === 0) {
-            if (config.bob_amplitude && config.bob_frequency) {
-                events.push({
-                    type: EventType.OSCILLATE,
-                    frequency: config.bob_frequency,
-                    amplitude: config.bob_amplitude,
-                    coordinate: CoordinateType.Y
-                });
-            }
-            if (config.vertical_drift) {
-                events.push({
-                    type: EventType.DRIFT,
-                    velocity: config.vertical_drift,
-                    coordinate: CoordinateType.Y,
-                    drift_cap: config.drift_cap_y
-                });
-            }
-            if (config.twinkle_amplitude) {
-                events.push({
-                    type: EventType.PULSE,
-                    frequency: config.twinkle_frequency,
-                    min_value: 1.0 - config.twinkle_amplitude,
-                    max_value: 1.0,
-                    waveform: "spike",
-                    coordinate: CoordinateType.OPACITY,
-                    activation_threshold_scale: config.twinkle_min_scale
-                });
-            }
-        }
+        const events = config.behaviors || config.events || [];
 
         events.forEach(evt => {
             if (evt.type === EventType.OSCILLATE) {
@@ -440,7 +409,7 @@ export class Layer {
                 const pixelData = ctx.getImageData(Math.floor(targetW / 2), h - 1, 1, 1).data;
                 this.fillColor = `rgba(${pixelData[0]}, ${pixelData[1]}, ${pixelData[2]}, ${pixelData[3] / 255})`;
             } catch (e) {
-                console.warn("Failed to sample fill color:", e);
+                log.warn("Failed to sample fill color:", e);
                 this.fillColor = "transparent";
             }
         }

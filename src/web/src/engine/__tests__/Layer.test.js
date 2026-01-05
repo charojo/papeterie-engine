@@ -68,32 +68,23 @@ describe('Layer', () => {
             expect(layer._getBaseX(2000, 1000)).toBe(450);
         });
 
-        it('migrates legacy config to events', () => {
+        it('handles string inputs for numeric properties', () => {
             const config = {
-                bob_frequency: 2.0,
-                bob_amplitude: 10.0,
-                vertical_drift: 5.0,
-                twinkle_amplitude: 0.5,
-                twinkle_frequency: 1.0,
-                twinkle_min_scale: 0.8
+                z_depth: "10",
+                scale: "1.5",
+                x_offset: "100",
+                y_offset: "50",
+                rotation: "45",
+                scroll_speed: "0.5"
             };
             const layer = new Layer(config, mockImage);
-            expect(layer.eventRuntimes.length).toBe(3); // Oscillate, Drift, Pulse
-
-            // Verify Oscillate
-            const osc = layer.eventRuntimes.find(r => r.constructor.name === 'OscillateRuntime');
-            expect(osc).toBeDefined();
-            expect(osc.config.frequency).toBe(2.0);
-
-            // Verify Drift
-            const drift = layer.eventRuntimes.find(r => r.constructor.name === 'DriftRuntime');
-            expect(drift).toBeDefined();
-            expect(drift.config.velocity).toBe(5.0);
-
-            // Verify Pulse
-            const pulse = layer.eventRuntimes.find(r => r.constructor.name === 'PulseRuntime');
-            expect(pulse).toBeDefined();
-            expect(pulse.config.min_value).toBe(0.5); // 1.0 - 0.5
+            expect(layer.z_depth).toBe(10);
+            expect(typeof layer.z_depth).toBe('number');
+            expect(layer._baseScale).toBe(1.5);
+            expect(layer.x_offset).toBe(100);
+            expect(layer.y_offset).toBe(50);
+            expect(layer._baseRotation).toBe(45);
+            expect(layer.scroll_speed).toBe(0.5);
         });
     });
 

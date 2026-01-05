@@ -30,6 +30,10 @@ from src.compiler.models import (
 
 logger = logging.getLogger(__name__)
 
+# Behavior Runtime Version - Must match Layer.js BEHAVIOR_RUNTIME_VERSION
+# Increment when changing behavior logic to track Python/JS parity.
+BEHAVIOR_RUNTIME_VERSION = "2.1.0"
+
 
 class BehaviorRuntime(ABC):
     """Base class for runtime behavior."""

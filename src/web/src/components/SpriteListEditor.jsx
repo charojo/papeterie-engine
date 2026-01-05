@@ -13,13 +13,64 @@ export function SpriteListEditor({
     onRemoveLayer,
     onBehaviorsChange,
     behaviorGuidance,
-    onAddSprite
+    onAddSprite,
+    currentTime
 }) {
     const isScene = type === 'scene';
     const layers = isScene ? (asset.config?.layers || []) : [{ sprite_name: asset.name, behaviors: asset.metadata?.behaviors || [] }];
 
-    // Sort layers by z_depth descending (front to back)
-    const sortedLayers = [...layers].sort((a, b) => (b.z_depth || 0) - (a.z_depth || 0));
+    // Sort layers by CURRENT z_depth descending (front to back)
+    // Note: If we sort dynamically, the list will jump around during playback. 
+    // User probably just wants the LABEL to be correct, but maybe sorting too?
+    // "The sprites in the sprite list should show the current z-depth"
+    // Usually lists shouldn't reorder wildly during playback unless requested.
+    // Let's keep the user's stable sort (or base sort) but update the label first.
+    // Actually, if Z changes, they might WANT to see it pop to top?
+    // Let's calculated derived layers with resolved Z.
+
+    // Helper to calculate Z at current time
+    const getZAtTime = (layer, time) => {
+        // 1. Initial Candidate: Static Behavior > Root Prop
+        const staticLocation = layer.behaviors?.find(
+            b => b.type === 'location' && b.time_offset === undefined
+        );
+
+        // Smart Default logic matching TimelineEditor
+        let currentZ = staticLocation?.z_depth ?? layer.z_depth;
+
+        // 2. Identify Dynamic Behaviors with Z (filter out null/undefined)
+        const zBehaviors = layer.behaviors
+            ?.filter(b => b.type === 'location' && typeof b.time_offset === 'number' && b.z_depth !== undefined && b.z_depth !== null)
+            .sort((a, b) => a.time_offset - b.time_offset) || [];
+
+        // 3. Fallback: If no base Z, look ahead to the first dynamic behavior's Z
+        if (currentZ === undefined || currentZ === null) {
+            if (zBehaviors.length > 0) {
+                currentZ = zBehaviors[0].z_depth;
+            } else {
+                currentZ = 0; // Absolute fallback if NOTHING is defined
+            }
+        }
+        currentZ = Number(currentZ);
+
+        // 4. Apply Time-Based Changes (Step Function)
+        for (const b of zBehaviors) {
+            if (b.time_offset <= time) {
+                currentZ = Number(b.z_depth);
+            } else {
+                break;
+            }
+        }
+        return currentZ;
+    };
+
+    const evaluatedLayers = layers.map(l => ({
+        ...l,
+        displayZ: getZAtTime(l, currentTime || 0)
+    }));
+
+    // Sort by displayZ descending
+    const sortedLayers = [...evaluatedLayers].sort((a, b) => b.displayZ - a.displayZ);
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
@@ -45,6 +96,7 @@ export function SpriteListEditor({
                         onBehaviorsChange={(newBehaviors) => onBehaviorsChange(newBehaviors)}
                         behaviorGuidance={selectedSprite === layer.sprite_name ? behaviorGuidance : null}
                         isScene={isScene}
+                        displayZ={layer.displayZ}
                     />
                 ))}
             </div>
@@ -61,7 +113,8 @@ function SpriteAccordionItem({
     onRemove,
     onBehaviorsChange,
     behaviorGuidance,
-    isScene
+    isScene,
+    displayZ
 }) {
     const [isExpanded, setIsExpanded] = useState(isSelected);
     const [isAdding, setIsAdding] = useState(false);
@@ -87,7 +140,6 @@ function SpriteAccordionItem({
         setIsAdding(false);
         setIsExpanded(true); // Ensure expanded to see the new behavior
     };
-
     return (
         <div
             ref={itemRef}
@@ -139,8 +191,6 @@ function SpriteAccordionItem({
                         />
                     </div>
                 </div>
-
-                {/* Center Side: Name - Takes remaining space and is perfectly centered */}
                 <div style={{
                     flex: 1,
                     fontSize: '0.8rem',
@@ -156,7 +206,7 @@ function SpriteAccordionItem({
                     gap: '6px'
                 }}>
                     <span style={{ opacity: 0.5, fontSize: '0.7rem', fontFamily: 'monospace', background: 'rgba(0,0,0,0.2)', padding: '1px 4px', borderRadius: '3px', minWidth: '24px', textAlign: 'center' }}>
-                        {layer.z_depth ?? 0}
+                        {displayZ}
                     </span>
                     {layer.sprite_name}
                 </div>
@@ -223,27 +273,29 @@ function SpriteAccordionItem({
                         </div>
                     )}
                 </div>
-            </div>
+            </div >
 
             {/* Expanded Content: Behaviors */}
-            {isExpanded && (
-                <div style={{
-                    padding: '0 6px 6px 6px',
-                    borderTop: '1px solid rgba(255,255,255,0.05)',
-                    background: 'rgba(0,0,0,0.25)',
-                    minHeight: '0'
-                }}>
-                    <div style={{ marginTop: '4px' }}>
-                        <BehaviorEditor
-                            behaviors={layer.behaviors || []}
-                            onChange={onBehaviorsChange}
-                            readOnly={false}
-                            inline={true}
-                            behaviorGuidance={behaviorGuidance}
-                        />
+            {
+                isExpanded && (
+                    <div style={{
+                        padding: '0 6px 6px 6px',
+                        borderTop: '1px solid rgba(255,255,255,0.05)',
+                        background: 'rgba(0,0,0,0.25)',
+                        minHeight: '0'
+                    }}>
+                        <div style={{ marginTop: '4px' }}>
+                            <BehaviorEditor
+                                behaviors={layer.behaviors || []}
+                                onChange={onBehaviorsChange}
+                                readOnly={false}
+                                inline={true}
+                                behaviorGuidance={behaviorGuidance}
+                            />
+                        </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 }

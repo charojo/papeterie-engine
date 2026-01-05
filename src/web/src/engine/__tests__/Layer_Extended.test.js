@@ -210,12 +210,6 @@ describe('Layer Extended', () => {
     });
 
     describe('Legacy & Edge Cases', () => {
-        it('handles legacy reacts_to_environment', () => {
-            const layer = new Layer({ reacts_to_environment: true }, mockImage);
-            expect(layer.environmental_reaction).not.toBeNull();
-            expect(layer.environmental_reaction.reaction_type).toBe('pivot_on_crest');
-        });
-
         it('handles missing image in containsPoint', () => {
             const layer = new Layer({}, null);
             expect(layer.containsPoint(0, 0, 1000, 1000, 0)).toBe(false);
