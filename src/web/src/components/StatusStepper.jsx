@@ -18,7 +18,7 @@ export const StatusStepper = ({ currentStatus }) => {
     else if (currentStatus === 'Raw Scene' || currentStatus === 'Raw Sprite') activeIndex = 0;
 
     return (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', opacity: 0.9 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '2px', fontSize: '0.7rem', opacity: 0.9 }}>
             {STEPS.map((step, index) => {
                 const isActive = index <= activeIndex;
                 const isCurrent = index === activeIndex;
@@ -27,11 +27,11 @@ export const StatusStepper = ({ currentStatus }) => {
                     <React.Fragment key={step.id}>
                         {/* Step Circle */}
                         <div style={{
-                            display: 'flex', alignItems: 'center', gap: '4px',
+                            display: 'flex', alignItems: 'center', gap: '2px',
                             color: isActive ? 'var(--color-primary)' : 'var(--color-text-muted)'
                         }}>
                             <div style={{
-                                width: '8px', height: '8px', borderRadius: '50%',
+                                width: '6px', height: '6px', borderRadius: '50%',
                                 background: isActive ? 'var(--color-primary)' : 'transparent',
                                 border: '1px solid currentColor'
                             }} />
@@ -41,7 +41,7 @@ export const StatusStepper = ({ currentStatus }) => {
                         {/* Divider */}
                         {index < STEPS.length - 1 && (
                             <div style={{
-                                width: '20px', height: '1px',
+                                width: '8px', height: '1px',
                                 background: isActive ? 'var(--color-primary)' : 'var(--color-border)',
                                 opacity: 0.5
                             }} />

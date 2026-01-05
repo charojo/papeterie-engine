@@ -13,7 +13,6 @@ export function SpriteListEditor({
     onRemoveLayer,
     onBehaviorsChange,
     behaviorGuidance,
-    onAddSprite,
     currentTime
 }) {
     const isScene = type === 'scene';
@@ -74,15 +73,6 @@ export function SpriteListEditor({
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px', padding: '0 2px' }}>
-                <h3 style={{ margin: 0, fontSize: '0.85rem', fontWeight: 600 }}>Sprites</h3>
-                {isScene && (
-                    <button className="btn btn-xs" onClick={onAddSprite} style={{ padding: '2px 8px' }}>
-                        <Icon name="add" size={12} /> Add
-                    </button>
-                )}
-            </div>
-
             <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '2px', paddingRight: '2px' }}>
                 {sortedLayers.map((layer) => (
                     <SpriteAccordionItem

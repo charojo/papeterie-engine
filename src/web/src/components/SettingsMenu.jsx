@@ -34,7 +34,7 @@ export const SettingsMenu = ({
                 title="Settings"
                 aria-label="Settings"
             >
-                <Icon name="settings" size={16} />
+                <Icon name="settings" size={16} style={{ opacity: 0.7 }} />
             </button>
 
             {isOpen && (

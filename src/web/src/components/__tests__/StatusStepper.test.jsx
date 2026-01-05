@@ -51,7 +51,7 @@ describe('StatusStepper', () => {
         const { container } = render(<StatusStepper currentStatus="Raw Scene" />);
 
         // Should have 3 dividers (between 4 steps)
-        const dividers = container.querySelectorAll('div[style*="width: 20px"]');
+        const dividers = container.querySelectorAll('div[style*="width: 8px"]');
         expect(dividers.length).toBe(3);
     });
 

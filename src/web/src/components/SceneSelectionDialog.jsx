@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Icon } from './Icon';
 
-export const SceneSelectionDialog = ({ scenes, onSelect }) => {
+export const SceneSelectionDialog = ({ scenes, onSelect, onCreate }) => {
     const [search, setSearch] = useState('');
 
     const filteredScenes = scenes.filter(s =>
@@ -22,6 +22,25 @@ export const SceneSelectionDialog = ({ scenes, onSelect }) => {
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '16px', marginTop: '16px' }}>
+                {/* Always show Create as the first item */}
+                <div
+                    className="card glass btn"
+                    onClick={onCreate}
+                    style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        height: 'auto',
+                        gap: '8px',
+                        border: '2px dashed var(--color-primary)',
+                        opacity: 0.8
+                    }}
+                >
+                    <Icon name="add" size={24} color="var(--color-primary)" />
+                    <span style={{ fontWeight: 'bold', color: 'var(--color-primary)' }}>Create</span>
+                </div>
+
                 {filteredScenes.map(scene => (
                     <div
                         key={scene.name}
@@ -36,7 +55,7 @@ export const SceneSelectionDialog = ({ scenes, onSelect }) => {
                         }}
                     >
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', width: '100%' }}>
-                            <Icon name="scenes" />
+                            <Icon name="scene" />
                             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }} title={scene.name}>{scene.name}</span>
                         </div>
                         <div style={{ fontSize: '0.8em', opacity: 0.7 }}>

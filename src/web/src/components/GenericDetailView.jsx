@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
 import { AssetDetailLayout } from './AssetDetailLayout';
 import { ImageViewer } from './ImageViewer';
@@ -8,6 +8,7 @@ import { BehaviorEditor } from './BehaviorEditor';
 import { SpriteListEditor } from './SpriteListEditor';
 import { TimelineEditor } from './TimelineEditor';
 import { SpriteLibraryDialog } from './SpriteLibraryDialog';
+import { StatusStepper } from './StatusStepper';
 import { useAssetLogs } from '../hooks/useAssetLogs';
 import { useLayerOperations } from '../hooks/useLayerOperations';
 import { useTransformEditor } from '../hooks/useTransformEditor';
@@ -16,7 +17,7 @@ import { useBehaviorEditor } from '../hooks/useBehaviorEditor';
 
 const API_BASE = "http://localhost:8000/api";
 
-export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, toggleExpand, _onOpenSprite, sprites }) {
+export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, toggleExpand, _onOpenSprite, sprites, setContextualActions }) {
     const {
         logs,
         isOptimizing,
@@ -76,6 +77,45 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
         setIsPlaying(false);
     }, [asset.name]);
 
+    // Update TopBar contextual actions
+    const contextualActions = useMemo(() => {
+        return {
+            play: type === 'scene' && (
+                <button
+                    className={`btn btn-secondary ${isPlaying ? 'btn-primary' : ''}`}
+                    title={isPlaying ? "Stop Scene" : "Play Scene"}
+                    onClick={() => setIsPlaying(!isPlaying)}
+                    style={{ padding: '4px 8px' }}
+                >
+                    <Icon name={isPlaying ? "stop" : "play"} size={16} style={{ opacity: 0.7 }} />
+                </button>
+            ),
+            search: type === 'scene' && (
+                <button className="btn btn-secondary" title="Search/Add Sprite to Scene" onClick={() => setShowSpriteLibrary(true)} style={{ padding: '4px 8px' }}>
+                    <Icon name="search" size={16} style={{ opacity: 0.7 }} />
+                </button>
+            ),
+            right: (
+                <>
+                    {!asset.is_community && (
+                        <button className="btn btn-secondary" title="Share Scene/Sprites to Community" onClick={handleShare} style={{ padding: '4px 8px' }}>
+                            <Icon name="share" size={16} style={{ opacity: 0.7 }} />
+                        </button>
+                    )}
+                    <button className="btn btn-secondary" title="Reset/Delete options for Scenes" onClick={handleDeleteClick} style={{ padding: '4px 8px' }}>
+                        <Icon name="delete" size={16} style={{ opacity: 0.7 }} />
+                    </button>
+                </>
+            )
+        };
+    }, [isPlaying, type, asset.is_community, handleShare, setShowSpriteLibrary, setIsPlaying, handleDeleteClick]);
+
+    useEffect(() => {
+        if (!setContextualActions) return;
+        setContextualActions(contextualActions);
+        return () => setContextualActions(null);
+    }, [contextualActions, setContextualActions]);
+
     return (
         <>
             <SpriteLibraryDialog
@@ -92,46 +132,10 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
                 assetName={asset.name}
             />
             <AssetDetailLayout
-                title={
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        {asset.name}
-                        {asset.is_community && (
-                            <span className="badge" style={{ background: 'var(--color-primary)', color: 'white', fontSize: '0.6rem', padding: '2px 6px', borderRadius: '10px', textTransform: 'uppercase' }}>
-                                Community
-                            </span>
-                        )}
-                    </div>
-                }
+                title={asset.name}
                 statusLabel={statusLabel}
                 logs={logs}
                 isExpanded={isExpanded}
-                actions={
-                    <>
-                        {!asset.is_community && (
-                            <button className="btn" title="Share with Community" onClick={handleShare}>
-                                <Icon name="share" size={16} style={{ opacity: 0.7 }} />
-                            </button>
-                        )}
-                        {type === 'scene' && (
-                            <button className="btn" title="Search Sprites" onClick={() => setShowSpriteLibrary(true)}>
-                                <Icon name="search" size={16} style={{ opacity: 0.7 }} />
-                            </button>
-                        )}
-                        {type === 'scene' && (
-                            <button
-                                className={`btn ${isPlaying ? 'btn-primary' : ''}`}
-                                title={isPlaying ? "Stop Scene" : "Play Scene"}
-                                onClick={() => setIsPlaying(!isPlaying)}
-                            >
-                                <Icon name={isPlaying ? "stop" : "play"} size={16} style={{ opacity: 0.7 }} />
-                                {isPlaying ? " Stop" : " Play"}
-                            </button>
-                        )}
-                        <button className="btn" title="Delete" onClick={handleDeleteClick}>
-                            <Icon name="delete" size={16} style={{ opacity: 0.7 }} />
-                        </button>
-                    </>
-                }
                 visualContent={
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', flex: 1, width: '100%' }}>
                         {/* Unified Prompt Box & Actions for Visuals - Moved to Top */}
@@ -295,6 +299,11 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
                 }
                 configContent={
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', height: '100%' }}>
+                        {/* Status Stepper - Moved from Top */}
+                        <div style={{ padding: '0 0 8px 0', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'center' }}>
+                            <StatusStepper currentStatus={statusLabel} />
+                        </div>
+
                         {/* Tab Switcher for Right Pane */}
                         <div style={{ display: 'flex', borderBottom: '1px solid var(--color-border)', marginBottom: '8px' }}>
                             <button
@@ -351,7 +360,6 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
                                     onRemoveLayer={handleRemoveLayer}
                                     onBehaviorsChange={handleEventsChange}
                                     behaviorGuidance={behaviorGuidance}
-                                    onAddSprite={() => setShowSpriteLibrary(true)}
                                     currentTime={currentTime}
                                 />
                             </div>
@@ -661,9 +669,9 @@ function useAssetController(type, asset, refresh, onDelete) {
         setConfigPrompt('');
     };
 
-    const handleDeleteClick = () => {
+    const handleDeleteClick = useCallback(() => {
         setShowDeleteDialog(true);
-    };
+    }, []);
 
     const handleConfirmDelete = async (mode) => {
         const endpoint = type === 'sprite' ? `sprites` : `scenes`;
@@ -699,7 +707,7 @@ function useAssetController(type, asset, refresh, onDelete) {
         }
     };
 
-    const handleShare = async () => {
+    const handleShare = useCallback(async () => {
         if (!confirm(`Share '${asset.name}' with the community? This will make a public copy of your asset.`)) return;
 
         try {
@@ -711,7 +719,7 @@ function useAssetController(type, asset, refresh, onDelete) {
         } catch (e) {
             toast.error(`Sharing failed: ${e.message}`);
         }
-    };
+    }, [asset.name, refresh, type]);
 
 
     // --- Computed State ---

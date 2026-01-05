@@ -1,11 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { StatusStepper } from './StatusStepper';
 import { Icon } from './Icon';
-
 export const AssetDetailLayout = ({
-    title,
-    statusLabel, // e.g. "Raw Scene"
-    actions, // Header actions (buttons)
     visualContent, // React node for left column
     configContent, // React node for right column
     logs,
@@ -32,23 +27,6 @@ export const AssetDetailLayout = ({
             display: 'flex', flexDirection: 'column', gap: '16px',
             height: 'calc(100vh - 60px)', overflow: 'hidden'
         }}>
-            {/* Header */}
-            {!isExpanded && (
-                <header style={{
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    paddingRight: '8px', flexShrink: 0, borderBottom: '1px solid var(--color-border)',
-                    paddingBottom: '12px'
-                }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                        <h1 style={{ fontSize: '1.5rem', margin: 0 }}>{title}</h1>
-                        <StatusStepper currentStatus={statusLabel} />
-                    </div>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                        {actions}
-                    </div>
-                </header>
-            )}
-
             {/* Main Content Split - 2fr visual, 1fr config for more image space */}
             <div style={{
                 display: 'grid',

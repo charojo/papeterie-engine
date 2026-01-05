@@ -35,6 +35,8 @@ function App() {
   const [storageMode, setStorageMode] = useState('LOCAL');
   const [isInitializing, setIsInitializing] = useState(true);
 
+  const [contextualActions, setContextualActions] = useState(null);
+
   // Apply theme to document
   useEffect(() => {
     // Migrate old contrast theme to stark
@@ -121,23 +123,35 @@ function App() {
     setSelectedItem(null);
   };
 
+  const appTitle = (view === 'scene-detail' || view === 'sprite-detail') && selectedItem ? selectedItem.name : "Papeterie";
+
   return (
     <div className="app-container">
       <TopBar
-        title="Papeterie"
-        leftContent={
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button className="btn btn-secondary" onClick={() => setView('scene-selection')} style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-              <Icon name="folder" size={14} /> Open
-            </button>
-            {/* Future: Add Recent Files here */}
-          </div>
-        }
+        title={appTitle}
+        leftContent={null}
         rightContent={
-          <div style={{ display: 'flex', gap: '4px' }}>
-            <button className="btn btn-secondary" style={{ padding: '4px 8px' }} onClick={() => setView('create')} title="New">
-              <Icon name="add" size={16} />
-            </button>
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+            {/* 1. Play (Far Left) */}
+            {contextualActions?.play && (
+              <>
+                {contextualActions.play}
+                <div style={{ width: '1px', height: '20px', background: 'var(--color-border)', opacity: 0.6 }} />
+              </>
+            )}
+
+            {/* 2. Middle Group (Search, Open, Share, Trash) */}
+            <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+              {contextualActions?.search}
+              <button className="btn btn-secondary" style={{ padding: '4px 8px' }} onClick={() => setView('scene-selection')} title="Create/Open a Scene">
+                <Icon name="scene" size={16} style={{ opacity: 0.7 }} />
+              </button>
+              {contextualActions?.right}
+            </div>
+
+            <div style={{ width: '1px', height: '20px', background: 'var(--color-border)', opacity: 0.6 }} />
+
+            {/* Settings & User Profile */}
             <SettingsMenu
               theme={theme}
               onThemeChange={setTheme}
@@ -177,6 +191,7 @@ function App() {
               setSelectedItem(scene);
               setView('scene-detail');
             }}
+            onCreate={() => setView('create')}
           />
         )}
 
@@ -195,6 +210,7 @@ function App() {
             onDelete={() => { setSelectedItem(null); setView('list'); }}
             isExpanded={isExpanded}
             toggleExpand={() => setIsExpanded(!isExpanded)}
+            setContextualActions={setContextualActions}
             onOpenSprite={(spriteName) => {
               const sprite = sprites.find(s => s.name === spriteName);
               if (sprite) {
@@ -205,6 +221,19 @@ function App() {
                 toast.warning(`Sprite '${spriteName}' not found`);
               }
             }}
+          />
+        )}
+
+        {view === 'sprite-detail' && selectedItem && (
+          <GenericDetailView
+            type="sprite"
+            asset={selectedItem}
+            sprites={sprites}
+            refresh={fetchData}
+            onDelete={() => { setSelectedItem(null); setView('list'); }}
+            isExpanded={isExpanded}
+            toggleExpand={() => setIsExpanded(!isExpanded)}
+            setContextualActions={setContextualActions}
           />
         )}
 
@@ -228,7 +257,7 @@ function App() {
 }
 
 function CreateView({ onCreated }) {
-  const [selectedType, setSelectedType] = useState('sprite'); // 'sprite' | 'scene-upload' | 'scene-gen'
+  const [selectedType, setSelectedType] = useState('scene-gen'); // 'sprite' | 'scene-upload' | 'scene-gen'
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '32px', padding: '24px', height: '100%', overflowY: 'auto' }}>
@@ -236,22 +265,22 @@ function CreateView({ onCreated }) {
       {/* Selection Tiles */}
       <div style={{ display: 'flex', gap: '24px', justifyContent: 'flex-start' }}>
         <SelectionTile
-          icon="sprites"
-          title="New Sprite"
-          selected={selectedType === 'sprite'}
-          onClick={() => setSelectedType('sprite')}
+          icon="generate"
+          title="Generate Scene"
+          selected={selectedType === 'scene-gen'}
+          onClick={() => setSelectedType('scene-gen')}
         />
         <SelectionTile
-          icon="scenes" // Using upload icon conceptually
+          icon="scene"
           title="Upload Scene"
           selected={selectedType === 'scene-upload'}
           onClick={() => setSelectedType('scene-upload')}
         />
         <SelectionTile
-          icon="generate"
-          title="Generate Scene"
-          selected={selectedType === 'scene-gen'}
-          onClick={() => setSelectedType('scene-gen')}
+          icon="sprites"
+          title="Upload Sprite"
+          selected={selectedType === 'sprite'}
+          onClick={() => setSelectedType('sprite')}
         />
       </div>
 
@@ -349,7 +378,7 @@ function NewSpriteForm({ onSuccess }) {
         }} accept="image/png" className="input" />
       </div>
       <button type="submit" className="btn btn-primary" disabled={loading} style={{ alignSelf: 'flex-start' }}>
-        {loading ? <Icon name="image" className="animate-spin" /> : 'Create Sprite'}
+        {loading ? <Icon name="image" className="animate-spin" /> : 'Upload Sprite'}
       </button>
     </form>
   )
@@ -407,7 +436,7 @@ function NewSpriteForm({ onSuccess }) {
         }} accept="image/*" className="input" />
       </div>
       <button type="submit" className="btn btn-primary" disabled={loading} style={{ alignSelf: 'flex-start' }}>
-        {loading ? <Icon name="image" className="animate-spin" /> : 'Create Scene'}
+        {loading ? <Icon name="image" className="animate-spin" /> : 'Upload Scene'}
       </button>
     </form>
   )

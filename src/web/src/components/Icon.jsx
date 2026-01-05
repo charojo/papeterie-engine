@@ -40,10 +40,12 @@ import {
     Search,
     Crop,
     MousePointer,
+    Clapperboard,
 } from 'lucide-react';
 
 const icons = {
     sprites: Dna,
+    scene: Clapperboard,
     scenes: Folder,
     generate: Sparkles,
     logs: FileText,

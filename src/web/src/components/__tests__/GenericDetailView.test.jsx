@@ -1,4 +1,5 @@
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { useState } from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { GenericDetailView } from '../GenericDetailView';
 
@@ -96,6 +97,18 @@ window.confirm = vi.fn(() => true);
 // Mock scrollIntoView
 window.HTMLElement.prototype.scrollIntoView = vi.fn();
 
+const TestWrapper = ({ props }) => {
+    const [contextualActions, setContextualActions] = useState(null);
+    return (
+        <div>
+            <div data-testid="topbar-actions-play">{contextualActions?.play}</div>
+            <div data-testid="topbar-actions-search">{contextualActions?.search}</div>
+            <div data-testid="topbar-actions-right">{contextualActions?.right}</div>
+            <GenericDetailView {...props} setContextualActions={setContextualActions} />
+        </div>
+    );
+};
+
 describe('GenericDetailView', () => {
     beforeEach(() => {
         vi.clearAllMocks();
@@ -108,11 +121,11 @@ describe('GenericDetailView', () => {
     it('renders correctly for a sprite', async () => {
         const mockSprite = { name: 'dragon', has_metadata: true, has_original: true };
         await act(async () => {
-            render(<GenericDetailView type="sprite" asset={mockSprite} refresh={vi.fn()} />);
+            render(<TestWrapper props={{ type: "sprite", asset: mockSprite, refresh: vi.fn() }} />);
         });
 
-        expect(screen.getByTestId('detail-title')).toHaveTextContent('dragon');
-        expect(screen.getByTestId('detail-status')).toHaveTextContent('Configured');
+        expect(screen.getByText('dragon')).toBeInTheDocument();
+        expect(screen.getByText('Configured')).toBeInTheDocument();
         expect(screen.getByTestId('image-viewer')).toBeInTheDocument();
     });
 
@@ -129,10 +142,12 @@ describe('GenericDetailView', () => {
             return Promise.resolve({ ok: true, json: async () => [] });
         });
 
-        render(<GenericDetailView type="sprite" asset={mockSprite} refresh={refreshMock} />);
+        await act(async () => {
+            render(<TestWrapper props={{ type: "sprite", asset: mockSprite, refresh: refreshMock }} />);
+        });
 
-        // Find optimize button in the visual content prompts area
-        const optimizeBtn = screen.getByText('Optimize');
+        // Find optimize button (specifically the one with btn-primary class to avoid stepper labels)
+        const optimizeBtn = screen.getAllByText('Optimize').find(el => el.closest('button'));
         fireEvent.click(optimizeBtn);
 
         // Loading state
@@ -160,9 +175,11 @@ describe('GenericDetailView', () => {
             return Promise.resolve({ ok: true, json: async () => [] });
         });
 
-        render(<GenericDetailView type="sprite" asset={mockSprite} refresh={refreshMock} />);
+        await act(async () => {
+            render(<TestWrapper props={{ type: "sprite", asset: mockSprite, refresh: refreshMock }} />);
+        });
 
-        const deleteBtn = screen.getByTitle('Delete');
+        const deleteBtn = screen.getByTitle('Reset/Delete options for Scenes');
 
         await act(async () => { fireEvent.click(deleteBtn); });
 
@@ -183,7 +200,9 @@ describe('GenericDetailView', () => {
 
         global.fetch.mockResolvedValue({ ok: true, json: async () => ({}) });
 
-        render(<GenericDetailView type="sprite" asset={mockSprite} refresh={refreshMock} />);
+        await act(async () => {
+            render(<TestWrapper props={{ type: "sprite", asset: mockSprite, refresh: refreshMock }} />);
+        });
 
         const updateBtn = screen.getByText('Update Behaviors');
         await act(async () => { fireEvent.click(updateBtn); });
@@ -206,7 +225,9 @@ describe('GenericDetailView', () => {
         const refreshMock = vi.fn();
         global.fetch.mockResolvedValue({ ok: true, json: async () => ({}) });
 
-        render(<GenericDetailView type="scene" asset={mockScene} refresh={refreshMock} />);
+        await act(async () => {
+            render(<TestWrapper props={{ type: "scene", asset: mockScene, refresh: refreshMock }} />);
+        });
 
         const updateBtn = screen.getByText('Update Behaviors');
         await act(async () => { fireEvent.click(updateBtn); });
@@ -228,10 +249,13 @@ describe('GenericDetailView', () => {
         const refreshMock = vi.fn();
         global.fetch.mockResolvedValue({ ok: true, json: async () => ({}) });
 
-        render(<GenericDetailView type="scene" asset={mockScene} refresh={refreshMock} />);
+        await act(async () => {
+            render(<TestWrapper props={{ type: "scene", asset: mockScene, refresh: refreshMock }} />);
+        });
 
         // Start playing to show theatre stage
-        const playBtn = screen.getByText('Play');
+        // Play button is now teleported
+        const playBtn = screen.getByTitle('Play Scene');
         await act(async () => { fireEvent.click(playBtn); });
 
         const moveBtn = screen.getByText('Move Sprite');
@@ -255,7 +279,9 @@ describe('GenericDetailView', () => {
         const refreshMock = vi.fn();
         global.fetch.mockResolvedValue({ ok: true, json: async () => ({}) });
 
-        render(<GenericDetailView type="scene" asset={mockScene} refresh={refreshMock} />);
+        await act(async () => {
+            render(<TestWrapper props={{ type: "scene", asset: mockScene, refresh: refreshMock }} />);
+        });
 
         const removeBtn = screen.getByText('Remove dragon');
         await act(async () => { fireEvent.click(removeBtn); });
@@ -271,7 +297,9 @@ describe('GenericDetailView', () => {
         const refreshMock = vi.fn();
         global.fetch.mockResolvedValue({ ok: true, json: async () => ({}) });
 
-        render(<GenericDetailView type="sprite" asset={mockSprite} refresh={refreshMock} />);
+        await act(async () => {
+            render(<TestWrapper props={{ type: "sprite", asset: mockSprite, refresh: refreshMock }} />);
+        });
 
         const revertBtn = screen.getByTitle('Revert to Original');
         await act(async () => { fireEvent.click(revertBtn); });
@@ -285,7 +313,7 @@ describe('GenericDetailView', () => {
     it('switches configuration tabs', async () => {
         const mockScene = { name: 'scene1', config: { layers: [] } };
         await act(async () => {
-            render(<GenericDetailView type="scene" asset={mockScene} refresh={vi.fn()} />);
+            render(<TestWrapper props={{ type: "scene", asset: mockScene, refresh: vi.fn() }} />);
         });
 
         // Default mode shows SpriteListEditor
@@ -313,7 +341,9 @@ describe('GenericDetailView', () => {
 
         global.fetch.mockResolvedValue({ ok: true, json: async () => ({ message: 'Rotated' }) });
 
-        render(<GenericDetailView type="sprite" asset={mockSprite} refresh={refreshMock} />);
+        await act(async () => {
+            render(<TestWrapper props={{ type: "sprite", asset: mockSprite, refresh: refreshMock }} />);
+        });
 
         const saveBtn = screen.getByText('Simulate Rotate Save');
         await act(async () => { fireEvent.click(saveBtn); });
@@ -346,10 +376,14 @@ describe('GenericDetailView', () => {
             return Promise.resolve({ ok: true, json: async () => [] });
         });
 
-        const { rerender } = render(<GenericDetailView type="scene" asset={initialScene} refresh={refreshMock} />);
+        let rerenderFn;
+        await act(async () => {
+            const { rerender } = render(<TestWrapper props={{ type: "scene", asset: initialScene, refresh: refreshMock }} />);
+            rerenderFn = rerender;
+        });
 
         // Start optimization
-        const optimizeBtn = screen.getByText('Optimize');
+        const optimizeBtn = screen.getAllByText('Optimize').find(el => el.closest('button'));
         fireEvent.click(optimizeBtn);
 
         // Verify initial state (optimizing = true)
@@ -362,7 +396,9 @@ describe('GenericDetailView', () => {
             used_sprites: ['sprite1']
         };
 
-        rerender(<GenericDetailView type="scene" asset={updatedScene1} refresh={refreshMock} />);
+        await act(async () => {
+            rerenderFn(<TestWrapper props={{ type: "scene", asset: updatedScene1, refresh: refreshMock }} />);
+        });
 
         // Should auto-select sprite1 (check that the sprite tab is now present and active)
         // Since tabs are removed, we check if SpriteListEditor shows it as selected
@@ -373,7 +409,9 @@ describe('GenericDetailView', () => {
             ...initialScene,
             used_sprites: ['sprite1', 'sprite2']
         };
-        rerender(<GenericDetailView type="scene" asset={updatedScene2} refresh={refreshMock} />);
+        await act(async () => {
+            rerenderFn(<TestWrapper props={{ type: "scene", asset: updatedScene2, refresh: refreshMock }} />);
+        });
 
         // Resolve optimization
         await act(async () => { resolveFetch(); });

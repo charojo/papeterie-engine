@@ -1,4 +1,5 @@
 import shutil
+
 from fastapi import APIRouter, Depends, File, UploadFile
 
 from src.config import ASSETS_DIR

@@ -14,9 +14,10 @@ vi.mock('./components/Icon', () => ({
 }));
 
 vi.mock('./components/SceneSelectionDialog', () => ({
-    SceneSelectionDialog: ({ onSelect }) => (
+    SceneSelectionDialog: ({ onSelect, onCreate }) => (
         <div data-testid="scene-selection-dialog">
             <button onClick={() => onSelect({ name: 'castle' })}>Select castle</button>
+            <button onClick={onCreate}>Create New</button>
         </div>
     )
 }));
@@ -78,7 +79,7 @@ describe('App Component', () => {
 
         expect(screen.getByText('Papeterie')).toBeInTheDocument(); // Title in TopBar
         expect(screen.getByText('Welcome to Papeterie')).toBeInTheDocument(); // Welcome state
-        expect(screen.getByText('Open')).toBeInTheDocument(); // Open button
+        expect(screen.getByTitle('Create/Open a Scene')).toBeInTheDocument(); // Open button icon
     });
 
     it('opens SceneSelectionDialog when Open is clicked', async () => {
@@ -87,7 +88,7 @@ describe('App Component', () => {
             render(<App />);
         });
 
-        const openBtn = screen.getByText('Open');
+        const openBtn = screen.getByTitle('Create/Open a Scene');
         fireEvent.click(openBtn);
 
         expect(screen.getByTestId('scene-selection-dialog')).toBeInTheDocument();
@@ -100,7 +101,7 @@ describe('App Component', () => {
         });
 
         // Open dialog
-        fireEvent.click(screen.getByText('Open'));
+        fireEvent.click(screen.getByTitle('Create/Open a Scene'));
 
         // Select scene (mocked dialog button)
         fireEvent.click(screen.getByText('Select castle'));
@@ -109,16 +110,19 @@ describe('App Component', () => {
         expect(screen.getByTestId('detail-view-scene')).toHaveTextContent('castle');
     });
 
-    it('navigates to create view when New button is clicked', async () => {
+    it('navigates to create view when New Scene is clicked in dialog', async () => {
         loginAsGuest();
         await act(async () => {
             render(<App />);
         });
 
-        const newBtn = screen.getByTitle('New');
-        fireEvent.click(newBtn);
+        // Open dialog
+        fireEvent.click(screen.getByTitle('Create/Open a Scene'));
 
-        expect(screen.getByText('Upload Scene')).toBeInTheDocument();
-        expect(screen.getByText('Generate Scene')).toBeInTheDocument();
+        // Click create new in dialog mock
+        fireEvent.click(screen.getByText('Create New'));
+
+        expect(screen.getAllByText('Upload Scene')[0]).toBeInTheDocument();
+        expect(screen.getAllByText('Generate Scene')[0]).toBeInTheDocument();
     });
 });

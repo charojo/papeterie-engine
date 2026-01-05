@@ -68,7 +68,7 @@ export function TheatreStage({
         if (theatreRef.current && cameraController) {
             cameraController.bindTheatre(theatreRef.current);
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+         
     }, [cameraController]);
 
     // Sync debugMode

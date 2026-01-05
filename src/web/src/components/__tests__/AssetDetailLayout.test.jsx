@@ -7,35 +7,23 @@ vi.mock('../Icon', () => ({
     Icon: ({ name }) => <span data-testid={`icon-${name}`}>{name}</span>
 }));
 
-// Mock StatusStepper
-vi.mock('../StatusStepper', () => ({
-    StatusStepper: ({ currentStatus }) => <span>{currentStatus}</span>
-}));
-
 describe('AssetDetailLayout', () => {
     const defaultProps = {
-        title: 'Test Asset',
-        statusLabel: 'Raw',
-        actions: <button>Click Me</button>,
         visualContent: <div>Visual Content Content</div>,
         configContent: <div>Configuration Content Content</div>,
         logs: 'Initial log'
     };
 
-    it('renders header and main content in normal mode', () => {
+    it('renders main content in normal mode', () => {
         render(<AssetDetailLayout {...defaultProps} />);
-        expect(screen.getByText('Test Asset')).toBeInTheDocument();
-        expect(screen.getByText('Raw')).toBeInTheDocument();
-        expect(screen.getByText('Click Me')).toBeInTheDocument();
         expect(screen.getByText('Visual Content Content')).toBeInTheDocument();
         expect(screen.getByText('Configuration Content Content')).toBeInTheDocument();
         // Log starts minimized, last line shown in summary
         expect(screen.getByText('Initial log')).toBeInTheDocument();
     });
 
-    it('hides header and config in expanded mode', () => {
+    it('hides config in expanded mode', () => {
         render(<AssetDetailLayout {...defaultProps} isExpanded={true} />);
-        expect(screen.queryByText('Test Asset')).not.toBeInTheDocument();
         expect(screen.queryByText('Configuration Content Content')).not.toBeInTheDocument();
         expect(screen.getByText('Visual Content Content')).toBeInTheDocument();
     });
