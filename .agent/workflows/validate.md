@@ -11,3 +11,10 @@ description: Run full project validation (linting, testing, coverage)
 
 3. To skip auto-fixing (e.g., for CI), use:
 ./scripts/validate.sh --nofix
+
+4. To include E2E UX consistency tests (requires servers running):
+./scripts/validate.sh --e2e
+
+5. To run ALL tests including live API calls:
+./scripts/validate.sh --live
+

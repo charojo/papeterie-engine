@@ -8,6 +8,7 @@ cd "$ROOT_DIR"
 # Parse arguments
 FIX_MODE=true
 LIVE_MODE=false
+E2E_MODE=false
 for arg in "$@"; do
     case $arg in
         --nofix)
@@ -15,6 +16,9 @@ for arg in "$@"; do
             ;;
         --live)
             LIVE_MODE=true
+            ;;
+        --e2e)
+            E2E_MODE=true
             ;;
     esac
 done
@@ -77,4 +81,19 @@ echo "Enforcing Relative Paths..." | tee -a logs/validate.log
 ./scripts/enforce_relative_paths.py | tee -a logs/validate.log
 
 echo "" | tee -a logs/validate.log
+echo "Running CSS Compliance Check..." | tee -a logs/validate.log
+./scripts/check_css_compliance.py --output logs/css_compliance_report.log
+cat logs/css_compliance_report.log | tee -a logs/validate.log
+
+# E2E tests (optional, requires servers running)
+if [ "$E2E_MODE" = true ]; then
+    echo "" | tee -a logs/validate.log
+    echo "Running E2E Tests (UX Consistency)..." | tee -a logs/validate.log
+    pushd src/web > /dev/null
+    npx playwright test ux_consistency --reporter=line 2>&1 | tee -a ../../logs/validate.log
+    popd > /dev/null
+fi
+
+echo "" | tee -a logs/validate.log
 ./scripts/analyze.sh logs/validate.log | tee -a logs/validate.log
+

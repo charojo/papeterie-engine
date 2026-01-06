@@ -13,10 +13,11 @@ This file lists features, improvements, and bugs to be addressed in the Papeteri
 *   **Interactive Sprite Editing Mode**: Implemented via the Unified Scene View, allowing users to select and transform sprites directly on the stage with persistence back to the scene configuration.
 *   **Local Image Processing Toggle**: Added a processing mode toggle (Local/LLM) for scene optimization. Local mode uses `rembg` + OpenCV for $0 cost extraction, defaulting to "Local" to reduce API expenses. Design: [`docs/design/high_level_design.md`](design/high_level_design.md).
 *   **Dynamic CORS & Centralized Config**: Eliminated hardcoded origin strings in the frontend and backend. Implemented a centralized `config.js` with dynamic hostname detection and robust backend CORS reflection for local development.
+*   **CSS/UX Compliance Tooling**: Added automated CSS compliance checking (`check_css_compliance.py`), E2E UX consistency tests (`ux_consistency.spec.js`), and `/css-review` workflow. Integrated into `validate.sh`. Design: [`docs/design/ux_design.md`](design/ux_design.md).
 
 ## Active Development
 
-*   **UI Overhaul & Workflow Refinement**: Complete refactor of the web dashboard to remove the sidebar, centralize the Scene View, and improve sprite manipulation tools (Scale Widget, Overlay). Design: [`docs/design/ui_redesign_2026.md`](design/ui_redesign_2026.md).
+*   **UI Overhaul & Workflow Refinement**: Complete refactor of the web dashboard to remove the sidebar, centralize the Scene View, and improve sprite manipulation tools (Scale Widget, Overlay). Design: [`docs/design/ux_design.md`](design/ux_design.md).
 
 ## Security & Hardening
 
@@ -46,15 +47,8 @@ This file lists features, improvements, and bugs to be addressed in the Papeteri
 ## Verification & Quality Assurance
 
 *   **Improve Verification Coverage**: See `docs/verification.md` for the detailed backlog of testing improvements (E2E, Visual Regression, etc.).
-*   **Add E2E Simple Test**: Implement a basic end-to-end test using Playwright that:
-    1. Starts the dev server
-    2. Navigates to the dashboard
-    3. Opens a scene (e.g., sailboat)
-    4. Plays the scene and verifies canvas renders
-    5. Stops playback
-    - Priority: Medium
-    - Files: `e2e/basic_flow.spec.js` (new), `playwright.config.js` (new)
-*   **Add Linting to Validate Script**: Incorporate `eslint` and `ruff` checks into `scripts/validate.sh`.
+*   **Add E2E Simple Test**: ✅ Implemented. Basic flow test in `e2e/basic_flow.spec.js` and UX consistency tests in `e2e/ux_consistency.spec.js`.
+*   **Add Linting to Validate Script**: ✅ Implemented. ESLint and Ruff integrated, plus CSS compliance check.
 
 ## Technical Debt
 

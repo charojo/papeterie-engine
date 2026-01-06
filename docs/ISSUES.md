@@ -51,3 +51,12 @@ Use this file to track "nits", minor bugs, and design weak spots that need atten
 - **Description**: Accessing the frontend via `127.0.0.1` while the backend assumed `localhost` caused CORS blocks and hardcoded URL failures.
 - **Location**: `src/web/src/config.js`, `src/server/main.py`
 - **Resolution**: Implemented dynamic hostname detection in the frontend and robust origin reflection on the backend.
+
+### CSS Design System Violations
+- **Status**: In Progress
+- **Severity**: Medium
+- **Description**: Components (esp. `TheatreStage.jsx`, `GenericDetailView.jsx`) use hardcoded `rgba()` colors and excessive inline styles, causing visual inconsistency across toolbars and hover states.
+- **Location**: `src/web/src/components/*.jsx`
+- **Tracking**: `./scripts/check_css_compliance.py` reports 48 hardcoded colors, 7 components with >15 inline styles.
+- **Resolution**: Refactor to use `var(--color-*)` tokens and extract common patterns to CSS classes. Design: [`ux_design.md`](design/ux_design.md).
+
