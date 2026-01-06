@@ -30,7 +30,7 @@ describe('SpriteListEditor', () => {
         onSpriteSelected: vi.fn(),
         layerVisibility: { 'boat': true, 'bird': false },
         onToggleVisibility: vi.fn(),
-        onRemoveLayer: vi.fn(),
+        onDeleteSprite: vi.fn(),
         onBehaviorsChange: vi.fn(),
         onAddSprite: vi.fn()
     };
@@ -66,10 +66,18 @@ describe('SpriteListEditor', () => {
     it('calls onToggleVisibility when eye icon is clicked', () => {
         const { getByTestId } = render(<SpriteListEditor {...mockProps} />);
 
-        const birdVisibilityBtn = getByTestId('icon-hidden').closest('button');
+        const birdVisibilityBtn = getByTestId('icon-eyeOff').closest('button');
         fireEvent.click(birdVisibilityBtn);
 
         expect(mockProps.onToggleVisibility).toHaveBeenCalledWith('bird');
+    });
+
+    it('calls onDeleteSprite when delete icon is clicked', () => {
+        const { getAllByTitle } = render(<SpriteListEditor {...mockProps} />);
+        const deleteBtns = getAllByTitle('Delete Sprite');
+        // boat is at index 1 (sorted by z-depth desc, boat is 10, bird is 20)
+        fireEvent.click(deleteBtns[1]);
+        expect(mockProps.onDeleteSprite).toHaveBeenCalledWith('boat');
     });
 
     it('renders single sprite for sprite type', () => {

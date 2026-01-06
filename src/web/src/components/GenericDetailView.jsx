@@ -44,7 +44,6 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
         setDebugOverlayMode,
         toggleLayerVisibility,
         layerVisibility,
-        handleRemoveLayer,
         handleDeleteSprite,
         handleSpriteSelected,
         handleSpritePositionChanged,
@@ -82,28 +81,27 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
         return {
             play: type === 'scene' && (
                 <button
-                    className={`btn btn-secondary ${isPlaying ? 'btn-primary' : ''}`}
+                    className={`btn-icon ${isPlaying ? 'active' : ''}`}
                     title={isPlaying ? "Stop Scene" : "Play Scene"}
                     onClick={() => setIsPlaying(!isPlaying)}
-                    style={{ padding: '4px 8px' }}
                 >
-                    <Icon name={isPlaying ? "stop" : "play"} size={16} style={{ opacity: 0.7 }} />
+                    <Icon name={isPlaying ? "stop" : "play"} size={16} />
                 </button>
             ),
             search: type === 'scene' && (
-                <button className="btn btn-secondary" title="Search/Add Sprite to Scene" onClick={() => setShowSpriteLibrary(true)} style={{ padding: '4px 8px' }}>
-                    <Icon name="search" size={16} style={{ opacity: 0.7 }} />
+                <button className="btn-icon" title="Search/Add Sprite to Scene" onClick={() => setShowSpriteLibrary(true)}>
+                    <Icon name="search" size={16} />
                 </button>
             ),
             right: (
                 <>
                     {!asset.is_community && (
-                        <button className="btn btn-secondary" title="Share Scene/Sprites to Community" onClick={handleShare} style={{ padding: '4px 8px' }}>
-                            <Icon name="share" size={16} style={{ opacity: 0.7 }} />
+                        <button className="btn-icon" title="Share Scene/Sprites to Community" onClick={handleShare}>
+                            <Icon name="share" size={16} />
                         </button>
                     )}
-                    <button className="btn btn-secondary" title="Reset/Delete options for Scenes" onClick={handleDeleteClick} style={{ padding: '4px 8px' }}>
-                        <Icon name="delete" size={16} style={{ opacity: 0.7 }} />
+                    <button className="btn-icon" title="Reset/Delete options for Scenes" onClick={handleDeleteClick}>
+                        <Icon name="delete" size={16} />
                     </button>
                 </>
             )
@@ -137,10 +135,10 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
                 logs={logs}
                 isExpanded={isExpanded}
                 visualContent={
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', flex: 1, width: '100%' }}>
+                    <div className="flex-col gap-xl flex-1 w-full">
                         {/* Unified Prompt Box & Actions for Visuals - Moved to Top */}
                         {!isExpanded && (
-                            <div style={{ display: 'flex', gap: '8px' }}>
+                            <div className="flex-row gap-md">
                                 <input
                                     className="input"
                                     placeholder={type === 'scene' ? "e.g., 'Make the trees sway gently...'" : "Describe visual changes..."}
@@ -229,7 +227,7 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
 
                         {/* Timeline for Scene Playing - Always Visible for Scenes */}
                         {type === 'scene' && (
-                            <div style={{ position: 'relative', height: '180px', flexShrink: 0 }}>
+                            <div className="relative h-180 flex-shrink-0">
                                 <TimelineEditor
                                     duration={30}
                                     currentTime={currentTime}
@@ -298,50 +296,24 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
                     </div>
                 }
                 configContent={
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', height: '100%' }}>
-                        {/* Status Stepper - Moved from Top */}
-                        <div style={{ padding: '0 0 8px 0', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'center' }}>
-                            <StatusStepper currentStatus={statusLabel} />
-                        </div>
-
+                    <div className="flex-col gap-xl h-full">
                         {/* Tab Switcher for Right Pane */}
-                        <div style={{ display: 'flex', borderBottom: '1px solid var(--color-border)', marginBottom: '8px' }}>
+                        <div className="tab-container tab-container-flush">
                             <button
-                                className={`btn ${activeTab === 'sprites' ? 'active-tab' : ''}`}
-                                style={{
-                                    borderBottom: activeTab === 'sprites' ? '2px solid var(--color-primary)' : 'none',
-                                    borderRadius: 0,
-                                    padding: '8px 16px',
-                                    color: activeTab === 'sprites' ? 'var(--color-text-on-primary)' : 'var(--color-text-muted)',
-                                    background: activeTab === 'sprites' ? 'var(--color-primary)' : 'transparent'
-                                }}
+                                className={`tab-btn ${activeTab === 'sprites' ? 'active' : ''}`}
                                 onClick={() => handleTabChange('sprites')}
                             >
                                 Sprites
                             </button>
 
                             <button
-                                className={`btn ${activeTab === 'json' ? 'active-tab' : ''}`}
-                                style={{
-                                    borderBottom: activeTab === 'json' ? '2px solid var(--color-primary)' : 'none',
-                                    borderRadius: 0,
-                                    padding: '8px 16px',
-                                    color: activeTab === 'json' ? 'var(--color-text-on-primary)' : 'var(--color-text-muted)',
-                                    background: activeTab === 'json' ? 'var(--color-primary)' : 'transparent'
-                                }}
+                                className={`tab-btn ${activeTab === 'json' ? 'active' : ''}`}
                                 onClick={() => handleTabChange('json')}
                             >
                                 Config
                             </button>
                             <button
-                                className={`btn ${activeTab === 'debug' ? 'active-tab' : ''}`}
-                                style={{
-                                    borderBottom: activeTab === 'debug' ? '2px solid var(--color-primary)' : 'none',
-                                    borderRadius: 0,
-                                    padding: '8px 16px',
-                                    color: activeTab === 'debug' ? 'var(--color-text-on-primary)' : 'var(--color-text-muted)',
-                                    background: activeTab === 'debug' ? 'var(--color-primary)' : 'transparent'
-                                }}
+                                className={`tab-btn ${activeTab === 'debug' ? 'active' : ''}`}
                                 onClick={() => handleTabChange('debug')}
                             >
                                 Debug
@@ -349,7 +321,7 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
                         </div>
 
                         {activeTab === 'sprites' && (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1, minHeight: 0 }}>
+                            <div className="flex-col flex-1 min-h-0">
                                 <SpriteListEditor
                                     type={type}
                                     asset={asset}
@@ -357,7 +329,7 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
                                     onSpriteSelected={setSelectedImage}
                                     layerVisibility={layerVisibility}
                                     onToggleVisibility={toggleLayerVisibility}
-                                    onRemoveLayer={handleRemoveLayer}
+                                    onDeleteSprite={handleDeleteSprite}
                                     onBehaviorsChange={handleEventsChange}
                                     behaviorGuidance={behaviorGuidance}
                                     currentTime={currentTime}
@@ -368,15 +340,14 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
 
 
                         {activeTab === 'debug' && (
-                            <div style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.3)', padding: '8px 12px', borderRadius: '4px' }}>
+                            <div className="flex-1 overflow-auto flex-col gap-lg">
+                                <div className="panel-header">
                                     <span style={{ fontSize: '0.8rem', opacity: 0.8 }}>Debug Overlay</span>
                                     <div style={{ display: 'flex', gap: '4px' }}>
                                         {['auto', 'on', 'off'].map(mode => (
                                             <button
                                                 key={mode}
-                                                className={`btn btn-xs ${debugOverlayMode === mode ? 'btn-primary' : ''}`}
-                                                style={{ padding: '2px 8px', fontSize: '0.7rem', textTransform: 'capitalize' }}
+                                                className={`btn btn-xs ${debugOverlayMode === mode ? 'btn-primary' : ''} p-1 text-xs capitalize`}
                                                 onClick={() => setDebugOverlayMode(mode)}
                                             >
                                                 {mode}
@@ -386,43 +357,43 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
                                 </div>
 
                                 <div style={{ background: 'var(--color-bg-elevated)', padding: '10px', borderRadius: '4px', border: '1px solid var(--color-border)' }}>
-                                    <h4 style={{ margin: '0 0 8px 0', fontSize: '0.9rem', color: 'var(--color-primary)' }}>Live Telemetry</h4>
+                                    <h4 className="m-0 mb-2 text-base text-primary">Live Telemetry</h4>
                                     {!telemetry ? (
                                         <div style={{ opacity: 0.5, fontSize: '0.8rem' }}>Play the scene to see live data.</div>
                                     ) : (
-                                        <table style={{ width: '100%', fontSize: '0.75rem', borderCollapse: 'collapse' }}>
+                                        <table className="w-full text-xs" style={{ borderCollapse: 'collapse' }}>
                                             <thead>
-                                                <tr style={{ textAlign: 'left', opacity: 0.6, borderBottom: '1px solid var(--color-border)' }}>
-                                                    <th style={{ paddingBottom: '4px', width: '24px' }}></th>
-                                                    <th style={{ paddingBottom: '4px' }}>Layer</th>
-                                                    <th style={{ paddingBottom: '4px' }}>X</th>
-                                                    <th style={{ paddingBottom: '4px' }}>Y Pos</th>
-                                                    <th style={{ paddingBottom: '4px' }}>Tilt</th>
+                                                <tr className="text-left text-subtle border-b">
+                                                    <th className="pb-1 w-6"></th>
+                                                    <th className="pb-1">Layer</th>
+                                                    <th className="pb-1">X</th>
+                                                    <th className="pb-1">Y Pos</th>
+                                                    <th className="pb-1">Tilt</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
                                                 {telemetry.map(t => (
-                                                    <tr key={t.name} style={{ borderBottom: '1px solid var(--color-border-muted)' }}>
-                                                        <td style={{ padding: '4px 0' }}>
+                                                    <tr key={t.name} className="border-b-muted">
+                                                        <td className="py-1">
                                                             <input
                                                                 type="checkbox"
                                                                 checked={layerVisibility[t.name] !== false}
                                                                 onChange={() => toggleLayerVisibility(t.name)}
-                                                                style={{ cursor: 'pointer' }}
+                                                                className="cursor-pointer"
                                                             />
                                                         </td>
-                                                        <td style={{ padding: '4px 0' }}>{t.name}</td>
-                                                        <td style={{ padding: '4px 0' }}>{Math.round(t.x)}</td>
-                                                        <td style={{ padding: '4px 0' }}>{t.y.toFixed(1)}</td>
-                                                        <td style={{ padding: '4px 0' }}>{t.tilt.toFixed(1)}°</td>
+                                                        <td className="py-1">{t.name}</td>
+                                                        <td className="py-1">{Math.round(t.x)}</td>
+                                                        <td className="py-1">{t.y.toFixed(1)}</td>
+                                                        <td className="py-1">{t.tilt.toFixed(1)}°</td>
                                                     </tr>
                                                 ))}
                                             </tbody>
                                         </table>
                                     )}
                                 </div>
-                                <div style={{ background: 'rgba(0,0,0,0.2)', padding: '10px', borderRadius: '4px', fontSize: '0.8rem' }}>
-                                    <p style={{ margin: 0, opacity: 0.7 }}>Tip: Select a layer to see its environment sampling markers on the stage.</p>
+                                <div className="panel text-sm">
+                                    <p className="m-0 text-subtle">Tip: Select a layer to see its environment sampling markers on the stage.</p>
                                 </div>
                             </div>
                         )}
@@ -432,25 +403,23 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
                                 {/* Prompt Box for Config Refinement */}
                                 <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
                                     <textarea
-                                        className="input"
+                                        className="input flex-1 h-10 resize-none"
                                         placeholder="Describe changes to metadata/physics..."
                                         value={configPrompt}
                                         onChange={e => setConfigPrompt(e.target.value)}
-                                        style={{ flex: 1, height: '38px', minHeight: '38px', resize: 'none' }}
                                         title="Refine Configuration: Describe changes to metadata, physics parameters, or behaviors. The AI will update the JSON accordingly."
                                     />
                                     <button
-                                        className="btn btn-primary"
+                                        className="btn btn-primary h-auto"
                                         onClick={handleUpdateConfig}
                                         disabled={isOptimizing || !configPrompt.trim()}
-                                        style={{ height: 'auto' }}
                                         title="Apply AI refinements to configuration"
                                     >
                                         <Icon name="config" size={14} />
                                     </button>
                                 </div>
 
-                                <div ref={configScrollRef} style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+                                <div ref={configScrollRef} className="flex-1 overflow-auto min-h-0">
                                     <SmartConfigViewer configData={configData} selectedImage={selectedImage} type={type} scrollContainerRef={configScrollRef} />
                                 </div>
                             </div>
@@ -480,7 +449,7 @@ function SmartConfigViewer({ configData, selectedImage, type, scrollContainerRef
         if (el) {
             el.scrollIntoView({ behavior: 'smooth', block: 'start' });
             // Highlight effect
-            el.style.backgroundColor = 'rgba(255, 255, 0, 0.1)';
+            el.style.backgroundColor = 'var(--color-primary-glow)';
             setTimeout(() => {
                 if (el) el.style.backgroundColor = 'transparent';
             }, 1000);
@@ -492,12 +461,12 @@ function SmartConfigViewer({ configData, selectedImage, type, scrollContainerRef
         }
     }, [selectedImage, configData, containerRef]);
 
-    if (!configData) return <div style={{ opacity: 0.5, fontSize: '0.8rem' }}>No configuration data.</div>;
+    if (!configData) return <div className="text-subtle text-sm">No configuration data.</div>;
 
     // For sprites, simplified view
     if (type === 'sprite') {
         return (
-            <pre style={{ margin: 0, fontSize: '0.8rem', fontFamily: 'monospace' }}>
+            <pre className="m-0 text-sm text-monospace">
                 {JSON.stringify(configData, null, 2)}
             </pre>
         );
@@ -507,17 +476,17 @@ function SmartConfigViewer({ configData, selectedImage, type, scrollContainerRef
     const { layers, ...rest } = configData;
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', fontFamily: 'monospace', fontSize: '0.8rem' }}>
+        <div className="flex-col gap-xl text-monospace text-sm">
             {/* General Settings */}
             <div>
-                <div style={{ opacity: 0.5, marginBottom: '4px', fontWeight: 'bold' }}>// Scene Settings</div>
-                <pre style={{ margin: 0 }}>{JSON.stringify(rest, null, 2)}</pre>
+                <div className="text-subtle mb-1 font-bold">// Scene Settings</div>
+                <pre className="m-0">{JSON.stringify(rest, null, 2)}</pre>
             </div>
 
             {/* Layers */}
             {layers && layers.length > 0 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <div style={{ opacity: 0.5, fontWeight: 'bold' }}>// Layers</div>
+                <div className="flex-col gap-md">
+                    <div className="text-subtle font-bold">// Layers</div>
                     {layers.map((layer, idx) => (
                         <div
                             key={idx}
@@ -525,15 +494,15 @@ function SmartConfigViewer({ configData, selectedImage, type, scrollContainerRef
                             style={{
                                 padding: '8px',
                                 border: layer.sprite_name === selectedImage ? '1px solid var(--color-primary)' : '1px solid transparent',
-                                background: layer.sprite_name === selectedImage ? 'var(--color-bg-elevated)' : 'rgba(255,255,255,0.03)',
+                                background: layer.sprite_name === selectedImage ? 'var(--color-bg-elevated)' : 'var(--color-bg-surface)',
                                 borderRadius: '4px',
                                 transition: 'all 0.3s'
                             }}
                         >
-                            <div style={{ opacity: 0.7, marginBottom: '4px', color: 'var(--color-primary)' }}>
+                            <div className="text-subtle mb-1 text-primary">
                                 {`[${idx}] ${layer.sprite_name}`}
                             </div>
-                            <pre style={{ margin: 0 }}>{JSON.stringify(layer, null, 2)}</pre>
+                            <pre className="m-0">{JSON.stringify(layer, null, 2)}</pre>
                         </div>
                     ))}
                 </div>

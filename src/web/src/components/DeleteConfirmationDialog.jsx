@@ -61,13 +61,13 @@ export function DeleteConfirmationDialog({ isOpen, onClose, onConfirm, type, ass
     return (
         <div style={{
             position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-            backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 1000,
+            backgroundColor: 'var(--color-overlay)', zIndex: 1000,
             display: 'flex', alignItems: 'center', justifyContent: 'center'
         }}>
             <div style={{
                 backgroundColor: 'var(--color-bg-base)', padding: '24px', borderRadius: '8px',
                 width: '400px', maxWidth: '90%', border: '1px solid var(--color-border)',
-                boxShadow: '0 4px 20px rgba(0,0,0,0.5)'
+                boxShadow: 'var(--shadow-lg)'
             }}>
                 <h3 style={{ marginTop: 0, color: 'var(--color-text-muted)' }}>Delete {type === 'scene' ? 'Scene' : 'Sprite'}?</h3>
                 <p style={{ color: 'var(--color-text-muted)' }}>Choose how to handle <strong style={{ color: 'var(--color-text-main)' }}>{assetName}</strong>:</p>

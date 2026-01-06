@@ -20,7 +20,7 @@ function App() {
   const [isExpanded, setIsExpanded] = usePersistentState('papeterie-is-expanded', false);
 
   const [user, setUser] = usePersistentState('papeterie-user', null);
-  const [theme, setTheme] = usePersistentState('papeterie-theme', 'purple');
+  const [theme, setTheme] = usePersistentState('papeterie-theme', 'blue');
   const [contrast, setContrast] = usePersistentState('papeterie-contrast', 0.60); // 0.0 - 1.0, 0.60 is "Natural" pivot
   const [fontSize, setFontSize] = usePersistentState('papeterie-font-size', 'medium'); // small, medium, large, xl
   const [storageMode, setStorageMode] = useState('LOCAL');
@@ -127,20 +127,20 @@ function App() {
             {contextualActions?.play && (
               <>
                 {contextualActions.play}
-                <div style={{ width: '1px', height: '20px', background: 'var(--color-border)', opacity: 0.6 }} />
+                <div style={{ width: '1px', height: '20px', background: 'var(--color-divider)' }} />
               </>
             )}
 
             {/* 2. Middle Group (Search, Open, Share, Trash) */}
             <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
               {contextualActions?.search}
-              <button className="btn btn-secondary" style={{ padding: '4px 8px' }} onClick={() => setView('scene-selection')} title="Create/Open a Scene">
-                <Icon name="scene" size={16} style={{ opacity: 0.7 }} />
+              <button className="btn-icon" onClick={() => setView('scene-selection')} title="Create/Open a Scene">
+                <Icon name="scene" size={16} />
               </button>
               {contextualActions?.right}
             </div>
 
-            <div style={{ width: '1px', height: '20px', background: 'var(--color-border)', opacity: 0.6 }} />
+            <div style={{ width: '1px', height: '20px', background: 'var(--color-divider)' }} />
 
             {/* Settings & User Profile */}
             <SettingsMenu
@@ -237,8 +237,8 @@ function App() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', opacity: 0.5, flexDirection: 'column', gap: '16px' }}>
             <Icon name="app" size={64} opacity={0.2} />
             <h2>Welcome to Papeterie</h2>
-            <button className="btn btn-primary" onClick={() => setView('scene-selection')}>Open Scene</button>
-            <button className="btn" onClick={() => setView('create')}>New Project</button>
+            <button className="btn btn-primary" onClick={() => setView('scene-selection')} data-testid="welcome-open-scene">Open Scene</button>
+            <button className="btn" onClick={() => setView('create')} data-testid="welcome-new-project">New Project</button>
           </div>
         )}
       </main>
@@ -260,18 +260,21 @@ function CreateView({ onCreated }) {
           title="Generate Scene"
           selected={selectedType === 'scene-gen'}
           onClick={() => setSelectedType('scene-gen')}
+          data-testid="create-option-generate-scene"
         />
         <SelectionTile
           icon="scene"
           title="Upload Scene"
           selected={selectedType === 'scene-upload'}
           onClick={() => setSelectedType('scene-upload')}
+          data-testid="create-option-upload-scene"
         />
         <SelectionTile
           icon="sprites"
           title="Upload Sprite"
           selected={selectedType === 'sprite'}
           onClick={() => setSelectedType('sprite')}
+          data-testid="create-option-upload-sprite"
         />
       </div>
 
@@ -287,10 +290,11 @@ function CreateView({ onCreated }) {
   )
 }
 
-function SelectionTile({ icon, title, selected, onClick }) {
+function SelectionTile({ icon, title, selected, onClick, 'data-testid': testId }) {
   return (
     <div className="card glass"
       onClick={onClick}
+      data-testid={testId}
       style={{
         width: '200px',
         height: '180px',
@@ -426,7 +430,7 @@ function NewSpriteForm({ onSuccess }) {
           }
         }} accept="image/*" className="input" />
       </div>
-      <button type="submit" className="btn btn-primary" disabled={loading} style={{ alignSelf: 'flex-start' }}>
+      <button type="submit" className="btn btn-primary" data-testid="upload-scene-submit" disabled={loading} style={{ alignSelf: 'flex-start' }}>
         {loading ? <Icon name="image" className="animate-spin" /> : 'Upload Scene'}
       </button>
     </form>

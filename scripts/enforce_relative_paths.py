@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-import os
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -16,28 +16,6 @@ PATTERNS = [
     # Common user home pattern in case project root detection is slightly off in some envs
     re.compile(r"/home/[\w.-]+/projects/papeterie-engine"),
 ]
-
-# Files and directories to ignore
-EXCLUDE_DIRS = {
-    ".git",
-    ".agent",
-    "node_modules",
-    ".venv",
-    "__pycache__",
-    "logs",
-    "dist",
-    "coverage",
-    ".pytest_cache",
-    ".ruff_cache",
-    ".aider.tags.cache.v4",
-}
-
-EXCLUDE_FILES = {
-    "enforce_relative_paths.py",
-    "uv.lock",
-    "package-lock.json",
-    ".coverage",
-}
 
 # Binary extensions to skip
 BINARY_EXTENSIONS = {
@@ -55,6 +33,26 @@ BINARY_EXTENSIONS = {
 }
 
 
+def get_git_files(root_dir):
+    """Get list of files tracked by git or untracked but not ignored."""
+    try:
+        # --cached: tracked files
+        # --others: untracked files
+        # --exclude-standard: use standard ignore rules (.gitignore, etc.)
+        result = subprocess.run(
+            ["git", "ls-files", "--cached", "--others", "--exclude-standard"],
+            cwd=root_dir,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return result.stdout.splitlines()
+    except subprocess.CalledProcessError as e:
+        print(f"Error running git ls-files: {e}")
+        # Fallback to empty list if not a git repo or git fails
+        return []
+
+
 def is_binary(file_path):
     return file_path.suffix.lower() in BINARY_EXTENSIONS
 
@@ -62,6 +60,8 @@ def is_binary(file_path):
 def check_file(file_path):
     offending_lines = []
     try:
+        if not file_path.exists():
+            return []
         with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
             for i, line in enumerate(f, 1):
                 for pattern in PATTERNS:
@@ -77,28 +77,26 @@ def main():
     root_dir = PROJECT_ROOT
     errors = 0
 
-    print(f"Scanning for absolute paths in {root_dir}...")
+    print(f"Scanning for absolute paths in {root_dir} (respecting .gitignore)...")
 
-    for root, dirs, files in os.walk(root_dir):
-        # Prune excluded directories
-        dirs[:] = [d for d in dirs if d not in EXCLUDE_DIRS]
+    files_to_check = get_git_files(root_dir)
 
-        for file in files:
-            if file in EXCLUDE_FILES:
-                continue
+    for rel_path_str in files_to_check:
+        file_path = root_dir / rel_path_str
 
-            file_path = Path(root) / file
+        # Skip this script itself
+        if file_path.name == "enforce_relative_paths.py":
+            continue
 
-            if is_binary(file_path):
-                continue
+        if is_binary(file_path):
+            continue
 
-            problems = check_file(file_path)
-            if problems:
-                errors += 1
-                rel_path = file_path.relative_to(root_dir)
-                print(f"\n❌ Absolute path(s) found in {rel_path}:")
-                for line_num, content in problems:
-                    print(f"  L{line_num}: {content}")
+        problems = check_file(file_path)
+        if problems:
+            errors += 1
+            print(f"\n❌ Absolute path(s) found in {rel_path_str}:")
+            for line_num, content in problems:
+                print(f"  L{line_num}: {content}")
 
     if errors > 0:
         print(f"\nTotal: {errors} files found with absolute paths.")

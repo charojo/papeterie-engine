@@ -124,7 +124,7 @@ describe('BehaviorEditor', () => {
             render(<BehaviorEditor behaviors={[behavior]} onChange={mockOnChange} />);
 
             // Click remove button (delete icon)
-            const deleteButton = screen.getByTitle('Remove');
+            const deleteButton = screen.getByTitle('Delete Behavior');
             fireEvent.click(deleteButton);
 
             expect(mockOnChange).toHaveBeenCalledWith([]);

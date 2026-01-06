@@ -44,6 +44,7 @@ import {
 } from 'lucide-react';
 
 const icons = {
+    app: Sparkles,
     sprites: Dna,
     scene: Clapperboard,
     scenes: Folder,
@@ -85,6 +86,7 @@ const icons = {
     search: Search,
     crop: Crop,
     pointer: MousePointer,
+    rotate: RotateCw,
 };
 
 export const Icon = ({ name, size = 16, className, ...props }) => {

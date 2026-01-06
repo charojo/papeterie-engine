@@ -10,7 +10,7 @@ export function SpriteListEditor({
     onSpriteSelected,
     layerVisibility,
     onToggleVisibility,
-    onRemoveLayer,
+    onDeleteSprite,
     onBehaviorsChange,
     behaviorGuidance,
     currentTime
@@ -72,8 +72,8 @@ export function SpriteListEditor({
     const sortedLayers = [...evaluatedLayers].sort((a, b) => b.displayZ - a.displayZ);
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
-            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '2px', paddingRight: '2px' }}>
+        <div className="flex flex-col h-full min-h-0">
+            <div className="flex-1 overflow-y-auto flex flex-col gap-px pr-px">
                 {sortedLayers.map((layer) => (
                     <SpriteAccordionItem
                         key={layer.sprite_name}
@@ -82,7 +82,7 @@ export function SpriteListEditor({
                         isVisible={layerVisibility[layer.sprite_name] !== false}
                         onSelect={() => onSpriteSelected(layer.sprite_name)}
                         onToggleVisibility={() => onToggleVisibility(layer.sprite_name)}
-                        onRemove={() => onRemoveLayer(layer.sprite_name)}
+                        onDeleteSprite={() => onDeleteSprite(layer.sprite_name)}
                         onBehaviorsChange={(newBehaviors) => onBehaviorsChange(newBehaviors)}
                         behaviorGuidance={selectedSprite === layer.sprite_name ? behaviorGuidance : null}
                         isScene={isScene}
@@ -100,7 +100,7 @@ function SpriteAccordionItem({
     isVisible,
     onSelect,
     onToggleVisibility,
-    onRemove,
+    onDeleteSprite,
     onBehaviorsChange,
     behaviorGuidance,
     isScene,
@@ -111,13 +111,17 @@ function SpriteAccordionItem({
 
     const itemRef = React.useRef(null);
 
-    // Auto-scroll if selected
+    // Auto-scroll if selected OR expanded
     React.useEffect(() => {
-        if (isSelected && itemRef.current && itemRef.current.scrollIntoView) {
-            itemRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-            setIsExpanded(true);
+        if ((isSelected || isExpanded) && itemRef.current && itemRef.current.scrollIntoView) {
+            // Increased timeout to 100ms to verify layout stability before scrolling
+            // This helps with "expanding out of view" issues at the bottom
+            const timeoutId = setTimeout(() => {
+                itemRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }, 100);
+            return () => clearTimeout(timeoutId);
         }
-    }, [isSelected]);
+    }, [isSelected, isExpanded]);
 
     // Verify URL construction - defaulting to standard path
     const assetBase = window.API_BASE ? window.API_BASE.replace('/api', '/assets') : `${window.location.protocol}//${window.location.hostname}:8000/assets`;
@@ -134,110 +138,68 @@ function SpriteAccordionItem({
         <div
             ref={itemRef}
             id={`sprite-list-item-${layer.sprite_name}`}
-            className="card"
-            style={{
-                background: isSelected ? 'rgba(var(--color-primary-rgb), 0.1)' : 'var(--color-bg-elevated)',
-                border: isSelected ? '1px solid var(--color-primary)' : '1px solid var(--color-border)',
-                borderRadius: '6px',
-                overflow: 'hidden',
-                transition: 'all 0.2s ease',
-                padding: '0',
-                flexShrink: 0
-            }}
+            className={`card card-interactive overflow-hidden p-0 flex-shrink-0 no-round ${isSelected ? 'selected' : ''}`}
         >
             {/* Header / Collapsed View */}
             <div
-                style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    padding: '2px 6px',
-                    cursor: 'pointer',
-                    userSelect: 'none',
-                    minHeight: '28px'
-                }}
+                className="flex items-center gap-1 px-2 py-1 cursor-pointer select-none min-h-7"
                 onClick={() => {
                     onSelect();
                     setIsExpanded(!isExpanded);
                 }}
             >
                 {/* Left Side: Thumbnail */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', flexShrink: 0, paddingRight: '8px' }}>
-                    <div style={{
-                        width: '24px',
-                        height: '24px',
-                        borderRadius: '4px',
-                        background: 'rgba(0,0,0,0.2)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        overflow: 'hidden'
-                    }}>
+                <div className="flex items-center justify-start flex-shrink-0 pr-2">
+                    <div className="w-6 h-6 rounded bg-surface flex items-center justify-center overflow-hidden">
                         <img
                             src={thumbnailSrc}
                             alt=""
-                            style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+                            className="max-w-full max-h-full object-contain"
                             onError={(e) => { e.target.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=' }}
                         />
                     </div>
                 </div>
-                <div style={{
-                    flex: 1,
-                    fontSize: '0.8rem',
-                    fontWeight: isSelected ? 600 : 500,
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    opacity: isVisible ? 1 : 0.5,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'flex-start',
-                    textAlign: 'left',
-                    gap: '6px'
-                }}>
-                    <span style={{ opacity: 0.5, fontSize: '0.7rem', fontFamily: 'monospace', background: 'rgba(0,0,0,0.2)', padding: '1px 4px', borderRadius: '3px', minWidth: '24px', textAlign: 'center' }}>
+                <div className={`flex-1 text-sm ${isSelected ? 'text-main font-semibold' : 'text-muted font-medium'} whitespace-nowrap overflow-hidden text-ellipsis flex items-center justify-start text-left gap-2 ${isVisible ? 'opacity-100' : 'opacity-50'}`}>
+                    <span className="text-subtle text-xxs font-mono bg-surface py-xs rounded-sm min-w-6 text-center">
                         {displayZ}
                     </span>
                     {layer.sprite_name}
                 </div>
 
-                {/* Right Side: Controls - Symmetrical fixed width */}
-                <div style={{ width: '80px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '2px', flexShrink: 0, position: 'relative' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }} onClick={e => e.stopPropagation()}>
+                {/* Right Side: Controls - Tight and Right-Justified */}
+                {/* Removed extra padding/gaps to make icons 'much closer' */}
+                <div className="flex-shrink-0 flex items-center justify-end gap-0 relative">
+                    <div className="flex items-center" style={{ gap: 0 }} onClick={e => e.stopPropagation()}>
                         <button
-                            className="btn-icon"
-                            onClick={() => setIsAdding(!isAdding)}
+                            className="btn-icon flex items-center justify-center"
+                            style={{ padding: 0, width: 18, height: 20 }}
                             title="Add Behavior"
-                            style={{ padding: '2px' }}
                         >
                             <Icon name="add" size={14} />
                         </button>
 
                         <button
-                            className="btn-icon"
-                            onClick={onToggleVisibility}
-                            title={isVisible ? "Hide in Theatre" : "Show in Theatre"}
-                            style={{ opacity: isVisible ? 1 : 0.5, padding: '2px' }}
+                            className="btn-icon flex items-center justify-center"
+                            style={{ padding: 0, width: 18, height: 20, opacity: isVisible ? 1 : 0.5 }}
+                            onClick={() => onToggleVisibility()} // Changed onClick
+                            title={isVisible ? "Hide Layer" : "Show Layer"} // Changed title
                         >
-                            <Icon name={isVisible ? "visible" : "hidden"} size={14} />
+                            <Icon name={isVisible ? "eye" : "eyeOff"} size={14} /> {/* Changed icon name */}
                         </button>
                         {isScene && (
                             <button
-                                className="btn-icon"
-                                onClick={onRemove}
-                                title="Remove from Scene"
-                                style={{ opacity: 0.5, padding: '2px' }}
+                                className="btn-icon flex items-center justify-center text-error"
+                                style={{ padding: 0, width: 18, height: 20 }}
+                                onClick={() => onDeleteSprite()}
+                                title="Delete Sprite"
                             >
                                 <Icon name="delete" size={14} />
                             </button>
                         )}
-                    </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', padding: '0 2px' }}>
                         <button
-                            className="btn-icon"
+                            className="btn-icon flex items-center justify-center"
+                            style={{ padding: 0, width: 18, height: 20 }}
                             title={isExpanded ? "Collapse Behaviors" : "Expand Behaviors"}
-                            style={{ padding: '2px', opacity: 0.5 }}
                         >
                             <Icon name={isExpanded ? "collapse" : "expand"} size={16} />
                         </button>
@@ -245,16 +207,11 @@ function SpriteAccordionItem({
 
                     {/* Add Behavior Menu */}
                     {isAdding && (
-                        <div style={{
-                            position: 'absolute', top: '100%', right: '24px', zIndex: 10,
-                            background: 'var(--color-bg-surface)', border: '1px solid var(--color-border)', borderRadius: '4px',
-                            boxShadow: '0 4px 12px rgba(0,0,0,0.5)', minWidth: '120px'
-                        }} onClick={e => e.stopPropagation()}>
+                        <div className="absolute top-full right-6 z-10 bg-surface border rounded shadow-md p-1 grid grid-cols-2 gap-1 min-w-120" onClick={e => e.stopPropagation()}>
                             {Object.values(BehaviorTypes).map(type => (
                                 <div
                                     key={type}
-                                    style={{ padding: '6px 10px', cursor: 'pointer', fontSize: '0.75rem' }}
-                                    className="hover-bg"
+                                    className="hover-bg p-xs cursor-pointer text-xs"
                                     onClick={() => handleAddBehavior(type)}
                                 >
                                     {type.charAt(0).toUpperCase() + type.slice(1)}
@@ -269,12 +226,15 @@ function SpriteAccordionItem({
             {
                 isExpanded && (
                     <div style={{
-                        padding: '0 6px 6px 6px',
-                        borderTop: '1px solid rgba(255,255,255,0.05)',
-                        background: 'rgba(0,0,0,0.25)',
-                        minHeight: '0'
+                        padding: '6px 6px 6px 36px', // Left padding indentation
+                        borderTop: '1px solid var(--color-border-muted)',
+                        background: 'var(--color-bg-surface)',
+                        minHeight: '0',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'flex-end' // Right conform
                     }}>
-                        <div style={{ marginTop: '4px' }}>
+                        <div style={{ width: '100%' }}>
                             <BehaviorEditor
                                 behaviors={layer.behaviors || []}
                                 onChange={onBehaviorsChange}

@@ -73,35 +73,20 @@ export const PromptsView = ({ user }) => {
     }, [fetchPrompts]);
 
     return (
-        <div style={{ display: 'flex', height: '100%', overflow: 'hidden' }}>
+        <div className="flex h-full overflow-hidden">
             {/* Sidebar list */}
-            <aside style={{
-                width: '280px',
-                borderRight: '1px solid var(--color-border)',
-                display: 'flex',
-                flexDirection: 'column',
-                background: 'rgba(255, 255, 255, 0.02)'
-            }}>
-                <div style={{ padding: '20px', borderBottom: '1px solid var(--color-border)' }}>
-                    <h2 style={{ margin: 0, fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <aside className="w-70 border-r flex flex-col bg-surface">
+                <div className="p-5 border-b">
+                    <h2 className="m-0 text-md flex items-center gap-2">
                         <Icon name="config" size={20} /> System Prompts
                     </h2>
                 </div>
-                <div style={{ flex: 1, overflowY: 'auto', padding: '12px' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <div className="flex-1 overflow-y-auto p-3">
+                    <div className="flex flex-col gap-1">
                         {prompts.map(name => (
                             <button
                                 key={name}
-                                className={`btn ${selectedPrompt === name ? 'btn-primary' : ''}`}
-                                style={{
-                                    textAlign: 'left',
-                                    justifyContent: 'flex-start',
-                                    padding: '10px 16px',
-                                    fontSize: '0.9rem',
-                                    border: 'none',
-                                    background: selectedPrompt === name ? 'var(--color-primary)' : 'transparent',
-                                    color: selectedPrompt === name ? 'var(--color-text-on-primary)' : 'var(--color-text-main)'
-                                }}
+                                className={`btn text-left justify-start px-4 py-2 text-sm border-none ${selectedPrompt === name ? 'btn-primary bg-primary text-white' : 'transparent text-main'}`}
                                 onClick={() => fetchPromptContent(name)}
                             >
                                 {name}.prompt
@@ -112,54 +97,31 @@ export const PromptsView = ({ user }) => {
             </aside>
 
             {/* Editor area */}
-            <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <main className="flex-1 flex flex-col overflow-hidden">
                 {selectedPrompt ? (
                     <>
-                        <header style={{
-                            padding: '16px 24px',
-                            borderBottom: '1px solid var(--color-border)',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            background: 'rgba(255,255,255,0.02)'
-                        }}>
+                        <header className="px-6 py-4 border-b flex justify-between items-center bg-surface">
                             <div>
-                                <h3 style={{ margin: 0, fontSize: '1rem' }}>Editing: <span style={{ opacity: 0.7 }}>{selectedPrompt}.prompt</span></h3>
+                                <h3 className="m-0 text-sm">Editing: <span className="opacity-70">{selectedPrompt}.prompt</span></h3>
                             </div>
                             <button
-                                className="btn btn-primary"
+                                className="btn btn-primary flex items-center gap-2"
                                 onClick={handleSave}
                                 disabled={isSaving || isLoading}
-                                style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
                             >
                                 <Icon name="save" size={16} /> Save Changes
                             </button>
                         </header>
-                        <div style={{ flex: 1, padding: '0', position: 'relative', overflow: 'hidden' }}>
+                        <div className="flex-1 p-0 relative overflow-hidden">
                             {isLoading && (
-                                <div style={{
-                                    position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 10,
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center'
-                                }}>
+                                <div className="absolute inset-0 bg-overlay z-10 flex items-center justify-center">
                                     <Icon name="generate" className="animate-spin" size={32} />
                                 </div>
                             )}
                             <textarea
                                 value={content}
                                 onChange={(e) => setContent(e.target.value)}
-                                style={{
-                                    width: '100%',
-                                    height: '100%',
-                                    background: 'transparent',
-                                    color: 'var(--color-text-main)',
-                                    border: 'none',
-                                    padding: '24px',
-                                    fontFamily: '"Fira Code", "Source Code Pro", monospace',
-                                    fontSize: '0.95rem',
-                                    lineHeight: '1.6',
-                                    resize: 'none',
-                                    outline: 'none'
-                                }}
+                                className="w-full h-full p-6 bg-base text-main text-sm font-mono resize-none border-none outline-none leading-relaxed"
                                 spellCheck="false"
                             />
                         </div>

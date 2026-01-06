@@ -29,6 +29,7 @@ testpaths = ["tests"]
 asyncio_default_fixture_loop_scope = "function"
 markers = [
     "live: marks tests as live integration tests (deselect with '-m \"not live\"')",
+    "e2e: marks tests as end-to-end tests",
 ]
 filterwarnings = [
     "ignore::DeprecationWarning:rembg.*",
@@ -39,6 +40,7 @@ filterwarnings = [
 dev = [
     "pytest>=9.0.2",
     "pytest-mock>=3.10.0",
+    "pytest-xdist>=3.5.0",
     "pytest-cov>=4.1.0",
     "pytest-testmon>=2.1.0",
     "ruff>=0.1.0",

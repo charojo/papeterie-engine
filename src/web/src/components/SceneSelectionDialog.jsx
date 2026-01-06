@@ -25,6 +25,7 @@ export const SceneSelectionDialog = ({ scenes, onSelect, onCreate }) => {
                 {/* Always show Create as the first item */}
                 <div
                     className="card glass btn"
+                    data-testid="create-scene-button"
                     onClick={onCreate}
                     style={{
                         display: 'flex',
@@ -44,6 +45,7 @@ export const SceneSelectionDialog = ({ scenes, onSelect, onCreate }) => {
                 {filteredScenes.map(scene => (
                     <div
                         key={scene.name}
+                        data-testid={`scene-item-${scene.name}`}
                         className="card glass btn"
                         onClick={() => onSelect(scene)}
                         style={{

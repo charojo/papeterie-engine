@@ -3,20 +3,24 @@ import { test, expect } from '@playwright/test';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import fs from 'fs';
+import { ensureSceneExists } from './utils.js';
 
-test.describe('Basic Flow', () => {
+test.describe('Smoke Test', () => {
     test('should load the dashboard and open a scene', async ({ page }) => {
         // 1. Navigate to dashboard
         await page.goto('/');
-
-        // Check that the title is correct or some element exists
-        await expect(page).toHaveTitle(/Papeterie Engine/);
 
         // 1.5 Handle Login (if redirected to login page)
         const loginButton = page.getByRole('button', { name: 'Enter Local Theater' });
         if (await loginButton.isVisible()) {
             await loginButton.click();
         }
+
+        // 1.8 Ensure a scene exists
+        await ensureSceneExists(page);
+
+        // Check that the title is correct or some element exists
+        await expect(page).toHaveTitle(/Papeterie Engine/);
 
         // 2. Open first scene found (e.g. sailboat)
         // const sceneCard = page.getByTestId('scene-item-sailboat').first();

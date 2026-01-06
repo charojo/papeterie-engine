@@ -53,3 +53,13 @@ This file lists features, improvements, and bugs to be addressed in the Papeteri
 ## Technical Debt
 
 *   **Refactor `main.py`**: The entry point is currently too large and logic should be distributed.
+
+## Known Issues
+
+*   **Sprite List UI**:
+    *   Sprite card visibility issues when expanded (fixed).
+    *   Behavior editor width and alignment in list view (fixed).
+    *   Sprite summary icon spacing (fixed).
+*   **Backend Connection**:
+    *   Occasional `net::ERR_CONNECTION_REFUSED` in frontend when backend is starting or down.
+    *   Need better frontend error handling/reconnection logic/status indicator.

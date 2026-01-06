@@ -16,7 +16,7 @@ export const TopBar = ({ title, leftContent, rightContent }) => {
         }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                 <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <Icon name="app" size={20} />
+                    <Icon name="app" size={20} className="text-primary" />
                     {title || "Papeterie"}
                 </h3>
                 {leftContent}

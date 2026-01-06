@@ -5,14 +5,7 @@ import { API_BASE } from '../config';
 
 export function BehaviorEditor({ behaviors = [], onChange, readOnly = false, spriteName, isVisible, _onToggleVisibility, _onRemoveSprite, behaviorGuidance, inline = false }) {
     // Ensure the editor expands and scrolls within its container
-    const containerStyle = {
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '0px',
-        height: inline ? 'auto' : '100%',
-        minHeight: inline ? '40px' : '0',
-        overflowY: inline ? 'visible' : 'auto'
-    };
+
     const [isAdding, setIsAdding] = useState(false);
 
     const handleAdd = (type) => {
@@ -52,19 +45,19 @@ export function BehaviorEditor({ behaviors = [], onChange, readOnly = false, spr
     });
 
     return (
-        <div style={containerStyle}>
+        <div className={`flex-col gap-0 ${inline ? 'h-auto overflow-visible' : 'h-full overflow-auto min-h-0'}`} style={{ minHeight: inline ? '40px' : '0' }}>
             {!inline && (
                 <>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <h3 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 600, opacity: isVisible === false ? 0.5 : 1 }}>
+                    <div className="justify-between items-center flex-row">
+                        <h3 className={`m-0 text-base font-bold ${isVisible === false ? 'text-subtle' : ''}`}>
                             {spriteName || 'Active Behaviors'}
                         </h3>
 
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                        <div className="flex-row items-center gap-sm">
                             {/* Visibility/Remove buttons moved to ImageViewer floating controls */}
 
                             {!readOnly && !inline && (
-                                <div style={{ position: 'relative' }}>
+                                <div className="relative">
                                     <button
                                         className="btn-icon"
                                         onClick={() => setIsAdding(!isAdding)}
@@ -73,19 +66,14 @@ export function BehaviorEditor({ behaviors = [], onChange, readOnly = false, spr
                                         <Icon name="add" size={16} />
                                     </button>
                                     {isAdding && (
-                                        <div style={{
-                                            position: 'absolute', top: '100%', right: 0, zIndex: 10,
-                                            background: 'var(--color-bg-surface)', border: '1px solid var(--color-border)', borderRadius: '4px',
-                                            boxShadow: '0 4px 12px rgba(0,0,0,0.5)', minWidth: '120px'
-                                        }}>
+                                        <div className="absolute top-full right-0 z-10 panel shadow-lg min-w-120">
                                             {Object.values(BehaviorTypes).filter(t =>
                                                 (activeTab === 'Motion' && [BehaviorTypes.OSCILLATE, BehaviorTypes.DRIFT, BehaviorTypes.PULSE, BehaviorTypes.BACKGROUND, BehaviorTypes.LOCATION].includes(t)) ||
                                                 (activeTab === 'Sound' && t === BehaviorTypes.SOUND)
                                             ).map(type => (
                                                 <div
                                                     key={type}
-                                                    style={{ padding: '8px 12px', cursor: 'pointer', fontSize: '0.85rem' }}
-                                                    className="hover-bg"
+                                                    className="p-2 cursor-pointer text-sm hover-bg"
                                                     onClick={() => handleAdd(type)}
                                                 >
                                                     {type.charAt(0).toUpperCase() + type.slice(1)}
@@ -99,16 +87,11 @@ export function BehaviorEditor({ behaviors = [], onChange, readOnly = false, spr
                     </div>
 
                     {/* Tabs */}
-                    <div style={{ display: 'flex', borderBottom: '1px solid var(--color-border)', marginBottom: '8px' }}>
+                    <div className="tab-container">
                         {TABS.map(tab => (
                             <button
                                 key={tab}
-                                className={`btn`}
-                                style={{
-                                    borderBottom: activeTab === tab ? '2px solid var(--color-primary)' : 'none',
-                                    borderRadius: 0, padding: '4px 12px', color: activeTab === tab ? 'var(--color-text-main)' : 'var(--color-text-muted)',
-                                    fontSize: '0.8rem'
-                                }}
+                                className={`tab-btn ${activeTab === tab ? 'active' : ''} text-xs`}
                                 onClick={() => setActiveTab(tab)}
                             >
                                 {tab}
@@ -121,22 +104,16 @@ export function BehaviorEditor({ behaviors = [], onChange, readOnly = false, spr
 
             {/* Behavior Guidance from LLM - shown once at top */}
             {behaviorGuidance && (
-                <div style={{
-                    margin: '0 0 4px 0',
-                    padding: '6px 8px',
-                    background: 'rgba(var(--color-primary-rgb), 0.05)',
-                    borderRadius: '4px',
-                    fontSize: '0.75rem'
-                }}>
-                    <p style={{ margin: 0, fontStyle: 'italic', lineHeight: '1.3' }}>
+                <div className="mb-1 p-2 bg-primary-muted rounded text-xs">
+                    <p className="m-0 italic lh-tight text-muted">
                         {behaviorGuidance}
                     </p>
                 </div>
             )}
 
-            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1px' }}>
+            <div className="flex-1 overflow-auto flex-col gap-0 border-t">
                 {filteredBehaviors.length === 0 && (
-                    <div style={{ padding: '8px', textAlign: 'center', opacity: 0.5, fontStyle: 'italic', fontSize: '0.75rem' }}>
+                    <div className="p-2 text-center text-subtle italic text-xs">
                         No {activeTab.toLowerCase()} behaviors defined.
                     </div>
                 )}
@@ -188,32 +165,31 @@ function BehaviorCard({ behavior, onChange, onRemove, readOnly }) {
 
 
     return (
-        <div style={{ background: 'var(--color-bg-surface)', borderRadius: '4px', border: '1px solid var(--color-border)', overflow: 'hidden' }}>
+        <div className="bg-surface rounded-sm border overflow-hidden">
             <div
+                className="px-2 bg-elevated items-center gap-sm cursor-pointer min-h-5 flex-row"
                 style={{
-                    padding: '0px 6px', background: 'var(--color-bg-elevated)', display: 'flex', alignItems: 'center', gap: '4px',
-                    borderBottom: expanded ? '1px solid var(--color-border)' : 'none', cursor: 'pointer',
-                    minHeight: '20px'
+                    borderBottom: expanded ? '1px solid var(--color-border)' : 'none'
                 }}
                 onClick={() => setExpanded(!expanded)}
             >
                 <Icon name={behavior.type} size={14} />
-                <span style={{ fontWeight: 600, fontSize: '0.75rem', flex: 1 }}>
+                <span className="font-medium text-xs flex-1 text-muted">
                     {behavior.type.toUpperCase()}
                     {behavior.type === BehaviorTypes.LOCATION && behavior.time_offset !== undefined && (
-                        <span style={{ color: 'var(--color-primary)', marginLeft: '4px' }}>@{behavior.time_offset.toFixed(2)}s</span>
+                        <span className="text-subtle ml-1">@{behavior.time_offset.toFixed(2)}s</span>
                     )}
-                    <span style={{ opacity: 0.6, fontSize: '0.65rem' }}>({behavior.coordinate || 'y'})</span>
+                    <span className="text-subtle text-xs ml-1">({behavior.coordinate || 'y'})</span>
                 </span>
                 {!readOnly && (
-                    <button className="btn-icon" onClick={(e) => { e.stopPropagation(); onRemove(); }} title="Remove">
-                        <Icon name="delete" size={10} />
+                    <button className="btn-icon" onClick={(e) => { e.stopPropagation(); onRemove(); }} title="Delete Behavior">
+                        <Icon name="delete" size={12} />
                     </button>
                 )}
             </div>
 
             {expanded && (
-                <div style={{ padding: '4px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>
+                <div className="p-1 grid-2-col">
 
                     {/* Common Fields */}
                     {behavior.type !== BehaviorTypes.LOCATION && behavior.type !== BehaviorTypes.SOUND && (
@@ -272,16 +248,15 @@ function BehaviorCard({ behavior, onChange, onRemove, readOnly }) {
                     {/* Sound Fields */}
                     {behavior.type === BehaviorTypes.SOUND && (
                         <>
-                            <div style={{ gridColumn: 'span 2' }}>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                    <label style={{ fontSize: '0.75rem', opacity: 0.7 }}>Sound File</label>
-                                    <div style={{ display: 'flex', gap: '4px' }}>
+                            <div className="col-span-2">
+                                <div className="flex-col gap-sm">
+                                    <label className="text-xs text-subtle">Sound File</label>
+                                    <div className="flex-row gap-sm">
                                         <select
-                                            className="input"
+                                            className="input flex-1 p-2 text-sm"
                                             value={behavior.sound_file || ''}
                                             onChange={e => updateParam('sound_file', e.target.value)}
                                             disabled={readOnly}
-                                            style={{ flex: 1, padding: '4px 8px', fontSize: '0.8rem' }}
                                         >
                                             <option value="">Select a sound...</option>
                                             {soundOptions.map(s => (
@@ -289,7 +264,7 @@ function BehaviorCard({ behavior, onChange, onRemove, readOnly }) {
                                             ))}
                                         </select>
                                         <button
-                                            className="btn btn-xs"
+                                            className="btn btn-xs px-2"
                                             onClick={() => {
                                                 const input = document.createElement('input');
                                                 input.type = 'file';
@@ -317,7 +292,6 @@ function BehaviorCard({ behavior, onChange, onRemove, readOnly }) {
                                                 input.click();
                                             }}
                                             title="Upload Sound"
-                                            style={{ padding: '0 8px' }}
                                         >
                                             <Icon name="add" size={12} />
                                         </button>
@@ -328,14 +302,14 @@ function BehaviorCard({ behavior, onChange, onRemove, readOnly }) {
                             <Field label="Time Offset (s)" value={behavior.time_offset} type="number" step="0.1" onChange={v => updateParam('time_offset', v)} readOnly={readOnly} />
                             <Field label="Fade In (s)" value={behavior.fade_in} type="number" step="0.1" onChange={v => updateParam('fade_in', v)} readOnly={readOnly} />
                             <Field label="Fade Out (s)" value={behavior.fade_out} type="number" step="0.1" onChange={v => updateParam('fade_out', v)} readOnly={readOnly} />
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <div className="flex-row items-center gap-md">
                                 <input
                                     type="checkbox"
                                     checked={behavior.loop || false}
                                     onChange={e => updateParam('loop', e.target.checked)}
                                     disabled={readOnly}
                                 />
-                                <label style={{ fontSize: '0.8rem' }}>Loop</label>
+                                <label className="text-sm">Loop</label>
                             </div>
                         </>
                     )}
@@ -348,29 +322,27 @@ function BehaviorCard({ behavior, onChange, onRemove, readOnly }) {
 function Field({ label, value, type = "text", step, options, onChange, readOnly }) {
     const id = `field-${label.replace(/\s+/g, '-').toLowerCase()}`;
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-            <label htmlFor={id} style={{ fontSize: '0.7rem', opacity: 0.7 }}>{label}</label>
+        <div className="flex-col gap-0">
+            <label htmlFor={id} className="text-xs text-subtle">{label}</label>
             {options ? (
                 <select
                     id={id}
-                    className="input"
+                    className="input py-xs text-xs"
                     value={value || ''}
                     onChange={e => onChange(e.target.value)}
                     disabled={readOnly}
-                    style={{ padding: '1px 4px', fontSize: '0.7rem' }}
                 >
                     {options.map(o => <option key={o} value={o}>{o}</option>)}
                 </select>
             ) : (
                 <input
                     id={id}
-                    className="input"
+                    className="input py-xs text-xs"
                     type={type}
                     step={step}
                     value={value ?? ''}
                     onChange={e => onChange(e.target.value)}
                     disabled={readOnly}
-                    style={{ padding: '1px 4px', fontSize: '0.7rem' }}
                 />
             )}
         </div>

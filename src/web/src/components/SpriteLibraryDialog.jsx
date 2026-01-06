@@ -14,54 +14,37 @@ export const SpriteLibraryDialog = ({ sprites, onAdd, onClose, isOpen }) => {
     );
 
     return (
-        <div style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 200,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'rgba(0,0,0,0.6)',
-            backdropFilter: 'blur(4px)'
-        }}
+        <div className="fixed inset-0 z-200 flex items-center justify-center bg-overlay backdrop-blur-sm"
             onClick={onClose}
         >
             <div
-                className="card glass"
-                style={{ width: '80%', maxWidth: '800px', maxHeight: '80vh', display: 'flex', flexDirection: 'column', padding: 0 }}
+                className="card glass w-4-5 max-w-800 max-h-4-5 flex flex-col p-0"
                 onClick={e => e.stopPropagation()}
             >
-                <div style={{ padding: '16px', borderBottom: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <h3 style={{ margin: 0 }}>{showUpload ? 'Upload New Sprite' : 'Add Sprite to Scene'}</h3>
-                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                <div className="p-4 border-b flex items-center justify-between">
+                    <h3 className="m-0">{showUpload ? 'Upload New Sprite' : 'Add Sprite to Scene'}</h3>
+                    <div className="flex gap-3 items-center">
                         {!showUpload && (
                             <>
-                                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                                <div className="relative flex items-center">
                                     <input
-                                        className="input"
+                                        className={`input ${search ? 'pr-7' : ''}`}
                                         placeholder="Search..."
                                         value={search}
                                         onChange={e => setSearch(e.target.value)}
                                         autoFocus
-                                        style={{ paddingRight: search ? '28px' : undefined }}
                                     />
                                     {search && (
                                         <button
-                                            className="btn-icon"
+                                            className="btn-icon absolute right-1 p-1 bg-transparent"
                                             onClick={() => setSearch('')}
-                                            style={{
-                                                position: 'absolute',
-                                                right: '4px',
-                                                padding: '4px',
-                                                background: 'transparent'
-                                            }}
                                             title="Clear search"
                                         >
                                             <Icon name="close" size={14} />
                                         </button>
                                     )}
                                 </div>
-                                <button className="btn btn-primary" onClick={() => setShowUpload(true)} style={{ padding: '6px 12px' }}>
+                                <button className="btn btn-primary py-xs px-3" onClick={() => setShowUpload(true)}>
                                     <Icon name="add" size={14} /> New
                                 </button>
                             </>
@@ -70,7 +53,7 @@ export const SpriteLibraryDialog = ({ sprites, onAdd, onClose, isOpen }) => {
                     </div>
                 </div>
 
-                <div style={{ padding: '16px', overflowY: 'auto', flex: 1, minHeight: 0 }}>
+                <div className="p-4 overflow-y-auto flex-1 min-h-0">
                     {showUpload ? (
                         <NewSpriteForm
                             onSuccess={(data) => {
@@ -80,21 +63,11 @@ export const SpriteLibraryDialog = ({ sprites, onAdd, onClose, isOpen }) => {
                             onCancel={() => setShowUpload(false)}
                         />
                     ) : (
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '12px' }}>
+                        <div className="grid grid-cols-auto-120 gap-3">
                             {filteredSprites.map(sprite => (
                                 <div
                                     key={sprite.name}
-                                    className="btn"
-                                    style={{
-                                        flexDirection: 'column',
-                                        gap: '4px',
-                                        height: '120px',
-                                        justifyContent: 'flex-end',
-                                        border: '1px solid var(--color-border)',
-                                        position: 'relative',
-                                        overflow: 'hidden',
-                                        padding: '8px'
-                                    }}
+                                    className="btn flex-col gap-1 h-180 justify-end border-muted relative overflow-hidden p-2"
                                     onClick={() => {
                                         onAdd(sprite);
                                     }}
@@ -103,28 +76,10 @@ export const SpriteLibraryDialog = ({ sprites, onAdd, onClose, isOpen }) => {
                                     <img
                                         src={`${ASSET_BASE}${sprite.image_url}`}
                                         alt={sprite.name}
-                                        style={{
-                                            position: 'absolute',
-                                            top: '8px',
-                                            left: '50%',
-                                            transform: 'translateX(-50%)',
-                                            maxWidth: '80%',
-                                            maxHeight: '70px',
-                                            objectFit: 'contain',
-                                            opacity: 0.9
-                                        }}
+                                        className="absolute top-2 left-1-2 tx-center max-w-4-5 max-h-70 object-contain opacity-90"
                                         onError={(e) => { e.target.style.display = 'none'; }}
                                     />
-                                    <span style={{
-                                        fontSize: '0.8rem',
-                                        textAlign: 'center',
-                                        wordBreak: 'break-word',
-                                        width: '100%',
-                                        background: 'rgba(0,0,0,0.5)',
-                                        padding: '2px 4px',
-                                        borderRadius: '2px',
-                                        zIndex: 1
-                                    }}>
+                                    <span className="text-sm text-center break-words w-full bg-surface py-xs rounded-xs z-1">
                                         {sprite.name}
                                     </span>
                                 </div>

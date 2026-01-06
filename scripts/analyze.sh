@@ -2,7 +2,7 @@
 # Coverage analysis script for Papeterie Engine
 # Parses validate.log to extract and display coverage metrics
 
-set -eo pipefail
+set -e
 
 LOG_FILE="${1:-logs/validate.log}"
 BASELINE_LOG="${2:-}"
@@ -14,34 +14,205 @@ if [[ ! -f "$LOG_FILE" ]]; then
 fi
 
 # Extract backend coverage percentage
+# Helper to strip ANSI colors
+strip_colors() {
+    sed 's/\x1b\[[0-9;]*[a-zA-Z]//g'
+}
+
+# Extract backend coverage percentage
 extract_backend_coverage() {
     local file="$1"
-    grep "^TOTAL" "$file" | awk '{print $NF}' | sed 's/%//'
+    # Use tail -1 to get the last occurrence in case of duplicates
+    grep "^TOTAL" "$file" | tail -1 | awk '{print $NF}' | sed 's/%//' | awk '{printf "%.0f", $1}' || true
 }
 
 # Extract frontend coverage percentage
 extract_frontend_coverage() {
     local file="$1"
-    grep "^All files" "$file" | awk -F'|' '{print $2}' | tr -d ' '
+    # Use tail -1 to get the last occurrence in case of duplicates
+    grep "^All files" "$file" | tail -1 | awk -F'|' '{print $2}' | tr -d ' ' | awk '{printf "%.0f", $1}' || true
+}
+
+# Extract frontend test summary (vitest format: "Tests  X passed (X)")
+extract_frontend_tests() {
+    local file="$1"
+    local line=$(grep "Tests" "$file" | grep "passed" | strip_colors | tail -1 || true)
+    
+    # Extract passed
+    local passed=$(echo "$line" | grep -oE "[0-9]+ passed" | head -1)
+    # Extract skipped if present
+    local skipped=$(echo "$line" | grep -oE "[0-9]+ skipped" | head -1)
+
+    if [[ -n "$skipped" ]]; then
+        echo "$passed, $skipped"
+    else
+        echo "$passed"
+    fi
+}
+
+# Extract backend test summary (pytest format: "===== 134 passed, 2 skipped... =====")
+extract_backend_tests() {
+    local file="$1"
+    # Look for the specific pytest summary line with = separator
+    # Use head -1 since the main backend run is Phase 2 (first)
+    # Strip colors to ensure regex matches
+    cat "$file" | strip_colors | grep -E "= [0-9]+ passed.* =" | head -1 || true
+}
+
+# Extract compliance checks
+check_compliance() {
+    local file="$1"
+    local name="$2"
+    if grep -q "$3" "$file"; then
+        echo "Passed"
+    else
+        echo "Failed/Skipped"
+    fi
+}
+extract_e2e_tests() {
+    local file="$1"
+    # Try to find Playwright specific output first: "  9 passed (19.7s)"
+    # Use single quotes for regex to avoid bash escaping issues with parentheses
+    local playwright_line=$(cat "$file" | strip_colors | grep -E '^[[:space:]]+[0-9]+ passed \([0-9.]+s\)' | tail -1 || true)
+    
+    if [[ -n "$playwright_line" ]]; then
+        echo "$playwright_line"
+    else
+        # Fallback to Pytest output: "1 passed in 2.5s"
+        cat "$file" | strip_colors | grep -E "[0-9]+ passed [a-z0-9(). ]*s" | tail -1 || true
+    fi
+}
+
+# Extract static analysis counts
+extract_contrast_tests() {
+    local file="$1"
+    # Count rows in the table (lines starting with | but not header/separator)
+    # Using 'grep -v' to exclude header/separator lines which contain "Theme" or ":---"
+    grep "^| " "$file" | grep -v "Theme" | grep -v ":---" | wc -l || echo "0"
+}
+
+extract_css_tests() {
+    local file="$1"
+    # Count summary lines with colons (e.g. "Files with issues: 0")
+    # Restrict to the CSS section if possible? valid_log is global so we just grep for expected keys
+    # or just assume unique strings.
+    # Looking at the output, the summary lines are unique enough or we can sed/awk range.
+    # Simpler: just grep for the specific metric lines we know exist
+    grep -E "Files with issues:|Hardcoded color occurrences:|Components exceeding inline style threshold:|btn-icon override violations:" "$file" | wc -l || echo "0"
 }
 
 # Get current coverage
 BACKEND_COV=$(extract_backend_coverage "$LOG_FILE")
 FRONTEND_COV=$(extract_frontend_coverage "$LOG_FILE")
 
-echo "========================================="
-echo "Coverage Analysis Report"
-echo "========================================="
-echo ""
-echo "Current Coverage (from $LOG_FILE):"
-echo "  Backend:  ${BACKEND_COV}%"
-echo "  Frontend: ${FRONTEND_COV}%"
-echo ""
+# Extract E2E coverage (from nyc_output if available)
+E2E_COV=""
+NYC_OUTPUT_DIR="src/web/.nyc_output"
+if [[ -d "$NYC_OUTPUT_DIR" ]] && ls "$NYC_OUTPUT_DIR"/*.json 1>/dev/null 2>&1; then
+    E2E_COV_RAW=$(cd src/web && npx nyc report --reporter=text 2>/dev/null | grep "^All files" | awk -F'|' '{print $2}' | tr -d ' ' | sed 's/%//' || true)
+    if [[ -n "$E2E_COV_RAW" ]]; then
+        E2E_COV=$(echo "$E2E_COV_RAW" | awk '{printf "%.0f", $1}')
+    fi
+fi
 
-# Calculate total weighted coverage (assuming equal weight)
+# Get test summaries - extract just the numbers
+FRONTEND_TESTS_RAW=$(extract_frontend_tests "$LOG_FILE")
+BACKEND_TESTS_RAW=$(extract_backend_tests "$LOG_FILE")
+
+# Parse frontend: "Tests  215 passed (215)" -> "215 passed"
+# Now handled inside extract_frontend_tests
+FRONTEND_COUNTS=$(extract_frontend_tests "$LOG_FILE")
+
+# Parse backend: "=== 134 passed, 2 skipped... ===" -> "134 passed, 2 skipped"
+BACKEND_PASSED=$(echo "$BACKEND_TESTS_RAW" | grep -oE "[0-9]+ passed" | head -1)
+BACKEND_SKIPPED=$(echo "$BACKEND_TESTS_RAW" | grep -oE "[0-9]+ skipped" || echo "")
+
+# Get E2E summary
+E2E_TESTS_RAW=$(extract_e2e_tests "$LOG_FILE")
+E2E_PASSED=$(echo "$E2E_TESTS_RAW" | grep -oE "[0-9]+ passed" | head -1)
+
+# Compliance status & counts
+CONTRAST_STATUS=$(check_compliance "$LOG_FILE" "Contrast" "Papeterie Contrast Standards Report")
+CONTRAST_COUNT=$(extract_contrast_tests "$LOG_FILE")
+
+PATH_STATUS=$(check_compliance "$LOG_FILE" "Paths" "No absolute paths found")
+PATH_COUNT=1 # It's a single global check
+
+CSS_STATUS=$(check_compliance "$LOG_FILE" "CSS" "CSS Compliance Report")
+CSS_COUNT=$(extract_css_tests "$LOG_FILE")
+
 if [[ -n "$BACKEND_COV" && -n "$FRONTEND_COV" ]]; then
     TOTAL_COV=$(echo "scale=2; ($BACKEND_COV + $FRONTEND_COV) / 2" | bc)
-    echo "  Total (avg): ${TOTAL_COV}%"
+fi
+
+echo ""
+echo "========================================================"
+echo "Validation Summary"
+echo "========================================================"
+echo ""
+
+# Timing Parsing
+# Timing Parsing
+AUTOFIX_TIME=$(grep "TIMING_METRIC: AutoFix=" "$LOG_FILE" | cut -d'=' -f2 | tail -1)
+BACKEND_TIME=$(grep "TIMING_METRIC: Backend=" "$LOG_FILE" | cut -d'=' -f2 | tail -1)
+FRONTEND_TIME=$(grep "TIMING_METRIC: Frontend=" "$LOG_FILE" | cut -d'=' -f2 | tail -1)
+E2E_TIME=$(grep "TIMING_METRIC: E2E=" "$LOG_FILE" | cut -d'=' -f2 | tail -1)
+TOTAL_TIME=$(grep "TIMING_METRIC: Total=" "$LOG_FILE" | cut -d'=' -f2 | tail -1)
+
+# Defaults if missing
+: ${AUTOFIX_TIME:="-"}
+: ${BACKEND_TIME:="-"}
+: ${FRONTEND_TIME:="-"}
+: ${E2E_TIME:="-"}
+
+printf "  %-12s %24s %10s %8s\n" "" "Tests" "Coverage" "Time"
+printf "  %-12s %24s %10s %8s\n" "------------" "------------------------" "--------" "--------"
+
+# 1. Frontend
+printf "  %-12s %24s %10s %8s\n" "Frontend" "$FRONTEND_COUNTS" "${FRONTEND_COV}%" "${FRONTEND_TIME}"
+
+# 2. E2E
+E2E_COV_DISPLAY="${E2E_COV:--}"
+if [[ -n "$E2E_COV" ]]; then
+    E2E_COV_DISPLAY="${E2E_COV}%"
+fi
+if [[ -n "$E2E_PASSED" ]]; then
+    printf "  %-12s %24s %10s %8s\n" "E2E" "$E2E_PASSED" "$E2E_COV_DISPLAY" "${E2E_TIME}"
+else
+    if grep -q "Skipping E2E tests" "$LOG_FILE"; then
+         printf "  %-12s %24s %10s %8s\n" "E2E" "Skipped" "-" "-"
+    else
+         printf "  %-12s %24s %10s %8s\n" "E2E" "Not Run/Failed" "-" "${E2E_TIME}"
+    fi
+fi
+
+# 3. Backend
+if [[ -n "$BACKEND_SKIPPED" ]]; then
+    printf "  %-12s %24s %10s %8s\n" "Backend" "$BACKEND_PASSED, $BACKEND_SKIPPED" "${BACKEND_COV}%" "${BACKEND_TIME}"
+else
+    printf "  %-12s %24s %10s %8s\n" "Backend" "$BACKEND_PASSED" "${BACKEND_COV}%" "${BACKEND_TIME}"
+fi
+
+# 4. Static Checks
+printf "  %-12s %24s %10s %8s\n" "Contrast" "$CONTRAST_COUNT tests ($CONTRAST_STATUS)" "-" "-"
+printf "  %-12s %24s %10s %8s\n" "CSS" "$CSS_COUNT checks ($CSS_STATUS)" "-" "-"
+printf "  %-12s %24s %10s %8s\n" "Paths" "$PATH_COUNT check ($PATH_STATUS)" "-" "-"
+
+if [[ "$AUTOFIX_TIME" != "-" ]]; then
+    printf "  %-12s %24s %10s %8s\n" "Auto-Fix" "Done" "-" "${AUTOFIX_TIME}"
+fi
+
+printf "  %-12s %24s %10s %8s\n" "------------" "------------------------" "--------" "--------"
+
+# 5. Total (Bottom)
+if [[ -n "$TOTAL_COV" ]]; then
+    printf "  %-12s %24s %10s %8s\n" "TOTAL" "" "${TOTAL_COV}%" "${TOTAL_TIME}"
+    printf "  %-12s %24s %10s %8s\n" "------------" "------------------------" "--------" "--------"
+fi
+
+echo ""
+if [[ -n "$BACKEND_SKIPPED" ]]; then
+    echo "  * $BACKEND_SKIPPED are live API tests (use --live to run)"
     echo ""
 fi
 

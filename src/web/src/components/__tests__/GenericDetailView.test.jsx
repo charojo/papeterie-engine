@@ -58,12 +58,12 @@ vi.mock('../BehaviorEditor', () => ({
 }));
 
 vi.mock('../SpriteListEditor', () => ({
-    SpriteListEditor: ({ onSpriteSelected, onToggleVisibility, onRemoveLayer, onBehaviorsChange }) => (
+    SpriteListEditor: ({ onSpriteSelected, onToggleVisibility, onDeleteSprite, onBehaviorsChange }) => (
         <div data-testid="sprite-list-editor">
             SpriteListEditor
             <button onClick={() => onSpriteSelected('dragon')}>Select dragon</button>
             <button onClick={() => onToggleVisibility('dragon')}>Toggle dragon Vis</button>
-            <button onClick={() => onRemoveLayer('dragon')}>Remove dragon</button>
+            <button onClick={() => onDeleteSprite('dragon')}>Delete dragon</button>
             <button onClick={() => onBehaviorsChange([{ type: 'oscillate' }])}>Update Behaviors</button>
         </div>
     )
@@ -270,7 +270,7 @@ describe('GenericDetailView', () => {
         );
     });
 
-    it('removes layer from scene via SpriteListEditor', async () => {
+    it('deletes sprite from scene via SpriteListEditor', async () => {
         const mockScene = {
             name: 'scene1',
             config: { layers: [{ sprite_name: 'dragon' }] },
@@ -283,8 +283,8 @@ describe('GenericDetailView', () => {
             render(<TestWrapper props={{ type: "scene", asset: mockScene, refresh: refreshMock }} />);
         });
 
-        const removeBtn = screen.getByText('Remove dragon');
-        await act(async () => { fireEvent.click(removeBtn); });
+        const deleteBtn = screen.getByText('Delete dragon');
+        await act(async () => { fireEvent.click(deleteBtn); });
 
         expect(global.fetch).toHaveBeenCalledWith(
             expect.stringContaining('/scenes/scene1/config'),

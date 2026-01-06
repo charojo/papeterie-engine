@@ -106,8 +106,6 @@ export function TimelineEditor({
         return { sortedZDepths: sortedZ, lanes: laneMap };
     }, [layers]);
 
-    const totalHeight = sortedZDepths.length * TRACK_HEIGHT;
-
     // Scroll Logic (Smart "Scroll Into View")
     useEffect(() => {
         if (selectedLayer && laneRefs.current) {
@@ -247,16 +245,9 @@ export function TimelineEditor({
     }, [contextMenu]);
 
     return (
-        <div style={{
-            background: 'var(--color-bg-surface)',
-            borderTop: '1px solid var(--color-border)',
-            height: '250px',
-            display: 'flex',
-            flexDirection: 'column',
-            userSelect: 'none'
-        }}>
+        <div className="timeline-main">
             {/* Controls Bar */}
-            <div style={{ height: '32px', borderBottom: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', padding: '0 12px', gap: '8px', background: 'var(--color-bg-elevated)' }}>
+            <div className="timeline-toolbar">
                 <button
                     className="btn-icon"
                     onClick={onPlayPause}
@@ -266,7 +257,7 @@ export function TimelineEditor({
                 >
                     <Icon name={isPlaying ? "pause" : "play"} />
                 </button>
-                <span style={{ fontSize: '0.8rem', fontFamily: 'monospace', minWidth: '70px' }} title={`Current time: ${currentTime.toFixed(2)} seconds`}>
+                <span className="timeline-time-info" title={`Current time: ${currentTime.toFixed(2)} seconds`}>
                     {currentTime.toFixed(2)}s / {duration}s
                 </span>
                 <input
@@ -280,118 +271,84 @@ export function TimelineEditor({
                     title={`Scrub to ${currentTime.toFixed(1)}s`}
                 />
                 <div style={{ flex: 1 }} />
-                <span style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }} title="Timeline Zoom">Zoom:</span>
-                <input
-                    type="range"
-                    min="5"
-                    max="100"
-                    value={zoom}
-                    onChange={e => setZoom(parseInt(e.target.value))}
-                    style={{ width: '80px', cursor: 'pointer' }}
-                    title={`Zoom: ${zoom}px per second`}
-                />
+                <div className="timeline-zoom-controls">
+                    <span className="timeline-zoom-label" title="Timeline Zoom">Zoom:</span>
+                    <input
+                        type="range"
+                        min="5"
+                        max="100"
+                        value={zoom}
+                        onChange={e => setZoom(parseInt(e.target.value))}
+                        style={{ width: '80px', cursor: 'pointer' }}
+                        title={`Zoom: ${zoom}px per second`}
+                    />
+                </div>
             </div>
 
             {/* Timeline Content */}
             <div
-                ref={containerRef}
                 data-testid="timeline-tracks"
-                style={{
-                    flex: 1,
-                    display: 'flex',
-                    overflow: 'auto',
-                    position: 'relative'
-                }}
+                className="flex-1 overflow-auto relative"
+                ref={containerRef}
             >
-                <div style={{
-                    minWidth: HEADER_WIDTH + (duration * zoom) + 100 + PADDING_LEFT,
-                    minHeight: totalHeight + 24
-                }}>
+                {/* Ruler - Must be at top level of scrolling container for sticky to work */}
+                <div
+                    data-testid="timeline-ruler"
+                    className="sticky top-0 bg-surface z-50 flex crosshair border-b h-6"
+                    style={{ minWidth: HEADER_WIDTH + (duration * zoom) + 100 + PADDING_LEFT }}
+                    onMouseDown={handleMouseDown}
+                >
+                    <div className="border-r flex-shrink-0 w-header sticky left-0 bg-surface z-30"></div>
+                    <div className="flex-1 relative">
+                        {(() => {
+                            const textInterval = zoom < 15 ? 5 : zoom < 30 ? 2 : 1;
+                            const tickInterval = 1;
+                            const ticks = [];
+                            for (let sec = 0; sec <= duration; sec += tickInterval) {
+                                const showText = sec % textInterval === 0;
+                                ticks.push(
+                                    <div key={sec} className="absolute" style={{ left: (sec * zoom) + PADDING_LEFT }}>
+                                        <div className="absolute top-0 left-0" style={{
+                                            height: showText ? '8px' : '4px',
+                                            borderLeft: `1px solid ${showText ? 'var(--color-text-muted)' : 'var(--color-border)'}`
+                                        }} />
+                                        {showText && (
+                                            <div className="absolute top-2 left-1 whitespace-nowrap text-subtle text-xxs">
+                                                {sec}s
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            }
+                            return ticks;
+                        })()}
+                    </div>
+                </div>
+
+                <div
+                    className="min-h-full"
+                    style={{
+                        minWidth: HEADER_WIDTH + (duration * zoom) + 100 + PADDING_LEFT,
+                    }}
+                >
 
                     {/* Fixed Headers Column Background */}
-                    <div style={{
-                        position: 'absolute', left: 0, top: 0, bottom: 0,
-                        width: HEADER_WIDTH,
-                        background: 'var(--color-bg-surface)',
-                        borderRight: '1px solid var(--color-border)',
-                        zIndex: 10
-                    }} />
-
-                    {/* Ruler */}
-                    <div
-                        data-testid="timeline-ruler"
-                        style={{
-                            height: '24px',
-                            borderBottom: '1px solid var(--color-border)',
-                            position: 'sticky', top: 0,
-                            background: 'var(--color-bg-surface)',
-                            zIndex: 20,
-                            display: 'flex',
-                            cursor: 'crosshair'
-                        }}
-                        onMouseDown={handleMouseDown}
-                    >
-                        <div style={{ width: HEADER_WIDTH, borderRight: '1px solid var(--color-border)', flexShrink: 0 }}></div>
-                        <div style={{ flex: 1, position: 'relative' }}>
-                            {(() => {
-                                const textInterval = zoom < 15 ? 5 : zoom < 30 ? 2 : 1;
-                                const tickInterval = 1;
-                                const ticks = [];
-                                for (let sec = 0; sec <= duration; sec += tickInterval) {
-                                    const showText = sec % textInterval === 0;
-                                    ticks.push(
-                                        <div key={sec} style={{ position: 'absolute', left: (sec * zoom) + PADDING_LEFT }}>
-                                            <div style={{
-                                                position: 'absolute', top: 0, left: 0,
-                                                height: showText ? '8px' : '4px',
-                                                borderLeft: `1px solid ${showText ? 'var(--color-text-muted)' : 'var(--color-border)'}`
-                                            }} />
-                                            {showText && (
-                                                <div style={{
-                                                    position: 'absolute', top: 10, left: 2,
-                                                    fontSize: '0.6rem', color: 'var(--color-text-subtle)', whiteSpace: 'nowrap'
-                                                }}>
-                                                    {sec}s
-                                                </div>
-                                            )}
-                                        </div>
-                                    );
-                                }
-                                return ticks;
-                            })()}
-                        </div>
-                    </div>
-
-                    {/* Parallax Lanes */}
+                    <div className="absolute left-0 top-0 bottom-0 bg-surface border-r z-10 w-header" />
                     {sortedZDepths.map((z) => {
                         const items = lanes[z];
                         return (
                             <div
                                 key={z}
                                 ref={el => laneRefs.current[z] = el}
-                                style={{ height: TRACK_HEIGHT, borderBottom: '1px solid var(--color-border-subtle)', display: 'flex', position: 'relative' }}
+                                className="border-b-subtle flex relative h-track"
                             >
                                 {/* Header */}
-                                <div style={{
-                                    width: HEADER_WIDTH,
-                                    borderRight: '1px solid var(--color-border)',
-                                    flexShrink: 0,
-                                    position: 'sticky',
-                                    left: 0,
-                                    background: 'var(--color-bg-surface)',
-                                    zIndex: 15,
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    paddingLeft: '12px',
-                                    fontSize: '0.8rem',
-                                    fontWeight: 'bold',
-                                    color: 'var(--color-text-primary)'
-                                }}>
+                                <div className="timeline-lane-header" style={{ width: HEADER_WIDTH }}>
                                     Layer {z}
                                 </div>
 
                                 {/* Track Content */}
-                                <div style={{ flex: 1, position: 'relative' }}>
+                                <div className="flex-1 relative">
                                     {items.map((item) => {
                                         const isDragging = draggingKeyframe && draggingKeyframe.id === item.key;
                                         const isSelected = selectedLayer === item.sprite.sprite_name;
@@ -402,26 +359,9 @@ export function TimelineEditor({
                                         return (
                                             <div
                                                 key={item.key}
+                                                className={`timeline-keyframe-card ${isSelected ? 'selected' : ''} ${isDragging ? 'dragging' : ''}`}
                                                 style={{
-                                                    position: 'absolute',
                                                     left: (isDragging && draggingKeyframe.currentX !== undefined) ? draggingKeyframe.currentX : (item.time * zoom) + PADDING_LEFT,
-                                                    top: '8px',
-                                                    width: '32px', // Thumbnail size
-                                                    height: '32px',
-                                                    borderRadius: '4px',
-                                                    border: isDragging ? '2px solid var(--color-primary-active)' :
-                                                        isSelected ? '2px solid var(--color-primary)' :
-                                                            '1px solid var(--color-border-hover)',
-                                                    boxShadow: isSelected ? '0 0 0 2px rgba(var(--color-primary-rgb), 0.3)' : 'none',
-                                                    background: 'var(--color-bg-surface)',
-                                                    cursor: 'move',
-                                                    zIndex: isDragging ? 100 : isSelected ? 50 : 2,
-                                                    transform: 'translateX(-50%)', // Center on time
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    overflow: 'hidden',
-                                                    opacity: isDragging ? 0.6 : 1
                                                 }}
                                                 title={`${item.sprite.sprite_name} (${item.type}) at ${item.time.toFixed(2)}s`}
                                                 onMouseDown={(e) => handleItemDragStart(e, item, z)}
@@ -434,7 +374,7 @@ export function TimelineEditor({
                                                 <img
                                                     src={src}
                                                     alt={item.sprite.sprite_name}
-                                                    style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                                                    className="w-full h-full object-contain"
                                                     draggable={false}
                                                     onError={(e) => { e.target.style.display = 'none'; e.target.parentNode.style.backgroundColor = 'var(--color-text-muted)'; }}
                                                 />
@@ -445,43 +385,45 @@ export function TimelineEditor({
                             </div>
                         );
                     })}
+                </div>
 
-                    {/* Playhead Line */}
+                {/* Playhead Line - Absolute position spanning full scroll height */}
+                <div
+                    className="absolute z-15 pointer-events-none"
+                    style={{
+                        left: HEADER_WIDTH + (currentTime * zoom) + PADDING_LEFT,
+                        top: 0,
+                        height: `${Math.max(sortedZDepths.length * TRACK_HEIGHT + 24, 200)}px`,
+                        width: '2px',
+                        background: 'var(--color-text-subtle)'
+                    }}
+                >
+                    {/* Header Triangle */}
                     <div style={{
                         position: 'absolute',
-                        left: HEADER_WIDTH + (currentTime * zoom) + PADDING_LEFT,
-                        top: 24, bottom: 0,
-                        width: '2px', background: 'var(--color-danger)',
-                        zIndex: 15, pointerEvents: 'none'
-                    }}>
-                        <div style={{
-                            position: 'absolute', top: -4, left: -4,
-                            width: 10, height: 10, background: 'var(--color-danger)',
-                            transform: 'rotate(45deg)'
-                        }} />
-                    </div>
-
+                        top: 0,
+                        left: '-4px',
+                        width: 0,
+                        height: 0,
+                        borderLeft: '5px solid transparent',
+                        borderRight: '5px solid transparent',
+                        borderTop: '6px solid var(--color-text-subtle)'
+                    }} />
                 </div>
             </div>
 
             {/* Context Menu Overlay */}
             {contextMenu && (
-                <div style={{
-                    position: 'fixed',
-                    left: contextMenu.x,
-                    top: contextMenu.y,
-                    zIndex: 1000,
-                    background: 'var(--color-bg-elevated)',
-                    border: '1px solid var(--color-border)',
-                    borderRadius: '4px',
-                    boxShadow: 'var(--shadow-lg)',
-                    padding: '4px 0',
-                    minWidth: '120px'
-                }}>
+                <div
+                    className="fixed z-1000 bg-elevated border rounded shadow-lg py-1 min-w-120"
+                    style={{
+                        left: contextMenu.x,
+                        top: contextMenu.y
+                    }}
+                >
                     {contextMenu.item.type === 'behavior' && (
                         <button
-                            className="btn-ghost"
-                            style={{ width: '100%', textAlign: 'left', padding: '8px 12px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--color-danger)' }}
+                            className="btn-ghost w-full text-left p-2 text-sm flex-row items-center gap-sm text-danger"
                             onClick={() => {
                                 onKeyframeDelete && onKeyframeDelete(contextMenu.item.sprite.sprite_name, contextMenu.item.behaviorIndex);
                                 closeContextMenu();
@@ -492,8 +434,7 @@ export function TimelineEditor({
                         </button>
                     )}
                     <button
-                        className="btn-ghost"
-                        style={{ width: '100%', textAlign: 'left', padding: '8px 12px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '8px' }}
+                        className="btn-ghost w-full text-left p-2 text-sm flex-row items-center gap-sm"
                         onClick={() => {
                             onSelectLayer && onSelectLayer(contextMenu.item.sprite.sprite_name);
                             closeContextMenu();

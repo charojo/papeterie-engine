@@ -42,8 +42,7 @@ export const StatusStepper = ({ currentStatus }) => {
                         {index < STEPS.length - 1 && (
                             <div style={{
                                 width: '8px', height: '1px',
-                                background: isActive ? 'var(--color-primary)' : 'var(--color-border)',
-                                opacity: 0.5
+                                background: isActive ? 'var(--color-primary)' : 'var(--color-divider)'
                             }} />
                         )}
                     </React.Fragment>

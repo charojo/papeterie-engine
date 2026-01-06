@@ -26,6 +26,10 @@ wheels/
 htmlcov/
 coverage.xml
 .testmondata*
+test-results/
+playwright-report/
+.nyc_output/
+.vite/
 
 # Database
 *.db

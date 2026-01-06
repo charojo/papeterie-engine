@@ -23,7 +23,7 @@ This workflow ensures that all project documentation (files in `docs/`) uses rel
     If absolute paths are found (e.g., starting with `/home/` or `file:///home/`):
     - Identify the target file's location relative to the current document.
     - Replace the absolute path with a standard markdown relative path.
-    - **Example**: Replace an absolute path like `file:///home/user/.../target.md` with `./target.md`.
+    - **Example**: Replace an absolute path like `file:///PATH/TO/target.md` with `./target.md`.
 
 3.  **Cross-Document Linking**:
     - Use `./` for files in the same directory.

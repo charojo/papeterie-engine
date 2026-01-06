@@ -50,7 +50,7 @@ export const AssetDetailLayout = ({
                 {/* Config Column - Hidden if expanded, no heading label */}
                 {!isExpanded && (
                     <section style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                        <div className="card glass" style={{ flex: 1, padding: '16px', overflowY: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                        <div className="card glass" style={{ flex: 1, padding: '0', overflowY: 'hidden', display: 'flex', flexDirection: 'column' }}>
                             {configContent}
                         </div>
                     </section>

@@ -295,7 +295,7 @@ export function TheatreStage({
     // handleWheel moved to native listener effect
 
     return (
-        <div ref={containerRef} style={{ width: '100%', height: '100%', position: 'relative', zIndex: 100, overflow: 'visible', background: '#1a1a1a', ...style }}>
+        <div ref={containerRef} style={{ width: '100%', height: '100%', position: 'relative', zIndex: 100, overflow: 'visible', background: 'var(--color-bg-base)', ...style }}>
             <canvas
                 ref={canvasRef}
                 style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', cursor: cursorStyle }}
@@ -309,42 +309,31 @@ export function TheatreStage({
 
 
             {/* Top Right Controls: Zen Mode & Camera */}
-            <div style={{
-                position: 'absolute',
-                top: 12,
-                right: 12,
-                zIndex: 10,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '8px',
-                background: 'rgba(0,0,0,0.6)',
-                padding: '6px',
-                borderRadius: '8px',
-                backdropFilter: 'blur(5px)',
-                border: '1px solid rgba(255,255,255,0.1)'
-            }}>
+            <div
+                className="theatre-toolbar theatre-toolbar-vertical"
+                style={{
+                    position: 'absolute',
+                    top: 12,
+                    right: 12,
+                    zIndex: 10
+                }}
+            >
                 {/* Layers Panel Hanging Off Right Side */}
                 {showLayersPanel && scene && (() => {
                     const zLevels = [...new Set((scene.layers || []).map(l => l.z_depth || 0))].sort((a, b) => b - a);
                     return (
-                        <div style={{
-                            position: 'absolute',
-                            top: 42, // Align with Layers button
-                            left: '100%', // Hang off the right side (Toolbar Width)
-                            zIndex: 20,
-                            background: 'rgba(0,0,0,0.9)',
-                            borderRadius: '0 6px 6px 0',
-                            border: '1px solid rgba(255,255,255,0.15)',
-                            borderLeft: 'none',
-                            padding: '4px',
-                            minWidth: '40px',
-                            maxHeight: '300px',
-                            overflowY: 'auto',
-                            boxShadow: '4px 4px 12px rgba(0,0,0,0.3)',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'flex-end'
-                        }}>
+                        <div
+                            className="theatre-layers-panel"
+                            style={{
+                                position: 'absolute',
+                                top: 42,
+                                left: '100%',
+                                zIndex: 20,
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'flex-end'
+                            }}
+                        >
                             {zLevels.map(z => {
                                 const layersAtZ = (scene.layers || []).filter(l => (l.z_depth || 0) === z);
                                 const allVisible = layersAtZ.every(l =>
@@ -376,7 +365,7 @@ export function TheatreStage({
                                         title={`Z-Level ${z}: ${layersAtZ.map(l => l.sprite_name).join(', ')}`}
                                     >
                                         <span style={{
-                                            color: allVisible ? 'white' : 'rgba(255,255,255,0.5)',
+                                            color: allVisible ? 'white' : 'var(--color-text-muted)',
                                             fontSize: '11px',
                                             fontFamily: 'monospace',
                                             fontWeight: 'bold',
@@ -398,13 +387,7 @@ export function TheatreStage({
                 {toggleExpand && (
                     <button
                         onClick={toggleExpand}
-                        className="btn-icon"
-                        style={{
-                            background: 'transparent',
-                            border: 'none',
-                            color: isExpanded ? 'var(--color-primary)' : 'white', cursor: 'pointer',
-                            padding: '6px'
-                        }}
+                        className={`btn-icon ${isExpanded ? 'active' : ''}`}
                         title={isExpanded ? "Collapse" : "Maximize (Zen Mode)"}
                     >
                         <Icon name={isExpanded ? "close" : "maximize"} size={16} />
@@ -412,33 +395,21 @@ export function TheatreStage({
                 )}
 
                 <button
-                    className="btn-icon"
+                    className={`btn-icon ${showLayersPanel ? 'active' : ''}`}
                     onClick={() => setShowLayersPanel(!showLayersPanel)}
-                    style={{
-                        background: showLayersPanel ? 'rgba(255,255,255,0.15)' : 'transparent',
-                        border: 'none',
-                        color: showLayersPanel ? 'var(--color-primary)' : 'white',
-                        cursor: 'pointer',
-                        padding: '6px'
-                    }}
                     title="Toggle Layers Panel"
                 >
                     <Icon name="background" size={16} />
                 </button>
 
-                <div style={{ width: '100%', height: '1px', background: 'rgba(255,255,255,0.2)', margin: '4px 0' }}></div>
+                <div className="theatre-toolbar-divider theatre-toolbar-divider-v"></div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     <button
-                        className="btn-icon"
-                        style={{
-                            background: 'transparent',
-                            color: (!isPaused && !soloSprite) ? 'var(--color-success)' : 'white', padding: '6px'
-                        }}
+                        className={`btn-icon ${(!isPaused && !soloSprite) ? 'active' : ''}`}
                         onClick={() => {
                             if (theatreRef.current) {
                                 if (theatreRef.current.soloSprite) {
-                                    // Switch from solo to all
                                     theatreRef.current.soloSprite = null;
                                     setSoloSprite(null);
                                     theatreRef.current.resume();
@@ -461,7 +432,6 @@ export function TheatreStage({
                             setZoom(zoom * 1.2);
                         }}
                         title="Zoom In"
-                        style={{ background: 'transparent', color: 'white', padding: '6px' }}
                     >
                         <Icon name="zoomIn" size={16} />
                     </button>
@@ -472,7 +442,6 @@ export function TheatreStage({
                             setZoom(zoom / 1.2);
                         }}
                         title="Zoom Out"
-                        style={{ background: 'transparent', color: 'white', padding: '6px' }}
                     >
                         <Icon name="zoomOut" size={16} />
                     </button>
@@ -482,9 +451,6 @@ export function TheatreStage({
                         title="Reset View"
                         disabled={zoom === 1.0 && pan.x === 0 && pan.y === 0}
                         style={{
-                            background: 'transparent',
-                            color: 'white',
-                            padding: '6px',
                             opacity: (zoom === 1.0 && pan.x === 0 && pan.y === 0) ? 0.3 : 1,
                             cursor: (zoom === 1.0 && pan.x === 0 && pan.y === 0) ? 'default' : 'pointer'
                         }}
@@ -505,16 +471,7 @@ export function TheatreStage({
                 gap: '12px'
             }}>
                 {selectedSprite && (
-                    <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        background: 'rgba(0,0,0,0.6)',
-                        padding: '6px 8px',
-                        borderRadius: '24px',
-                        border: '1px solid rgba(255,255,255,0.2)',
-                        backdropFilter: 'blur(5px)'
-                    }}>
+                    <div className="theatre-toolbar theatre-toolbar-horizontal">
                         {/* Play/Pause Sprite */}
                         <button
                             onClick={() => {
@@ -530,15 +487,10 @@ export function TheatreStage({
                                     }
                                 }
                             }}
-                            className="btn-icon"
+                            className={`btn-icon ${(soloSprite === selectedSprite && !isPaused) ? 'active' : ''}`}
                             title={(soloSprite === selectedSprite && !isPaused) ? "Pause Sprite" : "Play Sprite"}
-                            style={{
-                                color: (soloSprite === selectedSprite && !isPaused) ? 'white' : 'white',
-                                padding: '4px',
-                                background: 'transparent'
-                            }}
                         >
-                            <Icon name={(soloSprite === selectedSprite && !isPaused) ? "pause" : "play"} size={18} />
+                            <Icon name={(soloSprite === selectedSprite && !isPaused) ? "pause" : "play"} size={16} />
                         </button>
 
                         {/* Add Behavior - Moved Next to Play */}
@@ -547,18 +499,17 @@ export function TheatreStage({
                                 onClick={onAddBehavior}
                                 className="btn-icon"
                                 title="Add Behavior"
-                                style={{ color: 'white', padding: '4px' }}
                             >
-                                <Icon name="add" size={18} />
+                                <Icon name="add" size={16} />
                             </button>
                         )}
 
-                        <div style={{ width: '1px', height: '16px', background: 'rgba(255,255,255,0.2)' }} />
+                        <div className="theatre-toolbar-divider theatre-toolbar-divider-h" />
 
                         {/* Rotation */}
                         {onSpriteRotationChanged && (
                             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                <Icon name="rotate" size={16} style={{ opacity: 0.8, color: 'white' }} />
+                                <Icon name="rotate" size={16} className="text-muted" />
                                 <input
                                     type="range"
                                     min="-180"
@@ -577,7 +528,7 @@ export function TheatreStage({
                             </div>
                         )}
 
-                        <div style={{ width: '1px', height: '16px', background: 'rgba(255,255,255,0.2)' }} />
+                        <div className="theatre-toolbar-divider theatre-toolbar-divider-h" />
 
                         {/* Toggle Visibility */}
                         {onToggleSpriteVisibility && (
@@ -585,29 +536,23 @@ export function TheatreStage({
                                 onClick={onToggleSpriteVisibility}
                                 className="btn-icon"
                                 title={isSpriteVisible ? "Hide Sprite" : "Show Sprite"}
-                                style={{ color: isSpriteVisible ? 'white' : 'rgba(255,255,255,0.5)', padding: '4px' }}
+                                style={{ opacity: isSpriteVisible ? 1 : 0.5 }}
                             >
-                                <Icon name={isSpriteVisible ? "visible" : "hidden"} size={18} />
+                                <Icon name={isSpriteVisible ? "visible" : "hidden"} size={16} />
                             </button>
                         )}
 
                         {/* Crop - Toggle Mode */}
                         <button
-                            className="btn-icon"
+                            className={`btn-icon ${isCropMode ? 'active' : ''}`}
                             title={isCropMode ? "Exit Crop Mode" : "Crop Sprite"}
-                            style={{
-                                color: isCropMode ? 'var(--color-primary)' : 'white',
-                                padding: '4px',
-                                background: isCropMode ? 'rgba(255,255,255,0.1)' : 'transparent',
-                                borderRadius: '4px'
-                            }}
                             onClick={() => {
                                 const newMode = !isCropMode;
                                 setIsCropMode(newMode);
                                 if (theatreRef.current) theatreRef.current.setCropMode(newMode);
                             }}
                         >
-                            <Icon name="crop" size={18} />
+                            <Icon name="crop" size={16} />
                         </button>
 
                         {/* Delete */}
@@ -616,29 +561,26 @@ export function TheatreStage({
                                 onClick={onDeleteSprite}
                                 className="btn-icon"
                                 title="Delete Sprite"
-                                style={{ color: 'white', padding: '4px' }}
                             >
-                                <Icon name="delete" size={18} />
+                                <Icon name="delete" size={16} />
                             </button>
                         )}
 
                         {/* Save */}
                         {onSave && (
                             <>
-                                <div style={{ width: '1px', height: '16px', background: 'rgba(255,255,255,0.2)' }} />
+                                <div className="theatre-toolbar-divider theatre-toolbar-divider-h" />
                                 <button
                                     onClick={hasChanges ? onSave : undefined}
                                     className="btn-icon"
                                     title={hasChanges ? "Save Changes" : "No Changes to Save"}
                                     style={{
-                                        color: 'var(--color-primary)',
-                                        padding: '4px',
                                         filter: hasChanges ? 'none' : 'grayscale(1)',
                                         opacity: hasChanges ? 1 : 0.5,
                                         cursor: hasChanges ? 'pointer' : 'default'
                                     }}
                                 >
-                                    <Icon name="save" size={18} />
+                                    <Icon name="save" size={16} />
                                 </button>
                             </>
                         )}

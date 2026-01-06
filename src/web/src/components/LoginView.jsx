@@ -47,150 +47,81 @@ export function LoginView({ onLogin }) {
     };
 
     return (
-        <div className="login-container" style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            height: '100vh',
-            background: 'var(--color-bg-base)',
-            padding: '24px',
-            overflow: 'hidden'
-        }}>
-            <div className="login-card glass" style={{
-                width: '100%',
-                maxWidth: '900px',
-                minHeight: '520px',
-                borderRadius: '32px',
-                display: 'flex',
-                boxShadow: '0 40px 100px rgba(0,0,0,0.6)',
-                border: '1px solid rgba(255,255,255,0.05)',
-                overflow: 'hidden',
-                animation: 'fadeIn 0.6s ease-out'
-            }}>
+        <div className="login-container flex items-center justify-center h-screen bg-base p-6 overflow-hidden">
+            <div className="login-card glass w-full max-w-900 min-h-520 rounded-3xl flex shadow-xl border-muted overflow-hidden" style={{ animation: 'fadeIn 0.6s ease-out' }}>
                 {/* Left Side: Local Theater (Quick Entry) */}
-                <div style={{
-                    flex: '1',
-                    padding: '48px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    textAlign: 'center',
-                    background: 'rgba(255,255,255,0.02)',
-                    borderRight: '1px solid rgba(255,255,255,0.05)',
-                    gap: '24px'
-                }}>
-                    <div style={{
-                        width: '80px',
-                        height: '80px',
-                        background: 'rgba(255,255,255,0.05)',
-                        borderRadius: '24px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        marginBottom: '8px'
-                    }}>
+                <div className="flex-1 p-10 flex flex-col justify-center items-center text-center bg-surface border-r-muted gap-6">
+                    <div className="w-80 h-80 bg-elevated rounded-2xl flex items-center justify-center mb-2">
                         <Icon name="scenes" size={42} color="var(--color-text-muted)" />
                     </div>
                     <div>
-                        <h2 style={{ fontSize: '1.75rem', fontWeight: '800', margin: '0 0 12px', color: 'var(--color-text-main)' }}>Local Theater</h2>
-                        <p style={{ opacity: 0.6, fontSize: '0.95rem', lineHeight: '1.6', maxWidth: '300px' }}>
+                        <h2 className="text-2xl font-bold mb-3 text-main">Local Theater</h2>
+                        <p className="opacity-60 text-sm lh-relaxed max-w-300">
                             Work offline. Your assets stay safely stored on your machine in the local workspace.
                         </p>
                     </div>
                     <button
-                        className="btn btn-secondary"
+                        className="btn btn-secondary h-14 min-w-220 text-md font-bold mt-3 bg-elevated border-muted rounded-xl"
                         onClick={() => onLogin({ user: { username: 'Guest' }, access_token: 'default', type: 'local' })}
-                        style={{
-                            height: '56px',
-                            minWidth: '220px',
-                            fontSize: '1rem',
-                            fontWeight: '600',
-                            marginTop: '12px',
-                            background: 'rgba(255,255,255,0.05)',
-                            border: '1px solid rgba(255,255,255,0.1)',
-                            borderRadius: '16px'
-                        }}
                     >
                         Enter Local Theater
                     </button>
                 </div>
 
                 {/* Right Side: Cloud Theater (Login/Register) */}
-                <div style={{
-                    flex: '1.2',
-                    padding: '48px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'center',
-                    gap: '24px'
-                }}>
+                <div className="flex-1-2 p-10 flex flex-col justify-center gap-6">
                     <div>
-                        <h2 style={{ fontSize: '1.75rem', fontWeight: '800', margin: '0 0 12px' }}>
+                        <h2 className="text-2xl font-bold mb-3">
                             {isRegistering ? 'New Playwright' : 'Cloud Theater'}
                         </h2>
-                        <p style={{ opacity: 0.6, fontSize: '0.95rem' }}>
+                        <p className="opacity-60 text-sm">
                             {isRegistering ? 'Create an account to sync your work.' : 'Sign in to access your remote assets and collaborate.'}
                         </p>
                     </div>
 
-                    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    <form onSubmit={handleSubmit} className="flex flex-col gap-5">
                         {isRegistering && (
                             <div style={{ animation: 'slideDown 0.3s ease-out' }}>
-                                <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: '700', letterSpacing: '0.05em', opacity: 0.5, marginBottom: '8px' }}>USERNAME</label>
+                                <label className="block text-xs font-bold tracking-widest opacity-50 mb-2">USERNAME</label>
                                 <input
-                                    className="input"
+                                    className="input h-12 rounded-lg"
                                     placeholder="The Playwright"
                                     value={username}
-                                    style={{ height: '48px', borderRadius: '12px' }}
                                     onChange={e => setUsername(e.target.value)}
                                     required
                                 />
                             </div>
                         )}
                         <div>
-                            <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: '700', letterSpacing: '0.05em', opacity: 0.5, marginBottom: '8px' }}>EMAIL ADDRESS</label>
+                            <label className="block text-xs font-bold tracking-widest opacity-50 mb-2">EMAIL ADDRESS</label>
                             <input
                                 type="email"
-                                className="input"
+                                className="input h-12 rounded-lg"
                                 placeholder="curtain@call.com"
                                 value={email}
-                                style={{ height: '48px', borderRadius: '12px' }}
                                 onChange={e => setEmail(e.target.value)}
                                 required
                             />
                         </div>
                         <div>
-                            <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: '700', letterSpacing: '0.05em', opacity: 0.5, marginBottom: '8px' }}>PASSWORD</label>
+                            <label className="block text-xs font-bold tracking-widest opacity-50 mb-2">PASSWORD</label>
                             <input
                                 type="password"
-                                className="input"
+                                className="input h-12 rounded-lg"
                                 placeholder="••••••••"
                                 value={password}
-                                style={{ height: '48px', borderRadius: '12px' }}
                                 onChange={e => setPassword(e.target.value)}
                                 required
                             />
                         </div>
 
-                        <button type="submit" className="btn btn-primary" disabled={loading} style={{
-                            marginTop: '12px',
-                            height: '56px',
-                            fontSize: '1rem',
-                            fontWeight: '600',
-                            borderRadius: '16px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: '12px',
-                            boxShadow: '0 10px 20px rgba(var(--color-primary-rgb), 0.2)'
-                        }}>
+                        <button type="submit" className="btn btn-primary mt-3 h-14 text-md font-bold rounded-xl flex items-center justify-center gap-3 shadow-primary" disabled={loading}>
                             {loading ? <div className="animate-spin"><Icon name="generate" size={20} /></div> : (isRegistering ? 'Create Account' : 'Sign In')}
                         </button>
                     </form>
 
-                    <div style={{ textAlign: 'center', marginTop: '8px' }}>
-                        <span style={{ fontSize: '0.875rem', opacity: 0.6 }}>
+                    <div className="text-center mt-2">
+                        <span className="text-sm opacity-60">
                             {isRegistering ? 'Already have an account?' : "Don't have an account?"}
                         </span>
                         <button
@@ -209,7 +140,7 @@ export function LoginView({ onLogin }) {
                                 transition: 'all 0.2s',
                                 textDecoration: 'none'
                             }}
-                            onMouseOver={(e) => e.target.style.background = 'rgba(var(--color-primary-rgb), 0.1)'}
+                            onMouseOver={(e) => e.target.style.background = 'var(--color-primary-subtle)'}
                             onMouseOut={(e) => e.target.style.background = 'transparent'}
                         >
                             {isRegistering ? 'Sign In' : 'Sign Up'}
