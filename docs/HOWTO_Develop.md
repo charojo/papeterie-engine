@@ -50,7 +50,7 @@ To start the FastAPI backend:
 ```bash
 uv run fastapi dev src/server/main.py
 ```
-The API will be available at `http://localhost:8000`.
+The API will be available at `http://127.0.0.1:8000` (or `localhost`). The engine now supports dynamic origin handling.
 
 ### Frontend Web Dashboard
 To start the React development server:
@@ -58,7 +58,7 @@ To start the React development server:
 cd src/web
 npm run dev
 ```
-The web interface will be available at `http://localhost:5173`.
+The web interface will be available at `http://127.0.0.1:5173` (or `localhost`). The frontend automatically detects the backend host.
 
 ## 4. Scripts & Validation
 

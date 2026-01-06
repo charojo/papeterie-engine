@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Icon } from './Icon';
 import { BehaviorTypes, CoordinateTypes, createDefaultBehavior } from './BehaviorConstants';
+import { API_BASE } from '../config';
 
 export function BehaviorEditor({ behaviors = [], onChange, readOnly = false, spriteName, isVisible, _onToggleVisibility, _onRemoveSprite, behaviorGuidance, inline = false }) {
     // Ensure the editor expands and scrolls within its container
@@ -165,7 +166,7 @@ function BehaviorCard({ behavior, onChange, onRemove, readOnly }) {
     // Fetch sound files for dropdown
     useEffect(() => {
         if (behavior.type === 'sound') {
-            fetch('http://localhost:8000/api/sounds')
+            fetch(`${API_BASE}/sounds`)
                 .then(res => res.json())
                 .then(data => setSoundOptions(data.sounds || []))
                 .catch(() => setSoundOptions([]));
@@ -299,13 +300,13 @@ function BehaviorCard({ behavior, onChange, onRemove, readOnly }) {
                                                     const formData = new FormData();
                                                     formData.append('file', file);
                                                     try {
-                                                        const res = await fetch('http://localhost:8000/api/sounds/upload', {
+                                                        const res = await fetch(`${API_BASE}/sounds/upload`, {
                                                             method: 'POST',
                                                             body: formData
                                                         });
                                                         if (res.ok) {
                                                             // Refresh options
-                                                            const data = await fetch('http://localhost:8000/api/sounds').then(r => r.json());
+                                                            const data = await fetch(`${API_BASE}/sounds`).then(r => r.json());
                                                             setSoundOptions(data.sounds || []);
                                                             updateParam('sound_file', file.name);
                                                         }

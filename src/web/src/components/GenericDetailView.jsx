@@ -14,8 +14,8 @@ import { useLayerOperations } from '../hooks/useLayerOperations';
 import { useTransformEditor } from '../hooks/useTransformEditor';
 import { useOptimization } from '../hooks/useOptimization';
 import { useBehaviorEditor } from '../hooks/useBehaviorEditor';
+import { API_BASE, ASSET_BASE } from '../config';
 
-const API_BASE = "http://localhost:8000/api";
 
 export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, toggleExpand, _onOpenSprite, sprites, setContextualActions }) {
     const {
@@ -179,7 +179,7 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
                             currentTime={currentTime}
                             layerVisibility={layerVisibility}
                             onToggleVisibility={toggleLayerVisibility}
-                            assetBaseUrl={window.API_BASE ? window.API_BASE.replace('/api', '/assets') : undefined} // Explicit pass
+                            assetBaseUrl={ASSET_BASE + '/assets'} // Explicit pass
                             isCommunity={asset.is_community}
                             isOptimizing={isOptimizing}
                             // Tabs removed
@@ -284,7 +284,7 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
                                     onKeyframeMove={handleKeyframeMove}
                                     onKeyframeDelete={handleKeyframeDelete}
                                     onSelectLayer={handleSpriteSelected}
-                                    assetBaseUrl={window.API_BASE ? window.API_BASE.replace('/api', '/assets') : undefined}
+                                    assetBaseUrl={ASSET_BASE + '/assets'}
                                     onPlayPause={() => {
                                         // TODO: Control TheatreStage playback via prop if needed
                                     }}
@@ -771,7 +771,7 @@ function useAssetController(type, asset, refresh, onDelete) {
             // but we can construct it assuming 'default' user for now as a fallback or 
             // if we want to be robust, we should have a sprite URL lookup.
             // For now, let's use the known pattern:
-            mainSrc = `${API_BASE.replace('/api', '')}/assets/users/default/sprites/${selectedImage}/${selectedImage}.png?t=${imageTimestamp}`;
+            mainSrc = `${ASSET_BASE}/assets/users/default/sprites/${selectedImage}/${selectedImage}.png?t=${imageTimestamp}`;
         }
     }
 

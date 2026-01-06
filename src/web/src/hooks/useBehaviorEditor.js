@@ -1,7 +1,6 @@
 import { useCallback } from 'react';
 import { toast } from 'sonner';
-
-const API_BASE = "http://localhost:8000/api";
+import { API_BASE } from '../config';
 
 /**
  * Hook for managing behavior CRUD operations.

@@ -44,3 +44,10 @@ Use this file to track "nits", minor bugs, and design weak spots that need atten
 - **Description**: Sprites for community scenes (e.g., Sailboat) fail to load, showing 404s for the 'default' user path. Backend correctly sets `is_community` but user has a local copy of sailboat scene that shadows the community version.
 - **Location**: `src/web/src/engine/Theatre.js`, `src/server/routers/scenes.py`
 - **Resolution**: Need to either remove user's local sailboat scene or update backend logic to prefer community scenes when both exist.
+
+### CORS Origin Mismatch (localhost vs 127.0.0.1)
+- **Status**: Resolved
+- **Severity**: Medium
+- **Description**: Accessing the frontend via `127.0.0.1` while the backend assumed `localhost` caused CORS blocks and hardcoded URL failures.
+- **Location**: `src/web/src/config.js`, `src/server/main.py`
+- **Resolution**: Implemented dynamic hostname detection in the frontend and robust origin reflection on the backend.

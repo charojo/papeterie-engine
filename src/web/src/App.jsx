@@ -8,16 +8,7 @@ import { TopBar } from './components/TopBar';
 import { usePersistentState } from './hooks/usePersistentState';
 import { LoginView } from './components/LoginView';
 import { PromptsView } from './components/PromptsView';
-
-// Use window.location to determine API base dynamically if not explicit
-// This handles different ports or network access
-const protocol = window.location.protocol;
-const hostname = window.location.hostname;
-const port = "8000"; // Assuming backend is always on 8000 for now, or use window.location.port if proxied
-// If we are on port 5173 (dev), backend is on 8000. 
-// If we are on prod, it might be same origin /api.
-const isDev = window.location.port === "5173";
-const API_BASE = isDev ? `${protocol}//${hostname}:${port}/api` : `${protocol}//${hostname}:${window.location.port || 80}/api`;
+import { API_BASE } from './config';
 
 window.API_BASE = API_BASE;
 

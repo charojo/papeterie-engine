@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { toast } from 'sonner';
 import { Icon } from './Icon';
-
-const API_BASE = "http://localhost:8000/api";
+import { API_BASE } from '../config';
 
 export function NewSpriteForm({ onSuccess, onCancel }) {
     const [name, setName] = useState('');

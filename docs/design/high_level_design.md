@@ -110,9 +110,7 @@ Tracks ownership and sharing status for all creative assets (sprites and scenes)
 
 ---
 
-### 5. Technology Stack
-
-All dependencies with their versions, purposes, and usage locations.
+All dependencies with their versions, purposes, and usage locations. The engine uses a **centralized, dynamic configuration** strategy to handle multiple development origins (localhost vs 127.0.0.1) without hardcoded strings.
 
 #### Web Framework & API
 

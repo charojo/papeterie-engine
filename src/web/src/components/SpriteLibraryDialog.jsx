@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { Icon } from './Icon';
 import { NewSpriteForm } from './NewSpriteForm';
-
-const ASSET_BASE = "http://localhost:8000";
+import { ASSET_BASE } from '../config';
 
 export const SpriteLibraryDialog = ({ sprites, onAdd, onClose, isOpen }) => {
     const [search, setSearch] = useState('');

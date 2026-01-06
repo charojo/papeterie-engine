@@ -3,6 +3,7 @@ import { Theatre } from '../engine/Theatre';
 import { Icon } from './Icon';
 import { createLogger } from '../utils/logger';
 import { useCameraController } from '../hooks/useCameraController';
+import { ASSET_BASE } from '../config';
 
 const log = createLogger('TheatreStage');
 
@@ -46,9 +47,7 @@ export function TheatreStage({
     const isPausedRef = useRef(isPaused);
 
     // Dynamic Asset Base URL resolution
-    const resolvedAssetBaseUrl = assetBaseUrl ||
-        (window.API_BASE ? window.API_BASE.replace('/api', '/assets') :
-            `${window.location.protocol}//${window.location.hostname}:8000/assets`);
+    const resolvedAssetBaseUrl = assetBaseUrl || (ASSET_BASE + '/assets');
 
     // Camera Controller - single source of truth
     const {
@@ -68,7 +67,7 @@ export function TheatreStage({
         if (theatreRef.current && cameraController) {
             cameraController.bindTheatre(theatreRef.current);
         }
-         
+
     }, [cameraController]);
 
     // Sync debugMode

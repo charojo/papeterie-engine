@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Icon } from './Icon';
 import { toast } from 'sonner';
+import { API_BASE } from '../config';
 
 export function LoginView({ onLogin }) {
     const [isRegistering, setIsRegistering] = useState(false);
@@ -13,13 +14,13 @@ export function LoginView({ onLogin }) {
         e.preventDefault();
         setLoading(true);
 
-        const endpoint = isRegistering ? '/api/auth/register' : '/api/auth/login';
+        const endpoint = isRegistering ? '/auth/register' : '/auth/login';
         const body = isRegistering
             ? { username, email, password }
             : { email, password };
 
         try {
-            const res = await fetch(`http://localhost:8000${endpoint}`, {
+            const res = await fetch(`${API_BASE}${endpoint}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body)

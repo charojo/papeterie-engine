@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Icon } from './Icon';
 import { toast } from 'sonner';
-
-const API_BASE = "http://localhost:8000/api";
+import { API_BASE } from '../config';
 
 export const PromptsView = ({ user }) => {
     const [prompts, setPrompts] = useState([]);

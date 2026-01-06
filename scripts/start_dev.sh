@@ -42,8 +42,8 @@ npm run dev -- --port 5173 &
 FRONTEND_PID=$!
 
 echo "Servers started!"
-echo "Backend: http://localhost:8000"
-echo "Frontend: http://localhost:5173"
+echo "Backend: http://127.0.0.1:8000"
+echo "Frontend: http://127.0.0.1:5173"
 echo "Press Ctrl+C to stop both servers."
 
 # Wait for both processes

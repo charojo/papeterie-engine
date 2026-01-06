@@ -12,10 +12,18 @@ This file lists features, improvements, and bugs to be addressed in the Papeteri
 *   **Unified Scene View**: Merged the static `ImageViewer` and the animated `TheatreStage` into a single, interactive scene editor. Supports actual-size rendering, direct manipulation of position, scale, and rotation, and Shift-Click to add sprites.
 *   **Interactive Sprite Editing Mode**: Implemented via the Unified Scene View, allowing users to select and transform sprites directly on the stage with persistence back to the scene configuration.
 *   **Local Image Processing Toggle**: Added a processing mode toggle (Local/LLM) for scene optimization. Local mode uses `rembg` + OpenCV for $0 cost extraction, defaulting to "Local" to reduce API expenses. Design: [`docs/design/high_level_design.md`](design/high_level_design.md).
+*   **Dynamic CORS & Centralized Config**: Eliminated hardcoded origin strings in the frontend and backend. Implemented a centralized `config.js` with dynamic hostname detection and robust backend CORS reflection for local development.
 
 ## Active Development
 
 *   **UI Overhaul & Workflow Refinement**: Complete refactor of the web dashboard to remove the sidebar, centralize the Scene View, and improve sprite manipulation tools (Scale Widget, Overlay). Design: [`docs/design/ui_redesign_2026.md`](design/ui_redesign_2026.md).
+
+## Security & Hardening
+
+*   **Remediate Path Traversal in Authentication**: Sanitize the `user_id` in `get_current_user` to prevent arbitrary directory creation via the `Authorization` header. Reference: [`security_review.md`](../.gemini/antigravity/brain/5ce10f11-0789-4fff-a4e9-dd44b0a2389e/security_review.md).
+*   **Remediate Path Traversal in Asset Serving**: Implement path validation in `get_sprite_asset` to ensure file retrieval is restricted to the `ASSETS_DIR` and prevent `../` attacks.
+*   **Secure Secret Management**: Move sensitive keys like `AUTH_SECRET_KEY` from `src/config.py` to environment variables managed via `.env`.
+*   **Sanitize API Error Responses**: Ensure internal server errors and tracebacks are not leaked to the client in `HTTPException` details.
 
 ## Unprioritized / Ideas
 
