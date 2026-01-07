@@ -33,7 +33,7 @@ export const ImageViewer = ({
     isCommunity = false // New prop
 }) => {
     return (
-        <div className={`flex flex-col gap-4 w-full ${isExpanded ? 'h-full' : 'h-auto'}`}>
+        <div className={`flex flex-col w-full ${isExpanded ? 'h-full' : 'h-auto'}`}>
             {/* Unified Scene Stage */}
             <div
                 className={`card glass relative p-0 overflow-visible z-100 w-full flex items-center justify-center bg-black select-none ${isExpanded ? 'flex-1 min-h-0' : 'min-h-400 aspect-video'}`}
@@ -71,12 +71,14 @@ export const ImageViewer = ({
                 )}
             </div>
 
-            {/* Controls Bar: Actions Only (Tabs Removed) */}
-            <div className={`flex justify-end items-center flex-wrap gap-2 flex-shrink-0 ${isExpanded ? 'p-4' : 'p-0'}`}>
-                <div className="flex gap-2 items-center">
-                    {actions}
+            {/* Controls Bar: Actions Only (Tabs Removed) - Only render if we have actions */}
+            {actions && (
+                <div className={`flex justify-end items-center flex-wrap gap-2 flex-shrink-0 ${isExpanded ? 'p-4' : 'p-0'}`}>
+                    <div className="flex gap-2 items-center">
+                        {actions}
+                    </div>
                 </div>
-            </div>
+            )}
         </div>
     );
 };

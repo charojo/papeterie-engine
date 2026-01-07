@@ -9,6 +9,9 @@ import { SpriteListEditor } from './SpriteListEditor';
 import { TimelineEditor } from './TimelineEditor';
 import { SpriteLibraryDialog } from './SpriteLibraryDialog';
 import { StatusStepper } from './StatusStepper';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('GenericDetailView');
 import { useAssetLogs } from '../hooks/useAssetLogs';
 import { useLayerOperations } from '../hooks/useLayerOperations';
 import { useTransformEditor } from '../hooks/useTransformEditor';
@@ -64,9 +67,29 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
         setProcessingMode
     } = useAssetController(type, asset, refresh, onDelete);
 
-    // ... (keep existing useState/useEffect) ...
     const [currentTime, setCurrentTime] = useState(0);
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+    // Fine-grained keyframe selection: { spriteName, behaviorIndex, time } or null
+    const [selectedKeyframe, setSelectedKeyframe] = useState(null);
+
+    const handleBehaviorSelect = useCallback((spriteName, behaviorIndex) => {
+        const layer = (asset.config?.layers || []).find(l => l.sprite_name === spriteName);
+        if (layer && layer.behaviors && layer.behaviors[behaviorIndex]) {
+            const behavior = layer.behaviors[behaviorIndex];
+            setSelectedKeyframe({
+                spriteName,
+                behaviorIndex,
+                time: behavior.time_offset ?? 0
+            });
+            setCurrentTime(behavior.time_offset ?? 0);
+            console.log(`[GenericDetailView] Selected behavior from sprite list:`, { spriteName, behaviorIndex, time: behavior.time_offset ?? 0 });
+        }
+    }, [asset.config, setSelectedKeyframe, setCurrentTime]);
+
+    const handleKeyframeSelect = (spriteName, behaviorIndex, time) => {
+        log.info(`Keyframe selected: ${spriteName} (behavior: ${behaviorIndex === null ? 'base' : behaviorIndex}, time: ${time}s)`);
+        setSelectedKeyframe({ spriteName, behaviorIndex, time });
+    };
 
     const [isPlaying, setIsPlaying] = useState(false);
     const configScrollRef = useRef(null);
@@ -135,7 +158,7 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
                 logs={logs}
                 isExpanded={isExpanded}
                 visualContent={
-                    <div className="flex-col gap-xl flex-1 w-full">
+                    <div className="flex-col flex-1 w-full">
                         {/* Unified Prompt Box & Actions for Visuals - Moved to Top */}
                         {!isExpanded && (
                             <div className="flex-row gap-md">
@@ -227,12 +250,13 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
 
                         {/* Timeline for Scene Playing - Always Visible for Scenes */}
                         {type === 'scene' && (
-                            <div className="relative h-180 flex-shrink-0">
+                            <div className="relative flex-1 min-h-[180px] flex-shrink-0">
                                 <TimelineEditor
                                     duration={30}
                                     currentTime={currentTime}
                                     layers={asset.config?.layers || []}
                                     selectedLayer={selectedImage}
+                                    selectedKeyframe={selectedKeyframe}
                                     onTimeChange={setCurrentTime}
                                     layerVisibility={layerVisibility}
                                     // Layer Update Handler for Timeline Interactions (Z-Reorder)
@@ -241,8 +265,25 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
                                             let updatedConfig = JSON.parse(JSON.stringify(asset.config));
                                             const layer = (updatedConfig.layers || []).find(l => l.sprite_name === spriteName);
                                             if (layer) {
-                                                if (updates.z_depth !== undefined) {
+                                                if (updates.behaviorIndex !== undefined && updates.behaviorIndex !== null) {
+                                                    // Behavior-specific Z-depth update
+                                                    const behavior = (layer.behaviors || layer.events || [])[updates.behaviorIndex];
+                                                    if (behavior) {
+                                                        behavior.z_depth = updates.z_depth;
+                                                        // Ensure time is normalized if it was missing
+                                                        if (behavior.time_offset === undefined) behavior.time_offset = 0;
+                                                        console.log(`[GenericDetailView] Updating behavior ${updates.behaviorIndex} Z-depth to ${updates.z_depth}`);
+                                                    }
+                                                } else if (updates.z_depth !== undefined) {
+                                                    // Sprite-level Z-depth update
                                                     layer.z_depth = updates.z_depth;
+                                                    // Check if there is an "initial" location behavior that needs updating/normalization
+                                                    const initialLoc = (layer.behaviors || []).find(b => b.type === 'location' && (b.time_offset === undefined || b.time_offset === 0));
+                                                    if (initialLoc) {
+                                                        initialLoc.z_depth = updates.z_depth;
+                                                        initialLoc.time_offset = 0; // Normalize
+                                                    }
+                                                    console.log(`[GenericDetailView] Updating sprite ${spriteName} Z-depth to ${updates.z_depth}`);
                                                 } else {
                                                     layer.z_depth = (layer.z_depth || 0) + updates.z_depth_delta;
                                                 }
@@ -282,6 +323,7 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
                                     onKeyframeMove={handleKeyframeMove}
                                     onKeyframeDelete={handleKeyframeDelete}
                                     onSelectLayer={handleSpriteSelected}
+                                    onKeyframeSelect={handleKeyframeSelect}
                                     assetBaseUrl={ASSET_BASE + '/assets'}
                                     onPlayPause={() => {
                                         // TODO: Control TheatreStage playback via prop if needed
@@ -296,7 +338,7 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
                     </div>
                 }
                 configContent={
-                    <div className="flex-col gap-xl h-full">
+                    <div className="flex-col h-full">
                         {/* Tab Switcher for Right Pane */}
                         <div className="tab-container tab-container-flush">
                             <button
@@ -326,7 +368,9 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
                                     type={type}
                                     asset={asset}
                                     selectedSprite={selectedImage}
+                                    selectedBehaviorIndex={selectedKeyframe?.spriteName === selectedImage ? selectedKeyframe.behaviorIndex : null}
                                     onSpriteSelected={setSelectedImage}
+                                    onBehaviorSelect={handleBehaviorSelect}
                                     layerVisibility={layerVisibility}
                                     onToggleVisibility={toggleLayerVisibility}
                                     onDeleteSprite={handleDeleteSprite}
@@ -670,6 +714,7 @@ function useAssetController(type, asset, refresh, onDelete) {
     };
 
     const handleSpriteSelected = (spriteName) => {
+        log.info(`Sprite selected: ${spriteName}`);
         if (type === 'scene') {
             setSelectedImage(spriteName);
             handleTabChange('sprites');

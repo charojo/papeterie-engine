@@ -3,7 +3,7 @@ import { Icon } from './Icon';
 import { BehaviorTypes, CoordinateTypes, createDefaultBehavior } from './BehaviorConstants';
 import { API_BASE } from '../config';
 
-export function BehaviorEditor({ behaviors = [], onChange, readOnly = false, spriteName, isVisible, _onToggleVisibility, _onRemoveSprite, behaviorGuidance, inline = false }) {
+export function BehaviorEditor({ behaviors = [], onChange, readOnly = false, spriteName, isVisible, _onToggleVisibility, _onRemoveSprite, behaviorGuidance, inline = false, highlightIndex = null, onSelect = null }) {
     // Ensure the editor expands and scrolls within its container
 
     const [isAdding, setIsAdding] = useState(false);
@@ -125,9 +125,12 @@ export function BehaviorEditor({ behaviors = [], onChange, readOnly = false, spr
                         <BehaviorCard
                             key={originalIndex}
                             behavior={b}
+                            index={originalIndex}
                             onChange={updated => handleUpdate(originalIndex, updated)}
                             onRemove={() => handleRemove(originalIndex)}
+                            onSelect={() => onSelect && onSelect(originalIndex)}
                             readOnly={readOnly}
+                            isHighlighted={highlightIndex === originalIndex}
                         />
                     );
                 })}
@@ -136,9 +139,16 @@ export function BehaviorEditor({ behaviors = [], onChange, readOnly = false, spr
     );
 }
 
-function BehaviorCard({ behavior, onChange, onRemove, readOnly }) {
+function BehaviorCard({ behavior, _index, onChange, onRemove, onSelect, readOnly, isHighlighted = false }) {
     const [expanded, setExpanded] = useState(false);
     const [soundOptions, setSoundOptions] = useState([]);
+
+    // Auto-expand when highlighted via timeline selection
+    useEffect(() => {
+        if (isHighlighted) {
+            setExpanded(true);
+        }
+    }, [isHighlighted]);
 
     // Fetch sound files for dropdown
     useEffect(() => {
@@ -165,18 +175,21 @@ function BehaviorCard({ behavior, onChange, onRemove, readOnly }) {
 
 
     return (
-        <div className="bg-surface rounded-sm border overflow-hidden">
+        <div className={`bg-surface rounded-sm border overflow-hidden ${isHighlighted ? 'border-primary ring-1 ring-primary-glow' : ''}`}>
             <div
                 className="px-2 bg-elevated items-center gap-sm cursor-pointer min-h-5 flex-row"
                 style={{
                     borderBottom: expanded ? '1px solid var(--color-border)' : 'none'
                 }}
-                onClick={() => setExpanded(!expanded)}
+                onClick={() => {
+                    setExpanded(!expanded);
+                    if (!expanded && onSelect) onSelect(); // Select when expanding
+                }}
             >
                 <Icon name={behavior.type} size={14} />
                 <span className="font-medium text-xs flex-1 text-muted">
                     {behavior.type.toUpperCase()}
-                    {behavior.type === BehaviorTypes.LOCATION && behavior.time_offset !== undefined && (
+                    {behavior.time_offset !== undefined && (
                         <span className="text-subtle ml-1">@{behavior.time_offset.toFixed(2)}s</span>
                     )}
                     <span className="text-subtle text-xs ml-1">({behavior.coordinate || 'y'})</span>
@@ -192,6 +205,9 @@ function BehaviorCard({ behavior, onChange, onRemove, readOnly }) {
                 <div className="p-1 grid-2-col">
 
                     {/* Common Fields */}
+                    {behavior.type !== BehaviorTypes.BACKGROUND && (
+                        <Field label="Time Offset (s)" value={behavior.time_offset} type="number" step="0.1" onChange={v => updateParam('time_offset', v)} readOnly={readOnly} />
+                    )}
                     {behavior.type !== BehaviorTypes.LOCATION && behavior.type !== BehaviorTypes.SOUND && (
                         <Field label="Coordinate" value={behavior.coordinate} options={CoordinateTypes} onChange={v => updateParam('coordinate', v)} readOnly={readOnly} />
                     )}
@@ -234,7 +250,6 @@ function BehaviorCard({ behavior, onChange, onRemove, readOnly }) {
                     {/* Location Fields */}
                     {behavior.type === BehaviorTypes.LOCATION && (
                         <>
-                            <Field label="Time (s)" value={behavior.time_offset} type="number" step="0.05" onChange={v => updateParam('time_offset', v)} readOnly={readOnly} />
                             <Field label="X Offset (px)" value={behavior.x} type="number" onChange={v => updateParam('x', v)} readOnly={readOnly} />
                             <Field label="Y Offset (px)" value={behavior.y} type="number" onChange={v => updateParam('y', v)} readOnly={readOnly} />
                             <Field label="Vert % (0-1)" value={behavior.vertical_percent} type="number" step="0.01" onChange={v => updateParam('vertical_percent', v)} readOnly={readOnly} />
@@ -299,7 +314,6 @@ function BehaviorCard({ behavior, onChange, onRemove, readOnly }) {
                                 </div>
                             </div>
                             <Field label="Volume" value={behavior.volume} type="number" step="0.1" onChange={v => updateParam('volume', v)} readOnly={readOnly} />
-                            <Field label="Time Offset (s)" value={behavior.time_offset} type="number" step="0.1" onChange={v => updateParam('time_offset', v)} readOnly={readOnly} />
                             <Field label="Fade In (s)" value={behavior.fade_in} type="number" step="0.1" onChange={v => updateParam('fade_in', v)} readOnly={readOnly} />
                             <Field label="Fade Out (s)" value={behavior.fade_out} type="number" step="0.1" onChange={v => updateParam('fade_out', v)} readOnly={readOnly} />
                             <div className="flex-row items-center gap-md">

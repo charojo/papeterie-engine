@@ -1114,7 +1114,7 @@ h2 {
 }
 
 .h-track {
-  height: 48px;
+  height: 34px;
 }
 
 
@@ -1185,7 +1185,7 @@ h2 {
 }
 
 .w-header {
-  width: 200px;
+  width: 30px;
 }
 
 .w-6 {
@@ -1428,6 +1428,14 @@ h2 {
   border: 1px solid var(--color-primary);
 }
 
+.ring-1 {
+  box-shadow: 0 0 0 1px var(--color-primary);
+}
+
+.ring-primary-glow {
+  box-shadow: 0 0 0 1px var(--color-primary), 0 0 8px var(--color-primary-glow);
+}
+
 .border-b-subtle {
   border-bottom: 1px solid var(--color-border-subtle);
 }
@@ -1489,7 +1497,7 @@ h2 {
 }
 
 .min-w-header {
-  min-width: 200px;
+  min-width: 30px;
 }
 
 .pl-3 {
@@ -1539,7 +1547,6 @@ h2 {
 /* Timeline Components */
 .timeline-main {
   background: var(--color-bg-surface);
-  border-top: 1px solid var(--color-border);
   height: 250px;
   display: flex;
   flex-direction: column;
@@ -1585,33 +1592,47 @@ h2 {
   position: sticky;
   left: 0;
   background-color: var(--color-bg-surface);
-  z-index: 15;
+  z-index: 110;
   display: flex;
   align-items: center;
   font-weight: 500;
   color: var(--color-text-muted);
-  padding-left: 0.75rem;
-  font-size: 0.875rem;
+  padding: 0 4px;
+  justify-content: center;
+  font-size: 0.65rem;
 }
 
 .timeline-keyframe-card {
   position: absolute;
   border-radius: 4px;
   display: flex;
+  /* Back to flex to center the icon inside the card */
   align-items: center;
   justify-content: center;
   overflow: hidden;
   cursor: move;
   text-align: center;
   background-color: var(--color-bg-surface);
-  width: 2rem;
-  /* w-8 */
-  height: 2rem;
-  /* h-8 */
-  top: 0.5rem;
-  /* top-2 */
+  width: 29px;
+  height: 29px;
+  min-width: 29px;
+  min-height: 29px;
+  aspect-ratio: 1 / 1;
+  flex-shrink: 0;
+  top: 2.5px;
   border: 1px solid var(--color-border);
   z-index: 2;
+  box-sizing: border-box;
+  margin: 0 !important;
+  padding: 0;
+}
+
+/* Keyframes contain an image that should fill the area */
+.timeline-keyframe-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
 }
 
 .timeline-keyframe-card.selected {
@@ -1624,4 +1645,10 @@ h2 {
   border: 2px solid var(--color-text-muted);
   opacity: 0.6;
   z-index: 100;
+}
+
+.timeline-keyframe-card.selected-primary {
+  border: 2px solid var(--color-primary);
+  box-shadow: 0 0 8px var(--color-primary-glow);
+  z-index: 60;
 }

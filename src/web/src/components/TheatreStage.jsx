@@ -44,6 +44,7 @@ export function TheatreStage({
     const [soloSprite, setSoloSprite] = useState(null);
     const [cursorStyle, setCursorStyle] = useState('pointer');
     const [showLayersPanel, setShowLayersPanel] = useState(false);
+    const [localRotation, setLocalRotation] = useState(0);
     const isPausedRef = useRef(isPaused);
 
     // Dynamic Asset Base URL resolution
@@ -53,7 +54,7 @@ export function TheatreStage({
     const {
         zoom, panX, panY, state: _cameraState,
         setZoom, setPan: _setPan, reset: resetCamera, handleWheel: cameraHandleWheel, controller: cameraController
-    } = useCameraController(theatreRef.current);
+    } = useCameraController(); // Don't pass ref, we bind manually below
 
     // Derive pan object for compatibility
     const pan = { x: panX, y: panY };
@@ -61,14 +62,6 @@ export function TheatreStage({
     useEffect(() => {
         isPausedRef.current = isPaused;
     }, [isPaused]);
-
-    // Bind camera controller to Theatre when it's ready
-    useEffect(() => {
-        if (theatreRef.current && cameraController) {
-            cameraController.bindTheatre(theatreRef.current);
-        }
-
-    }, [cameraController]);
 
     // Sync debugMode
     useEffect(() => {
@@ -115,6 +108,12 @@ export function TheatreStage({
         theatre.debugMode = debugMode;
         theatreRef.current = theatre;
 
+        // CRITICAL: Explicitly bind camera controller to the new Theatre instance
+        if (cameraController) {
+            log.info(`Binding CameraController to new Theatre instance: ${sceneName}`);
+            cameraController.bindTheatre(theatre);
+        }
+
         // Wire up interaction callbacks (initial)
         theatre.onSpriteSelected = onSpriteSelected;
         theatre.onSpritePositionChanged = onSpritePositionChanged;
@@ -141,12 +140,21 @@ export function TheatreStage({
                 theatre.pause();
             }
             theatre.start();
+
+            // CRITICAL: Zoom Fix - Attach wheel listener here to ensure it binds to the correct canvas
+            // and re-attaches if the scene name or other structural props change.
+            const onWheel = (e) => {
+                cameraHandleWheel(e, theatre.canvas);
+            };
+            theatre.canvas.addEventListener('wheel', onWheel, { passive: false });
+            theatre._cleanupWheel = () => theatre.canvas.removeEventListener('wheel', onWheel);
         };
 
         init();
 
         return () => {
             if (theatreRef.current) {
+                theatreRef.current._cleanupWheel?.();
                 theatreRef.current.stop();
             }
         };
@@ -178,29 +186,29 @@ export function TheatreStage({
         }
     }, [onSpriteSelected, onSpritePositionChanged, onSpriteScaleChanged, onSpriteRotationChanged, onTimeUpdate]);
 
-    // Wheel handler now managed by useCameraController
-
-    // Re-implemented fully correct version below:
+    // Sync local rotation when sprite selection or scene changes
     useEffect(() => {
-        const canvas = canvasRef.current;
-        if (!canvas) {
-            log.warn('Canvas ref is null, cannot attach wheel listener');
+        if (!selectedSprite || !scene) {
+            setLocalRotation(0);
             return;
         }
+        const layer = scene.layers.find(l => l.sprite_name === selectedSprite);
+        if (layer) {
+            const loc = (layer.behaviors || []).find(b => b.type === 'location' && b.time_offset === undefined);
+            const rotation = loc?.rotation ?? layer.rotation ?? 0;
+            setLocalRotation(rotation);
+        }
+    }, [selectedSprite, scene]);
 
-        const onWheel = (e) => {
-            if (!theatreRef.current) return;
-            cameraHandleWheel(e, canvas);
-        };
+    const updateTheatreRotation = (deg) => {
+        if (theatreRef.current && selectedSprite) {
+            const layer = theatreRef.current.layersByName.get(selectedSprite);
+            if (layer) {
+                layer.setRotation(deg, currentTime || 0);
+            }
+        }
+    };
 
-        log.debug('Attaching wheel listener (via useCameraController)');
-        canvas.addEventListener('wheel', onWheel, { passive: false });
-
-        return () => {
-            log.debug('Removing wheel listener');
-            canvas.removeEventListener('wheel', onWheel);
-        };
-    }, [cameraHandleWheel]); // Depend on the hook's handleWheel
 
     // Resize Observer Logic(Static)
     useEffect(() => {
@@ -509,19 +517,51 @@ export function TheatreStage({
                         {/* Rotation */}
                         {onSpriteRotationChanged && (
                             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                <Icon name="rotate" size={16} className="text-muted" />
+                                <Icon
+                                    name="rotate"
+                                    size={16}
+                                    className="text-muted cursor-pointer hover:text-white transition-colors"
+                                    title="Click to rotate 90°"
+                                    onClick={() => {
+                                        let nextRot = (localRotation + 90);
+                                        if (nextRot > 180) nextRot -= 360;
+
+                                        const layer = scene.layers.find(l => l.sprite_name === selectedSprite);
+                                        const loc = (layer?.behaviors || []).find(b => b.type === 'location' && b.time_offset !== undefined && Math.abs(b.time_offset - (currentTime || 0)) < 0.2);
+                                        const targetDesc = loc ? `Behavior at ${loc.time_offset}s` : "Base Rotation";
+
+                                        log.info(`Rotating sprite ${selectedSprite} (${targetDesc}) by 90° to ${nextRot}°`);
+                                        setLocalRotation(nextRot);
+                                        updateTheatreRotation(nextRot);
+                                        onSpriteRotationChanged(selectedSprite, nextRot, currentTime || 0);
+                                    }}
+                                />
                                 <input
                                     type="range"
                                     min="-180"
                                     max="180"
-                                    value={(() => {
-                                        if (!scene) return 0;
+                                    value={localRotation}
+                                    onChange={(e) => {
+                                        const val = parseFloat(e.target.value);
+                                        setLocalRotation(val);
+                                        updateTheatreRotation(val);
+                                    }}
+                                    onMouseUp={() => {
                                         const layer = scene.layers.find(l => l.sprite_name === selectedSprite);
-                                        if (!layer) return 0;
-                                        const loc = (layer.behaviors || []).find(b => b.type === 'location' && b.time_offset === undefined);
-                                        return loc?.rotation ?? layer.rotation ?? 0;
-                                    })()}
-                                    onChange={(e) => onSpriteRotationChanged(selectedSprite, parseFloat(e.target.value))}
+                                        const loc = (layer?.behaviors || []).find(b => b.type === 'location' && b.time_offset !== undefined && Math.abs(b.time_offset - (currentTime || 0)) < 0.2);
+                                        const targetDesc = loc ? `Behavior at ${loc.time_offset}s` : "Base Rotation";
+
+                                        log.info(`Rotation slider interaction end: ${selectedSprite} (${targetDesc}) at ${localRotation}°`);
+                                        onSpriteRotationChanged(selectedSprite, localRotation, currentTime || 0);
+                                    }}
+                                    onTouchEnd={() => {
+                                        log.info(`Rotation slider interaction (touch) end: ${selectedSprite} at ${localRotation}°`);
+                                        onSpriteRotationChanged(selectedSprite, localRotation, currentTime || 0);
+                                    }}
+                                    onKeyUp={() => {
+                                        log.info(`Rotation slider keyboard interaction end: ${selectedSprite} at ${localRotation}°`);
+                                        onSpriteRotationChanged(selectedSprite, localRotation, currentTime || 0);
+                                    }}
                                     style={{ width: '80px', cursor: 'pointer', height: '4px' }}
                                     title="Rotate Sprite"
                                 />

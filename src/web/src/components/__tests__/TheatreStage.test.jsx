@@ -35,15 +35,18 @@ vi.mock('../../engine/Theatre', () => ({
             this.onSpriteSelected = null;
             this.onSpritePositionChanged = null;
             this.isPaused = true;
-
+            this.cameraZoom = 1.0;
+            this.cameraPanX = 0;
+            this.cameraPanY = 0;
             mockTheatreInstances.push(this);
         }
+        setRotation = vi.fn();
     }
 }));
 
 // Mock Icon component
 vi.mock('../Icon', () => ({
-    Icon: ({ name }) => <span data-testid={`icon-${name}`}>{name}</span>
+    Icon: ({ name, ...props }) => <span data-testid={`icon-${name}`} {...props}>{name}</span>
 }));
 
 describe('TheatreStage', () => {
@@ -282,5 +285,80 @@ describe('TheatreStage', () => {
 
         await new Promise(resolve => setTimeout(resolve, 10));
         expect(theatre.cameraZoom).toBeLessThan(currentZoom);
+    });
+
+    describe('Rotation Controls', () => {
+        const onSpriteRotationChanged = vi.fn();
+
+        beforeEach(() => {
+            onSpriteRotationChanged.mockClear();
+        });
+
+        it('updates local state but not backend on slider change', async () => {
+            const { getByTitle } = render(
+                <TheatreStage
+                    scene={mockScene}
+                    sceneName="test_scene"
+                    selectedSprite="boat"
+                    onSpriteRotationChanged={onSpriteRotationChanged}
+                />
+            );
+
+            await new Promise(resolve => setTimeout(resolve, 0));
+            const slider = getByTitle('Rotate Sprite');
+
+            // Change slider value
+            fireEvent.change(slider, { target: { value: '45' } });
+
+            // Backend callback should NOT be called yet
+            expect(onSpriteRotationChanged).not.toHaveBeenCalled();
+            // Local value should be updated
+            expect(slider.value).toBe('45');
+        });
+
+        it('calls backend only on slider interaction end', async () => {
+            const { getByTitle } = render(
+                <TheatreStage
+                    scene={mockScene}
+                    sceneName="test_scene"
+                    selectedSprite="boat"
+                    onSpriteRotationChanged={onSpriteRotationChanged}
+                />
+            );
+
+            await new Promise(resolve => setTimeout(resolve, 0));
+            const slider = getByTitle('Rotate Sprite');
+
+            fireEvent.change(slider, { target: { value: '90' } });
+            fireEvent.mouseUp(slider);
+
+            expect(onSpriteRotationChanged).toHaveBeenCalledWith('boat', 90, 0);
+        });
+
+        it('rotates by 90 degrees when clicking rotation icon', async () => {
+            const { getByTitle } = render(
+                <TheatreStage
+                    scene={mockScene}
+                    sceneName="test_scene"
+                    selectedSprite="boat"
+                    onSpriteRotationChanged={onSpriteRotationChanged}
+                />
+            );
+
+            await new Promise(resolve => setTimeout(resolve, 0));
+            const rotateIcon = getByTitle('Click to rotate 90°');
+
+            fireEvent.click(rotateIcon);
+
+            expect(onSpriteRotationChanged).toHaveBeenCalledWith('boat', 90, 0);
+
+            // Second click
+            fireEvent.click(rotateIcon);
+            expect(onSpriteRotationChanged).toHaveBeenCalledWith('boat', 180, expect.any(Number));
+
+            // Third click (wrap around logic: 180 + 90 = 270, which becomes -90 in -180 to 180 range)
+            fireEvent.click(rotateIcon);
+            expect(onSpriteRotationChanged).toHaveBeenCalledWith('boat', -90, expect.any(Number));
+        });
     });
 });

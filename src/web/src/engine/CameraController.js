@@ -86,7 +86,8 @@ export class CameraController {
             this._zoom = clampedZoom;
         }
 
-        log.debug(`Zoom set to ${this._zoom.toFixed(3)}`);
+        const status = this.theatre ? 'bound to Theatre' : 'NOT bound to Theatre (view will not update)';
+        log.info(`Zoom set to ${this._zoom.toFixed(3)} (${status}). Anchor: (${anchorX}, ${anchorY}), Rect: ${rect ? `${rect.width}x${rect.height}` : 'null'}`);
         this._notifyListeners();
     }
 
@@ -154,7 +155,12 @@ export class CameraController {
      * Call this once per frame or after batch updates.
      */
     applyToTheatre() {
-        if (!this.theatre) return;
+        if (!this.theatre) {
+            log.warn('applyToTheatre() called but no Theatre instance is bound. Camera changes will not be visible.');
+            return;
+        }
+
+        log.info(`Applying state to Theatre: Zoom=${this._zoom.toFixed(3)}, Pan=(${this._panX.toFixed(1)}, ${this._panY.toFixed(1)})`);
 
         this.theatre.cameraZoom = this._zoom;
         this.theatre.cameraPanX = this._panX;

@@ -7,11 +7,13 @@ export function SpriteListEditor({
     type,
     asset,
     selectedSprite,
+    selectedBehaviorIndex, // Index of the specifically selected behavior (for timeline sync)
     onSpriteSelected,
     layerVisibility,
     onToggleVisibility,
     onDeleteSprite,
     onBehaviorsChange,
+    onBehaviorSelect, // (spriteName, behaviorIndex) => void
     behaviorGuidance,
     currentTime
 }) {
@@ -68,8 +70,8 @@ export function SpriteListEditor({
         displayZ: getZAtTime(l, currentTime || 0)
     }));
 
-    // Sort by displayZ descending
-    const sortedLayers = [...evaluatedLayers].sort((a, b) => b.displayZ - a.displayZ);
+    // Sort alphabetically by sprite name
+    const sortedLayers = [...evaluatedLayers].sort((a, b) => a.sprite_name.localeCompare(b.sprite_name));
 
     return (
         <div className="flex flex-col h-full min-h-0">
@@ -79,11 +81,13 @@ export function SpriteListEditor({
                         key={layer.sprite_name}
                         layer={layer}
                         isSelected={selectedSprite === layer.sprite_name}
+                        selectedBehaviorIndex={selectedSprite === layer.sprite_name ? selectedBehaviorIndex : null}
                         isVisible={layerVisibility[layer.sprite_name] !== false}
                         onSelect={() => onSpriteSelected(layer.sprite_name)}
                         onToggleVisibility={() => onToggleVisibility(layer.sprite_name)}
                         onDeleteSprite={() => onDeleteSprite(layer.sprite_name)}
                         onBehaviorsChange={(newBehaviors) => onBehaviorsChange(newBehaviors)}
+                        onBehaviorSelect={(idx) => onBehaviorSelect && onBehaviorSelect(layer.sprite_name, idx)}
                         behaviorGuidance={selectedSprite === layer.sprite_name ? behaviorGuidance : null}
                         isScene={isScene}
                         displayZ={layer.displayZ}
@@ -97,11 +101,13 @@ export function SpriteListEditor({
 function SpriteAccordionItem({
     layer,
     isSelected,
+    selectedBehaviorIndex, // Index of the specifically selected behavior (for timeline sync)
     isVisible,
     onSelect,
     onToggleVisibility,
     onDeleteSprite,
     onBehaviorsChange,
+    onBehaviorSelect, // (behaviorIndex) => void
     behaviorGuidance,
     isScene,
     displayZ
@@ -110,6 +116,13 @@ function SpriteAccordionItem({
     const [isAdding, setIsAdding] = useState(false);
 
     const itemRef = React.useRef(null);
+
+    // Auto-expand when selected OR when a specific behavior is selected via timeline
+    React.useEffect(() => {
+        if (isSelected || (selectedBehaviorIndex !== null && selectedBehaviorIndex !== undefined)) {
+            setIsExpanded(true);
+        }
+    }, [isSelected, selectedBehaviorIndex]);
 
     // Auto-scroll if selected OR expanded
     React.useEffect(() => {
@@ -129,6 +142,10 @@ function SpriteAccordionItem({
 
     const handleAddBehavior = (type) => {
         const newBehavior = createDefaultBehavior(type);
+        // Inject current time for non-background behaviors
+        if (type !== BehaviorTypes.BACKGROUND) {
+            newBehavior.time_offset = parseFloat((currentTime || 0).toFixed(2));
+        }
         const currentBehaviors = layer.behaviors || [];
         onBehaviorsChange([...currentBehaviors, newBehavior]);
         setIsAdding(false);
@@ -238,9 +255,11 @@ function SpriteAccordionItem({
                             <BehaviorEditor
                                 behaviors={layer.behaviors || []}
                                 onChange={onBehaviorsChange}
+                                onSelect={onBehaviorSelect}
                                 readOnly={false}
                                 inline={true}
                                 behaviorGuidance={behaviorGuidance}
+                                highlightIndex={selectedBehaviorIndex}
                             />
                         </div>
                     </div>

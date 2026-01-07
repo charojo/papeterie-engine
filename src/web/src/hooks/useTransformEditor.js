@@ -68,19 +68,40 @@ export function useTransformEditor(asset, refresh) {
         }
     }, [asset.config, asset.name, refresh]);
 
-    const handleSpriteRotationChanged = useCallback(async (spriteName, degrees) => {
+    const handleSpriteRotationChanged = useCallback(async (spriteName, degrees, time = 0) => {
         try {
             if (!asset.config) return;
             const updatedConfig = JSON.parse(JSON.stringify(asset.config));
             const layer = (updatedConfig.layers || []).find(l => l.sprite_name === spriteName);
             if (!layer) return;
 
-            // Update base rotation or location behavior if it exists
-            const loc = (layer.behaviors || []).find(b => b.type === 'location' && b.time_offset === undefined);
-            if (loc) {
-                loc.rotation = degrees;
+            if (time > 0.1) {
+                // Update or create location behavior at this time
+                if (!layer.behaviors) layer.behaviors = [];
+                const existingIndex = layer.behaviors.findIndex(
+                    b => b.type === 'location' && Math.abs((b.time_offset || 0) - time) < 0.2
+                );
+
+                if (existingIndex >= 0) {
+                    layer.behaviors[existingIndex].rotation = degrees;
+                } else {
+                    layer.behaviors.push({
+                        type: 'location',
+                        rotation: degrees,
+                        time_offset: parseFloat(time.toFixed(2)),
+                        interpolate: true,
+                        enabled: true
+                    });
+                    layer.behaviors.sort((a, b) => (a.time_offset || 0) - (b.time_offset || 0));
+                }
             } else {
-                layer.rotation = degrees;
+                // Update base rotation or location behavior if it exists
+                const loc = (layer.behaviors || []).find(b => b.type === 'location' && b.time_offset === undefined);
+                if (loc) {
+                    loc.rotation = degrees;
+                } else {
+                    layer.rotation = degrees;
+                }
             }
 
             const res = await fetch(`${API_BASE}/scenes/${asset.name}/config`, {
