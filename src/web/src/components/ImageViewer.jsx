@@ -28,17 +28,31 @@ export const ImageViewer = ({
     onSpriteSelected,
     assetBaseUrl, // New prop passed down
     currentTime, // Prop for timeline sync
+    onTelemetry,
+    debugMode,
     layerVisibility,
     onToggleVisibility,
-    isCommunity = false // New prop
+    onPlayPause,
+    onTimeUpdate,
+    isPlaying,
+    isCommunity = false, // New prop
+    style // Style prop for flex sizing
 }) => {
     return (
-        <div className={`flex flex-col w-full ${isExpanded ? 'h-full' : 'h-auto'}`}>
+        <div
+            className={`flex flex-col w-full ${isExpanded ? 'h-full' : 'h-auto'}`}
+            style={style}
+        >
             {/* Unified Scene Stage */}
             <div
-                className={`card glass relative p-0 overflow-visible z-100 w-full flex items-center justify-center bg-black select-none ${isExpanded ? 'flex-1 min-h-0' : 'min-h-400 aspect-video'}`}
+                className={`card glass relative p-0 overflow-visible z-250 w-full flex items-center justify-center bg-black select-none ${isExpanded ? 'flex-1 min-h-0' : 'flex-1 min-h-0'}`}
             >
                 <TheatreStage
+                    onTimeUpdate={onTimeUpdate}
+                    onTelemetry={onTelemetry}
+                    debugMode={debugMode}
+                    isPlaying={isPlaying}
+                    onPlayPause={onPlayPause}
                     scene={scene}
                     sceneName={sceneName}
                     currentTime={currentTime}
@@ -54,7 +68,6 @@ export const ImageViewer = ({
                     toggleExpand={toggleExpand}
                     assetBaseUrl={assetBaseUrl} // Pass through
                     isCommunity={isCommunity} // Pass through
-                    debugMode={false}
                     // Pass-through props
                     isSpriteVisible={isSpriteVisible}
                     onToggleSpriteVisibility={onToggleSpriteVisibility}

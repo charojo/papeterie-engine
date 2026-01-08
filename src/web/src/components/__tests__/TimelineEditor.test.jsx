@@ -137,6 +137,18 @@ describe('TimelineEditor', () => {
             expect(onTimeChange).toHaveBeenCalledWith(5);
         });
 
+        it('calls onPlayPause when starting a scrub while playing', () => {
+            const onPlayPause = vi.fn();
+            render(<TimelineEditor {...defaultProps} isPlaying={true} onPlayPause={onPlayPause} />);
+
+            const ruler = screen.getByTestId('timeline-ruler');
+            act(() => {
+                fireEvent.mouseDown(ruler, { clientX: 170 });
+            });
+
+            expect(onPlayPause).toHaveBeenCalled();
+        });
+
         it('calls onLayerUpdate with behaviorIndex when dragging keyframe to new Z', () => {
             const onLayerUpdate = vi.fn();
             const layers = [

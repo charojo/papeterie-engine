@@ -20,10 +20,25 @@ def test_frontend_coverage():
     # Note: 'npm run test:coverage' might output colors, which we want in console
     # but maybe not in log, but having colors in log is usually fine for analyze.sh.
 
-    cmd_str = f"npm run test:coverage 2>&1 | tee {log_file}"
+    print(f"Executing: npm run test:coverage > {log_file}")
 
-    print(f"Executing: {cmd_str}")
-    result = subprocess.run(cmd_str, shell=True, cwd=frontend_dir, text=True)
+    with open(log_file, "w") as f:
+        process = subprocess.Popen(
+            ["npm", "run", "test:coverage"],
+            cwd=frontend_dir,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,  # Line buffered
+        )
 
-    if result.returncode != 0:
-        pytest.fail(f"Frontend tests failed. See {log_file} for details.")
+        for line in process.stdout:
+            print(line, end="")
+            f.write(line)
+
+        process.wait()
+
+    if process.returncode != 0:
+        pytest.fail(
+            f"Frontend tests failed (Exit Code: {process.returncode}). See {log_file} for details."
+        )

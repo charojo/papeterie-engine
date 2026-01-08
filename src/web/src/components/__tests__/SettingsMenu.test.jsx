@@ -5,12 +5,13 @@ import { SettingsMenu } from '../SettingsMenu';
 
 describe('SettingsMenu', () => {
     const defaultProps = {
-        theme: 'blue',
+        theme: 'teal',
         onThemeChange: vi.fn(),
         fontSize: 'medium',
         onFontSizeChange: vi.fn(),
         contrast: 0.6,
         onContrastChange: vi.fn(),
+        onResetAll: vi.fn(),
         onLogout: vi.fn(),
         user: { user: { username: 'testuser' }, type: 'local' }
     };
@@ -56,7 +57,7 @@ describe('SettingsMenu', () => {
         render(<SettingsMenu {...defaultProps} />);
         fireEvent.click(screen.getByRole('button', { name: /Settings/i }));
 
-        expect(screen.getByRole('option', { name: 'Blue' })).toBeInTheDocument();
+        expect(screen.getByRole('option', { name: 'Teal' })).toBeInTheDocument();
         expect(screen.getByRole('option', { name: 'Dark' })).toBeInTheDocument();
         expect(screen.getByRole('option', { name: 'Light' })).toBeInTheDocument();
         expect(screen.getByRole('option', { name: 'Stark' })).toBeInTheDocument();
@@ -98,14 +99,13 @@ describe('SettingsMenu', () => {
         expect(defaultProps.onFontSizeChange).toHaveBeenCalledWith('large');
     });
 
-    it('Reset Display Settings resets contrast and font size', () => {
+    it('Reset All calls onResetAll', () => {
         render(<SettingsMenu {...defaultProps} />);
         fireEvent.click(screen.getByRole('button', { name: /Settings/i }));
 
-        fireEvent.click(screen.getByText('Reset Display Settings'));
+        fireEvent.click(screen.getByText('Reset All'));
 
-        expect(defaultProps.onContrastChange).toHaveBeenCalledWith(0.60);
-        expect(defaultProps.onFontSizeChange).toHaveBeenCalledWith('medium');
+        expect(defaultProps.onResetAll).toHaveBeenCalled();
     });
 
     it('calls onLogout and closes menu when Sign out is clicked', () => {

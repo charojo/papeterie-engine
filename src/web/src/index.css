@@ -34,9 +34,9 @@
 
 /* 20px base */
 
-/* Blue Theme (Default) - Slate blue accent */
+/* Teal Theme (Default) - Slate blue accent */
 :root,
-[data-theme="blue"] {
+[data-theme="teal"] {
   --color-bg-base-raw: #0f172a;
   --color-bg-surface-raw: #1e293b;
   --color-bg-elevated-raw: #334155;
@@ -433,11 +433,11 @@ input[type="range"]:focus::-webkit-slider-thumb {
 /* Sidebar removed */
 
 .main-content {
-  padding: 30px;
+  padding: 0;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 0;
 }
 
 .card {
@@ -578,7 +578,102 @@ h2 {
   box-shadow: 4px 4px 12px rgba(0, 0, 0, 0.3);
 }
 
-/* ===== Layout Utilities ===== */
+/* ===== Resize Handles ===== */
+.resize-handle {
+  position: relative;
+  flex-shrink: 0;
+  background: var(--color-bg-elevated);
+  transition: background 0.2s;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.resize-handle::before {
+  content: '';
+  position: absolute;
+  background-image: radial-gradient(circle, var(--color-text-muted) 1.5px, transparent 1.5px);
+  background-size: 4px 4px;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
+.resize-handle:hover::before,
+.resize-handle.active::before {
+  opacity: 1;
+}
+
+.resize-handle:hover,
+.resize-handle.active {
+  background: var(--color-bg-surface);
+}
+
+/* Horizontal resize (left-right split) */
+.resize-handle-h {
+  width: 10px;
+  cursor: ew-resize;
+}
+
+.resize-handle-h::before {
+  width: 4px;
+  height: 32px;
+}
+
+/* Vertical resize (top-bottom split) */
+.resize-handle-v {
+  height: 10px;
+  cursor: ns-resize;
+  width: 100%;
+}
+
+.resize-handle-v::before {
+  width: 32px;
+  height: 4px;
+}
+
+/* ===== Toolbar Drag Handles ===== */
+.toolbar-drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 2px;
+  cursor: grab;
+  opacity: 0.4;
+  transition: opacity 0.2s;
+}
+
+.toolbar-drag-handle:hover {
+  opacity: 0.8;
+}
+
+.toolbar-drag-handle:active {
+  cursor: grabbing;
+  opacity: 1;
+}
+
+/* Grip dots pattern */
+.toolbar-drag-handle::before {
+  content: '';
+  display: block;
+  width: 6px;
+  height: 10px;
+  background-image: radial-gradient(circle, var(--color-text-muted) 1px, transparent 1px);
+  background-size: 3px 3px;
+  background-position: 0 0, 1.5px 1.5px;
+}
+
+/* Vertical toolbar uses horizontal grip */
+.theatre-toolbar-vertical .toolbar-drag-handle {
+  padding: 2px 4px;
+}
+
+.theatre-toolbar-vertical .toolbar-drag-handle::before {
+  width: 10px;
+  height: 6px;
+}
+
+
 .flex-col {
   display: flex;
   flex-direction: column;
@@ -785,6 +880,10 @@ h2 {
 
 .z-100 {
   z-index: 100;
+}
+
+.z-250 {
+  z-index: 250;
 }
 
 .overflow-auto {
@@ -1547,7 +1646,8 @@ h2 {
 /* Timeline Components */
 .timeline-main {
   background: var(--color-bg-surface);
-  height: 250px;
+  flex: 1;
+  min-height: 100px;
   display: flex;
   flex-direction: column;
   user-select: none;
@@ -1555,6 +1655,7 @@ h2 {
 
 .timeline-toolbar {
   height: 32px;
+  flex-shrink: 0;
   border-bottom: 1px solid var(--color-border);
   display: flex;
   align-items: center;

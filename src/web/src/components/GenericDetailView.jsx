@@ -12,11 +12,13 @@ import { StatusStepper } from './StatusStepper';
 import { createLogger } from '../utils/logger';
 
 const log = createLogger('GenericDetailView');
+const SCENE_DURATION = 30; // Standard scene duration in seconds
 import { useAssetLogs } from '../hooks/useAssetLogs';
 import { useLayerOperations } from '../hooks/useLayerOperations';
 import { useTransformEditor } from '../hooks/useTransformEditor';
 import { useOptimization } from '../hooks/useOptimization';
 import { useBehaviorEditor } from '../hooks/useBehaviorEditor';
+import { useResizableRatio } from '../hooks/useResizable';
 import { API_BASE, ASSET_BASE } from '../config';
 
 
@@ -43,6 +45,7 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
         statusLabel,
         configData,
         telemetry,
+        handleTelemetry,
         debugOverlayMode,
         setDebugOverlayMode,
         toggleLayerVisibility,
@@ -71,6 +74,25 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
     // Fine-grained keyframe selection: { spriteName, behaviorIndex, time } or null
     const [selectedKeyframe, setSelectedKeyframe] = useState(null);
+
+    // Vertical resize between theatre and timeline (ratio for theatre section)
+    const theatreTimelineContainerRef = useRef(null);
+    const { ratio: theatreRatio, isResizing: isTheatreResizing, startResize: startTheatreResize } = useResizableRatio(
+        type === 'scene' ? `papeterie-theatre-timeline-split-${asset.name}` : 'papeterie-theatre-timeline-split',
+        0.65, // Default 65% theatre, 35% timeline
+        { minRatio: 0.3, maxRatio: 0.85, direction: 'vertical' }
+    );
+
+    // DEBUG: Log when theatre ratio changes
+    useEffect(() => {
+        console.log('[GenericDetailView] Theatre ratio updated:', {
+            theatreRatio: theatreRatio.toFixed(3),
+            theatreFlexBasis: `${theatreRatio * 100}%`,
+            timelineFlexBasis: `${(1 - theatreRatio) * 100}%`,
+            isResizing: isTheatreResizing,
+            containerRefExists: !!theatreTimelineContainerRef.current
+        });
+    }, [theatreRatio, isTheatreResizing]);
 
     const handleBehaviorSelect = useCallback((spriteName, behaviorIndex) => {
         const layer = (asset.config?.layers || []).find(l => l.sprite_name === spriteName);
@@ -158,7 +180,7 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
                 logs={logs}
                 isExpanded={isExpanded}
                 visualContent={
-                    <div className="flex-col flex-1 w-full">
+                    <div ref={theatreTimelineContainerRef} style={{ display: 'flex', flexDirection: 'column', flex: 1, width: '100%', height: '100%', minHeight: 0, overflow: 'hidden' }}>
                         {/* Unified Prompt Box & Actions for Visuals - Moved to Top */}
                         {!isExpanded && (
                             <div className="flex-row gap-md">
@@ -195,9 +217,21 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
                         )}
 
                         <ImageViewer
+                            style={type === 'scene' ? { flex: `1 1 ${theatreRatio * 100}%`, minHeight: 100, overflow: 'visible' } : { flex: 1 }}
                             scene={type === 'scene' ? asset.config : { layers: [{ sprite_name: asset.name, x_offset: 0, y_offset: 0, scale: activeLayer?.scale || 1, behaviors: currentBehaviors }] }}
                             sceneName={asset.name}
                             currentTime={currentTime}
+                            onTimeUpdate={(t) => {
+                                if (t >= SCENE_DURATION) {
+                                    setCurrentTime(0);
+                                } else {
+                                    setCurrentTime(t);
+                                }
+                            }}
+                            onTelemetry={handleTelemetry}
+                            debugMode={debugOverlayMode}
+                            isPlaying={isPlaying}
+                            onPlayPause={() => setIsPlaying(!isPlaying)}
                             layerVisibility={layerVisibility}
                             onToggleVisibility={toggleLayerVisibility}
                             assetBaseUrl={ASSET_BASE + '/assets'} // Explicit pass
@@ -248,11 +282,20 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
                             }
                         />
 
+                        {/* Resize Handle between Theatre and Timeline */}
+                        {type === 'scene' && (
+                            <div
+                                className={`resize-handle resize-handle-v ${isTheatreResizing ? 'active' : ''}`}
+                                onMouseDown={(e) => startTheatreResize(e, theatreTimelineContainerRef.current)}
+                                title="Drag to resize theatre vs timeline"
+                            />
+                        )}
+
                         {/* Timeline for Scene Playing - Always Visible for Scenes */}
                         {type === 'scene' && (
-                            <div className="relative flex-1 min-h-[180px] flex-shrink-0">
+                            <div style={{ flex: `1 1 ${(1 - theatreRatio) * 100}%`, minHeight: 100, display: 'flex', flexDirection: 'column' }}>
                                 <TimelineEditor
-                                    duration={30}
+                                    duration={SCENE_DURATION}
                                     currentTime={currentTime}
                                     layers={asset.config?.layers || []}
                                     selectedLayer={selectedImage}
@@ -325,9 +368,7 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
                                     onSelectLayer={handleSpriteSelected}
                                     onKeyframeSelect={handleKeyframeSelect}
                                     assetBaseUrl={ASSET_BASE + '/assets'}
-                                    onPlayPause={() => {
-                                        // TODO: Control TheatreStage playback via prop if needed
-                                    }}
+                                    onPlayPause={() => setIsPlaying(!isPlaying)}
                                     isPlaying={isPlaying}
                                 />
                             </div>

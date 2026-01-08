@@ -112,7 +112,7 @@ describe('Layer', () => {
             expect(tf.y).toBeCloseTo(10.0, 4);
         });
 
-        it('applies Drift behavior with Cap', () => {
+        it('applies Drift behavior', () => {
             const config = {
                 behaviors: [{
                     type: EventType.DRIFT,
@@ -123,7 +123,7 @@ describe('Layer', () => {
             const layer = new Layer(config, mockImage);
 
             // 1 second => +100 drift
-            const tf = layer.getTransform(1000, 1000, 1.0);
+            const tf = layer.getTransform(1000, 1000, 1.0, 1.0);
 
             expect(tf.y).toBe(100.0);
         });
@@ -149,7 +149,7 @@ describe('Layer', () => {
             // t=0.25 -> sin(pi/2)=1 -> val=1.0 -> final=0.5 + 0.5 = 1.0
             // t=0.75 -> sin(3pi/2)=-1 -> val=0 -> final=0.5 + 0 = 0.5
 
-            const tf = layer.getTransform(1000, 1000, 0.75);
+            const tf = layer.getTransform(1000, 1000, 0.75, 0.75);
             expect(tf.opacity).toBeCloseTo(0.5, 4);
         });
     });

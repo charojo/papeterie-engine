@@ -66,6 +66,8 @@ export class Theatre {
         // Sprite Cache: Map<string, Promise<HTMLImageElement>>
         this.spriteCache = new Map();
 
+        this._isInitializing = false;
+
         // Bind for loop
         this.loop = this.loop.bind(this);
     }
@@ -79,6 +81,7 @@ export class Theatre {
             return; // Silently reject instead of throwing to not break existing code
         }
         if (v !== this._cameraZoom) {
+            log.debug(`[${this.sceneName}] cameraZoom: ${this._cameraZoom.toFixed(3)} -> ${v.toFixed(3)}`);
             this._cameraZoom = v;
             // If paused, force a draw so we see the zoom immediately
             if (this.isPaused) this.updateAndDraw(0);
@@ -113,6 +116,10 @@ export class Theatre {
 
     setTime(time) {
         this.elapsedTime = time;
+        // Sync scroll to match elapsed time (180 px/sec is the fixed scroll rate)
+        // This ensures environmental reactions sample correct wave positions when seeking
+        this.scroll = time * 180;
+
         // Also update audio? 
         // Audio scheduling in update() handles sequential play. 
         // If we seek, we might need to reset played flags?
@@ -123,11 +130,18 @@ export class Theatre {
             if (s.time >= time) s.played = false;
         });
 
+        // Reset all layer states for seeking (clears smoothing, etc.)
+        if (this.layers) {
+            this.layers.forEach(layer => layer.resetState());
+        }
+
         // Force redraw
         this.updateAndDraw(0);
     }
 
     async initialize() {
+        this._isInitializing = true;
+        log.info(`[${this.sceneName}] Initializing scene with ${this.sceneData?.layers?.length || 0} layers`);
 
 
         // Load layers
@@ -146,24 +160,7 @@ export class Theatre {
                 // Return a null image, Layer class should handle it (or we skip it)
             }
 
-            // Attempt to load metadata if image exists
-            let config = { ...layerData };
-            if (image && image.src) {
-                try {
-                    // Remove query parameters (e.g. cache busters) ensuring we target the base file
-                    const cleanSrc = image.src.split('?')[0];
-                    const metaUrl = cleanSrc.replace(/\.png$/, '.prompt.json');
-                    const metaRes = await fetch(metaUrl);
-                    if (metaRes.ok) {
-                        const meta = await metaRes.json();
-                        // Merge: Scene overrides Metadata
-                        config = { ...meta, ...config };
-                    }
-                } catch {
-                    // Metadata is optional, so silence this warning
-                }
-            }
-
+            const config = await this._fetchAndMergeMetadata({ ...layerData }, image);
             return new Layer(config, image);
         });
 
@@ -213,6 +210,7 @@ export class Theatre {
 
         // One initial draw to ensure something is visible before loop starts
         this.updateAndDraw(0);
+        this._isInitializing = false;
     }
 
     start() {
@@ -247,7 +245,7 @@ export class Theatre {
             for (const user of paths) {
                 const assetUrl = `${this.assetBaseUrl}/users/${user}/sprites/${spriteName}/${spriteName}.png`;
                 try {
-                    log.debug(`Loading sprite '${spriteName}' from: ${assetUrl}`);
+                    log.info(`[${this.sceneName}] Loading sprite '${spriteName}' from: ${assetUrl}`);
                     image = await this._loadImage(assetUrl);
                     log.debug(`Loaded sprite '${spriteName}' from ${user}`);
                     return image;
@@ -310,6 +308,34 @@ export class Theatre {
         });
     }
 
+    /**
+     * Internal helper to fetch metadata and merge with scene config.
+     * Metadata serves as the "base" which scene overrides.
+     */
+    async _fetchAndMergeMetadata(config, image) {
+        if (!image || !image.src) return config;
+
+        try {
+            const cleanSrc = image.src.split('?')[0];
+            const metaUrl = cleanSrc.replace(/\.png$/, '.prompt.json');
+            const metaRes = await fetch(metaUrl);
+            if (metaRes.ok) {
+                const meta = await metaRes.json();
+                // MERGE: Scene (config) is AUTHORITATIVE over Metadata (meta)
+                const merged = { ...meta, ...config };
+                log.debug(`[${this.sceneName}] Merged metadata for ${config.sprite_name}`, {
+                    meta_scale: meta.scale,
+                    scene_scale: config.scale,
+                    final_scale: merged.scale
+                });
+                return merged;
+            }
+        } catch (err) {
+            log.warn(`Failed to fetch metadata for ${config.sprite_name}`, err);
+        }
+        return config;
+    }
+
     stop() {
         this.isRunning = false;
         if (this.animationFrameId) {
@@ -343,8 +369,14 @@ export class Theatre {
     }
 
     async updateScene(newSceneData) {
+        if (this._isInitializing) {
+            log.info(`[${this.sceneName}] updateScene suppressed during initialization`);
+            this.sceneData = newSceneData; // Store it for post-init but don't re-create layers yet
+            return;
+        }
+
         this.sceneData = newSceneData;
-        log.info('Updating scene data...');
+        log.info(`[${this.sceneName}] Updating scene data... (${newSceneData?.layers?.length || 0} layers)`);
 
         // Smart update: Sync layers with new config, preserving state/images where possible
         const newLayerConfigs = newSceneData.layers || [];
@@ -365,30 +397,26 @@ export class Theatre {
             let layer = existingLayers.get(spriteName);
 
             if (layer) {
-                // Update config of existing layer
-                // We need to merge metadata again if we want to be safe, but typically config has it?
-                // For performance, we assume layerData from parent is authoritative or we just update the specific overrides.
-                // Re-initializing config might reset standard behaviors if not careful, but Layer constructor handles it.
-                // Better: Update the config on the existing Layer instance? 
-                // Layer.js doesn't have 'updateConfig'.
-                // So we re-create Layer but pass the PREVIOUS image.
+                // FIXED: Merge new layerData with EXISTING config which already has metadata
+                const mergedConfig = { ...layer.config, ...layerData };
+                log.debug(`[${this.sceneName}] Updating existing layer: ${spriteName}`, {
+                    prev: layer.config.scale,
+                    new: layerData.scale,
+                    final: mergedConfig.scale
+                });
+
                 const wasSelected = layer.isSelected;
-                layer = new Layer({ ...layerData }, layer.image);
-                // Preserve selection state
+                layer = new Layer(mergedConfig, layer.image);
                 layer.isSelected = wasSelected;
-                // Preserve runtime state? (velocity, timeAccum)
-                // If we want seamless editing, we might lose Oscillation phase if we re-create.
-                // But typically editing updates static props (pos, scale).
-                // Let's try re-creation first.
             } else {
                 // New Layer - Needs load (using cache if possible)
-                // We'll fetch the image if it's new.
                 const img = await this._loadSprite(spriteName);
                 if (!img) {
                     log.warn('Failed to load new sprite from all paths', spriteName);
                     continue;
                 }
-                layer = new Layer({ ...layerData }, img);
+                const config = await this._fetchAndMergeMetadata({ ...layerData }, img);
+                layer = new Layer(config, img);
             }
             newLayers.push(layer);
         }
@@ -882,5 +910,18 @@ export class Theatre {
             this.ctx.stroke();
             this.ctx.fillText(layer.config.sprite_name, 5, y - 2);
         });
+
+        if (this.selectedSprite && this.mouseX !== undefined) {
+            const layer = this.layersByName.get(this.selectedSprite);
+            if (layer) {
+                const surfaceY = layer.getYAtX(width, height, this.scroll, this.mouseX, this.elapsedTime);
+                if (surfaceY !== height) { // height is the fallback if not found
+                    this.ctx.fillStyle = "rgb(255, 0, 255)";
+                    this.ctx.beginPath();
+                    this.ctx.arc(this.mouseX, surfaceY, 4, 0, Math.PI * 2);
+                    this.ctx.fill();
+                }
+            }
+        }
     }
 }

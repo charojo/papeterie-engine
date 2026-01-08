@@ -203,6 +203,24 @@ describe('Theatre', () => {
         });
     });
 
+    describe('setTime', () => {
+        it('updates elapsedTime to the specified value', () => {
+            theatre.setTime(5);
+            expect(theatre.elapsedTime).toBe(5);
+        });
+
+        it('syncs scroll position to match elapsed time at 180 px/sec', () => {
+            theatre.setTime(5);
+            // scroll = time * 180
+            expect(theatre.scroll).toBe(900);
+        });
+
+        it('syncs scroll correctly for fractional times', () => {
+            theatre.setTime(2.5);
+            expect(theatre.scroll).toBe(450);
+        });
+    });
+
     describe('pause control', () => {
         beforeEach(() => {
             theatre.start();

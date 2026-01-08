@@ -3,6 +3,7 @@ import { Theatre } from '../engine/Theatre';
 import { Icon } from './Icon';
 import { createLogger } from '../utils/logger';
 import { useCameraController } from '../hooks/useCameraController';
+import { useDraggable } from '../hooks/useDraggable';
 import { ASSET_BASE } from '../config';
 
 const log = createLogger('TheatreStage');
@@ -24,6 +25,7 @@ export function TheatreStage({
     selectedSprite,
     currentTime,
     onTimeUpdate,
+    isPlaying = false,
     isExpanded,
     toggleExpand,
     isCommunity = false, // New prop
@@ -33,7 +35,8 @@ export function TheatreStage({
     onDeleteSprite,
     onAddBehavior,
     onSave,
-    hasChanges
+    hasChanges,
+    onPlayPause
 }) {
     const canvasRef = useRef(null);
     const theatreRef = useRef(null);
@@ -54,7 +57,21 @@ export function TheatreStage({
     const {
         zoom, panX, panY, state: _cameraState,
         setZoom, setPan: _setPan, reset: resetCamera, handleWheel: cameraHandleWheel, controller: cameraController
-    } = useCameraController(); // Don't pass ref, we bind manually below
+    } = useCameraController(null, sceneName ? `papeterie-camera-${sceneName}` : null); // Don't pass ref, we bind manually below
+
+    // Draggable toolbar positions - SCENE SPECIFIC
+    const cameraToolbarRef = useRef(null);
+    const spriteToolbarRef = useRef(null);
+    const { position: cameraToolbarPos, startDrag: startCameraDrag } = useDraggable(
+        `papeterie-toolbar-camera-pos-${sceneName}`,
+        null, // null = use default CSS positioning
+        { constrainToParent: true }
+    );
+    const { position: spriteToolbarPos, startDrag: startSpriteDrag } = useDraggable(
+        `papeterie-toolbar-sprite-pos-${sceneName}`,
+        null,
+        { constrainToParent: true }
+    );
 
     // Derive pan object for compatibility
     const pan = { x: panX, y: panY };
@@ -62,6 +79,19 @@ export function TheatreStage({
     useEffect(() => {
         isPausedRef.current = isPaused;
     }, [isPaused]);
+
+    // Sync isPlaying prop with local isPaused and Theatre engine
+    useEffect(() => {
+        const shouldBePaused = !isPlaying;
+        if (isPaused !== shouldBePaused) {
+            setIsPaused(shouldBePaused);
+            if (theatreRef.current) {
+                if (shouldBePaused) theatreRef.current.pause();
+                else theatreRef.current.resume();
+            }
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isPlaying]);
 
     // Sync debugMode
     useEffect(() => {
@@ -121,8 +151,17 @@ export function TheatreStage({
         theatre.onSpriteRotationChanged = onSpriteRotationChanged;
         theatre.onTimeUpdate = onTimeUpdate;
 
+        // Track if this effect has been cleaned up (for async race condition prevention)
+        let cancelled = false;
+
         const init = async () => {
             await theatre.initialize();
+
+            // CRITICAL: Check if cleanup has already run before starting
+            if (cancelled) {
+                log.info(`[${sceneName}] Init completed but effect was already cleaned up - not starting`);
+                return;
+            }
 
             // Apply initial state
             theatre.cameraZoom = zoom;
@@ -152,11 +191,16 @@ export function TheatreStage({
 
         init();
 
+        // CRITICAL FIX: Capture the theatre instance in a closure for proper cleanup.
+        // Previously, the cleanup function read theatreRef.current, but by the time cleanup runs,
+        // theatreRef.current has already been reassigned to the NEW theatre instance.
+        // This caused the cleanup to clean up the wrong instance's wheel listener.
+        const theatreToCleanup = theatre;
         return () => {
-            if (theatreRef.current) {
-                theatreRef.current._cleanupWheel?.();
-                theatreRef.current.stop();
-            }
+            cancelled = true; // Prevent async init from starting the loop
+            log.info(`[${sceneName}] Cleaning up Theatre instance`);
+            theatreToCleanup._cleanupWheel?.();
+            theatreToCleanup.stop();
         };
         // Dependency list reduced to structural changes only
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -303,7 +347,7 @@ export function TheatreStage({
     // handleWheel moved to native listener effect
 
     return (
-        <div ref={containerRef} style={{ width: '100%', height: '100%', position: 'relative', zIndex: 100, overflow: 'visible', background: 'var(--color-bg-base)', ...style }}>
+        <div ref={containerRef} style={{ width: '100%', height: '100%', position: 'relative', zIndex: 250, overflow: 'visible', background: 'var(--color-bg-base)', ...style }}>
             <canvas
                 ref={canvasRef}
                 style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', cursor: cursorStyle }}
@@ -318,14 +362,23 @@ export function TheatreStage({
 
             {/* Top Right Controls: Zen Mode & Camera */}
             <div
+                ref={cameraToolbarRef}
                 className="theatre-toolbar theatre-toolbar-vertical"
                 style={{
                     position: 'absolute',
-                    top: 12,
-                    right: 12,
+                    // Use custom position if set, otherwise default to top-right
+                    top: cameraToolbarPos ? cameraToolbarPos.y : 12,
+                    left: cameraToolbarPos ? cameraToolbarPos.x : undefined,
+                    right: cameraToolbarPos ? undefined : 12,
                     zIndex: 10
                 }}
             >
+                {/* Drag Handle */}
+                <div
+                    className="toolbar-drag-handle"
+                    onMouseDown={(e) => startCameraDrag(e, cameraToolbarRef.current, containerRef.current)}
+                    title="Drag to move toolbar"
+                />
                 {/* Layers Panel Hanging Off Right Side */}
                 {showLayersPanel && scene && (() => {
                     const zLevels = [...new Set((scene.layers || []).map(l => l.z_depth || 0))].sort((a, b) => b - a);
@@ -416,7 +469,9 @@ export function TheatreStage({
                     <button
                         className={`btn-icon ${(!isPaused && !soloSprite) ? 'active' : ''}`}
                         onClick={() => {
-                            if (theatreRef.current) {
+                            if (onPlayPause) {
+                                onPlayPause();
+                            } else if (theatreRef.current) {
                                 if (theatreRef.current.soloSprite) {
                                     theatreRef.current.soloSprite = null;
                                     setSoloSprite(null);
@@ -469,17 +524,29 @@ export function TheatreStage({
             </div>
 
             {/* Bottom Right Unified Toolbar */}
-            <div style={{
-                position: 'absolute',
-                bottom: 20,
-                right: 20,
-                zIndex: 10,
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px'
-            }}>
+            <div
+                ref={spriteToolbarRef}
+                style={{
+                    position: 'absolute',
+                    // Use custom position if set, otherwise default to bottom-right
+                    bottom: spriteToolbarPos ? undefined : 20,
+                    top: spriteToolbarPos ? spriteToolbarPos.y : undefined,
+                    left: spriteToolbarPos ? spriteToolbarPos.x : undefined,
+                    right: spriteToolbarPos ? undefined : 20,
+                    zIndex: 10,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px'
+                }}
+            >
                 {selectedSprite && (
                     <div className="theatre-toolbar theatre-toolbar-horizontal">
+                        {/* Drag Handle */}
+                        <div
+                            className="toolbar-drag-handle"
+                            onMouseDown={(e) => startSpriteDrag(e, spriteToolbarRef.current, containerRef.current)}
+                            title="Drag to move toolbar"
+                        />
                         {/* Play/Pause Sprite */}
                         <button
                             onClick={() => {

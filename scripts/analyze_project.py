@@ -65,12 +65,6 @@ def main():
 
     # Python Analysis
     py_files, py_loc, py_todos, py_fixmes = analyze_directory(SRC_DIR, ".py")
-    print("Python (Backend/Compiler):")
-    print(f"  Files: {py_files}")
-    print(f"  LOC:   {py_loc}")
-    print(f"  TODOs: {py_todos}")
-    print(f"  FIXMEs:{py_fixmes}")
-    print("-" * 30)
 
     # JavaScript/JSX Analysis
     web_dir = SRC_DIR / "web" / "src"
@@ -82,14 +76,14 @@ def main():
     total_js_todos = js_todos + jsx_todos
     total_js_fixmes = js_fixmes + jsx_fixmes
 
-    print("JavaScript/React (Frontend):")
-    print(f"  Files: {total_js_files}")
-    print(f"  LOC:   {total_js_loc}")
-    print(f"  TODOs: {total_js_todos}")
-    print(f"  FIXMEs:{total_js_fixmes}")
-    print("-" * 30)
-
-    print(f"Total Project LOC: {py_loc + total_js_loc}")
+    # Table Output
+    print(f"{'Metric':<20} {'Backend':<15} {'Frontend':<15} {'Total':<15}")
+    print(f"{'-' * 20} {'-' * 15} {'-' * 15} {'-' * 15}")
+    print(f"{'Files':<20} {py_files:<15} {total_js_files:<15} {py_files + total_js_files:<15}")
+    print(f"{'LOC':<20} {py_loc:<15} {total_js_loc:<15} {py_loc + total_js_loc:<15}")
+    print(f"{'TODOs':<20} {py_todos:<15} {total_js_todos:<15} {py_todos + total_js_todos:<15}")
+    print(f"{'FIXMEs':<20} {py_fixmes:<15} {total_js_fixmes:<15} {py_fixmes + total_js_fixmes:<15}")
+    print("-" * 68)
 
 
 if __name__ == "__main__":

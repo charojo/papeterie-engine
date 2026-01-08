@@ -6,7 +6,8 @@ import { TheatreStage } from '../TheatreStage';
 const mockTheatreInstances = [];
 vi.mock('../../engine/Theatre', () => ({
     Theatre: class MockTheatre {
-        constructor() {
+        constructor(canvas) {
+            this.canvas = canvas;
             this.initialize = vi.fn().mockResolvedValue(undefined);
             this.start = vi.fn();
             this.stop = vi.fn();
@@ -38,6 +39,9 @@ vi.mock('../../engine/Theatre', () => ({
             this.cameraZoom = 1.0;
             this.cameraPanX = 0;
             this.cameraPanY = 0;
+            this.layersByName = new Map();
+            // Mock a layer for 'boat' to prevent undefined errors in tests
+            this.layersByName.set('boat', { setRotation: vi.fn(), rotation: 0 });
             mockTheatreInstances.push(this);
         }
         setRotation = vi.fn();

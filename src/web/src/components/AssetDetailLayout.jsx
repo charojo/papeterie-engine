@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Icon } from './Icon';
+import { useResizableRatio } from '../hooks/useResizable';
+
 export const AssetDetailLayout = ({
     visualContent, // React node for left column
     configContent, // React node for right column
@@ -11,6 +13,14 @@ export const AssetDetailLayout = ({
     const [copyFeedback, setCopyFeedback] = useState(false);
     const [isLogMinimized, setIsLogMinimized] = useState(true); // Start minimized
     const logRef = useRef(null);
+    const containerRef = useRef(null);
+
+    // Resizable panel ratio (left panel width as fraction of total)
+    const { ratio, isResizing, startResize } = useResizableRatio(
+        'papeterie-panel-split',
+        0.67, // Default 2:1 ratio (2fr:1fr = 0.67)
+        { minRatio: 0.3, maxRatio: 0.85, direction: 'horizontal' }
+    );
 
     // Auto-scroll logs when expanded
     useEffect(() => {
@@ -22,50 +32,90 @@ export const AssetDetailLayout = ({
     // Get last log line for minimized view
     const lastLogLine = logs ? logs.trim().split('\n').pop() : "Waiting for activity...";
 
+    // Log panel resize
+    const logContainerRef = useRef(null);
+    const { ratio: logRatio, isResizing: isLogResizing, startResize: startLogResize } = useResizableRatio(
+        'papeterie-log-panel-height',
+        0.85, // Default 85% main content, 15% logs
+        { minRatio: 0.5, maxRatio: 0.95, direction: 'vertical' }
+    );
+
     return (
-        <div style={{
-            display: 'flex', flexDirection: 'column', gap: '16px',
-            height: 'calc(100vh - 60px)', overflow: 'hidden'
-        }}>
-            {/* Main Content Split - 2fr visual, 1fr config for more image space */}
-            <div style={{
-                display: 'grid',
-                gridTemplateColumns: isExpanded ? '1fr' : '2fr 1fr',
-                gap: '24px',
-                flex: 1, overflow: 'hidden', minHeight: 0
-            }}>
-                {/* Visuals Column - no heading label */}
-                <section style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                    <div className="card glass" style={{
-                        flex: 1,
-                        padding: isExpanded ? 0 : '16px',
-                        overflowY: 'auto',
-                        overflowX: 'hidden',
-                        display: 'flex', flexDirection: 'column'
-                    }}>
-                        {visualContent}
-                    </div>
+        <div
+            ref={logContainerRef}
+            style={{
+                display: 'flex', flexDirection: 'column',
+                height: 'calc(100vh - 60px)', overflow: 'hidden'
+            }}
+        >
+            {/* Main Content Split - resizable panels */}
+            <div
+                ref={containerRef}
+                style={{
+                    display: 'flex',
+                    flexDirection: 'row',
+                    flex: isExpanded ? 1 : (isLogMinimized ? '1 1 auto' : `0 0 ${logRatio * 100}%`),
+                    overflow: 'hidden',
+                    minHeight: 0
+                }}
+            >
+                {/* Visuals Column - no card frame */}
+                <section style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    overflow: 'hidden',
+                    width: isExpanded ? '100%' : `${ratio * 100}%`,
+                    flexShrink: 0,
+                    background: 'var(--color-bg-base)'
+                }}>
+                    {visualContent}
                 </section>
 
-                {/* Config Column - Hidden if expanded, no heading label */}
+                {/* Resize Handle */}
                 {!isExpanded && (
-                    <section style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                        <div className="card glass" style={{ flex: 1, padding: '0', overflowY: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                            {configContent}
-                        </div>
+                    <div
+                        className={`resize-handle resize-handle-h ${isResizing ? 'active' : ''}`}
+                        onMouseDown={(e) => startResize(e, containerRef.current)}
+                        title="Drag to resize panels"
+                    />
+                )}
+
+                {/* Config Column - Hidden if expanded, no card frame */}
+                {!isExpanded && (
+                    <section style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        overflow: 'hidden',
+                        flex: 1,
+                        minWidth: 0,
+                        background: 'var(--color-bg-surface)'
+                    }}>
+                        {configContent}
                     </section>
                 )}
             </div>
 
-            {/* Logs Panel - Collapsible, starts minimized */}
+            {/* Log Resize Handle */}
+            {!isExpanded && !isLogMinimized && (
+                <div
+                    className={`resize-handle resize-handle-v ${isLogResizing ? 'active' : ''}`}
+                    onMouseDown={(e) => startLogResize(e, logContainerRef.current)}
+                    title="Drag to resize log panel"
+                />
+            )}
+
+            {/* Logs Panel - Resizable */}
             {!isExpanded && (
-                <section className="card glass" style={{
-                    height: isLogMinimized ? '32px' : '120px',
+                <section style={{
+                    height: isLogMinimized ? '32px' : `${(1 - logRatio) * 100}%`,
+                    minHeight: isLogMinimized ? '32px' : '60px',
                     padding: isLogMinimized ? '6px 12px' : '12px',
                     flexShrink: 0,
                     display: 'flex',
                     flexDirection: 'column',
-                    transition: 'height 0.2s ease-in-out'
+                    background: 'var(--color-bg-surface)',
+                    borderTop: '1px solid var(--color-border)',
+                    transition: isLogMinimized ? 'height 0.2s ease-in-out' : 'none'
                 }}>
                     <div style={{
                         display: 'flex',

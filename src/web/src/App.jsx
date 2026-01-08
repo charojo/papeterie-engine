@@ -20,8 +20,36 @@ function App() {
   const [isExpanded, setIsExpanded] = usePersistentState('papeterie-is-expanded', false);
 
   const [user, setUser] = usePersistentState('papeterie-user', null);
-  const [theme, setTheme] = usePersistentState('papeterie-theme', 'blue');
-  const [contrast, setContrast] = usePersistentState('papeterie-contrast', 0.60); // 0.0 - 1.0, 0.60 is "Natural" pivot
+
+  // Per-theme contrast defaults
+  const THEME_CONTRAST_DEFAULTS = {
+    teal: 0.74,
+    dark: 0.64,
+    light: 0.50,
+    stark: 0.64
+  };
+
+  // Theme state with migration from 'blue' to 'teal'
+  const [theme, setThemeRaw] = usePersistentState('papeterie-theme', 'teal');
+  const setTheme = useCallback((newTheme) => {
+    // Migrate 'blue' to 'teal'
+    setThemeRaw(newTheme === 'blue' ? 'teal' : newTheme);
+  }, [setThemeRaw]);
+
+  // Per-theme contrast overrides (user adjustments saved per theme)
+  const [contrastOverrides, setContrastOverrides] = usePersistentState('papeterie-contrast-overrides', {});
+
+  // Compute current contrast: user override > theme default
+  const activeTheme = theme === 'blue' ? 'teal' : (theme === 'contrast' ? 'stark' : theme);
+  const contrast = contrastOverrides[activeTheme] ?? THEME_CONTRAST_DEFAULTS[activeTheme] ?? 0.60;
+
+  // Handler that saves per-theme
+  const handleContrastChange = useCallback((value) => {
+    setContrastOverrides(prev => ({ ...prev, [activeTheme]: value }));
+  }, [activeTheme, setContrastOverrides]);
+
+
+
   const [fontSize, setFontSize] = usePersistentState('papeterie-font-size', 'medium'); // small, medium, large, xl
   const [storageMode, setStorageMode] = useState('LOCAL');
   const [isInitializing, setIsInitializing] = useState(true);
@@ -30,12 +58,10 @@ function App() {
 
   // Apply theme to document
   useEffect(() => {
-    // Migrate old contrast theme to stark
-    const activeTheme = theme === 'contrast' ? 'stark' : theme;
     document.documentElement.setAttribute('data-theme', activeTheme);
     document.documentElement.style.colorScheme = activeTheme === 'light' ? 'light' : 'dark';
     document.documentElement.style.setProperty('--contrast-factor', contrast);
-  }, [theme, contrast]);
+  }, [activeTheme, contrast]);
 
   // Apply font size to document
   useEffect(() => {
@@ -144,12 +170,22 @@ function App() {
 
             {/* Settings & User Profile */}
             <SettingsMenu
-              theme={theme}
+              theme={activeTheme}
               onThemeChange={setTheme}
               fontSize={fontSize}
               onFontSizeChange={setFontSize}
               contrast={contrast}
-              onContrastChange={setContrast}
+              onContrastChange={handleContrastChange}
+              onResetAll={() => {
+                // Reset all persisted layout and contrast settings
+                setContrastOverrides({});
+                setFontSize('medium');
+                localStorage.removeItem('papeterie-panel-split');
+                localStorage.removeItem('papeterie-theatre-timeline-split');
+                localStorage.removeItem('papeterie-toolbar-camera-pos');
+                localStorage.removeItem('papeterie-toolbar-sprite-pos');
+                window.location.reload(); // Reload to apply
+              }}
               onLogout={handleLogout}
               user={user}
             />

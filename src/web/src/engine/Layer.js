@@ -29,7 +29,7 @@ class EventRuntime {
         this.config = config;
         this.active = config.enabled ?? true;
     }
-    apply(_layer, _dt, _transform) { }
+    apply(_layer, _dt, _transform, _elapsedTime) { }
 }
 
 class OscillateRuntime extends EventRuntime {
@@ -37,15 +37,14 @@ class OscillateRuntime extends EventRuntime {
         super(config);
         this.timeAccum = 0.0;
     }
-    apply(layer, dt, transform) {
+    apply(layer, dt, transform, elapsedTime) {
         if (!this.active) return;
-        this.timeAccum += dt;
 
         const freq = this.config.frequency || 0;
         const amp = this.config.amplitude || 0;
         const phaseOffset = this.config.phase_offset || 0;
 
-        const phase = (this.timeAccum * freq * 2 * Math.PI) + phaseOffset;
+        const phase = (elapsedTime * freq * 2 * Math.PI) + phaseOffset;
         const offset = Math.sin(phase) * amp;
 
         const coord = this.config.coordinate || CoordinateType.Y;
@@ -62,12 +61,14 @@ class DriftRuntime extends EventRuntime {
         this.currentValue = 0.0;
         this.reachedCap = false;
     }
-    apply(layer, dt, transform) {
+    apply(layer, dt, transform, elapsedTime) {
         if (!this.active) return;
 
         const vel = this.config.velocity || 0;
-        const delta = vel * dt;
-        this.currentValue += delta;
+        // Drift is physically integrative, but we can approximate it as a function of time
+        // for seeking purposes, as long as we don't have complex acceleration.
+        const totalDrift = vel * elapsedTime;
+        this.currentValue = totalDrift;
 
         // Cap logic
         if (this.config.drift_cap !== null && this.config.drift_cap !== undefined) {
@@ -79,6 +80,15 @@ class DriftRuntime extends EventRuntime {
                     this.reachedCap = true;
                 } else if (vel < 0 && targetY < this.config.drift_cap) {
                     this.currentValue -= (targetY - this.config.drift_cap);
+                    this.reachedCap = true;
+                }
+            } else if (coord === CoordinateType.X) {
+                const targetX = transform.base_x + transform.x + this.currentValue;
+                if (vel > 0 && targetX > this.config.drift_cap) {
+                    this.currentValue -= (targetX - this.config.drift_cap);
+                    this.reachedCap = true;
+                } else if (vel < 0 && targetX < this.config.drift_cap) {
+                    this.currentValue -= (targetX - this.config.drift_cap);
                     this.reachedCap = true;
                 }
             }
@@ -96,7 +106,7 @@ class PulseRuntime extends EventRuntime {
         super(config);
         this.timeAccum = 0.0;
     }
-    apply(layer, dt, transform) {
+    apply(layer, dt, transform, elapsedTime) {
         if (!this.active) return;
 
         // Threshold check
@@ -104,9 +114,8 @@ class PulseRuntime extends EventRuntime {
             if (transform.scale > this.config.activation_threshold_scale) return;
         }
 
-        this.timeAccum += dt;
         const freq = this.config.frequency || 1.0;
-        const cycle = (this.timeAccum * freq) % 1.0;
+        const cycle = (elapsedTime * freq) % 1.0;
 
         let value = 0.0;
         const waveform = this.config.waveform || "sine";
@@ -142,7 +151,7 @@ class LocationRuntime extends EventRuntime {
         this.isKeyframe = config.time_offset !== undefined;
     }
 
-    apply(layer, dt, transform) {
+    apply(layer, dt, transform, _elapsedTime) {
         if (!this.active) return;
 
         // For non-keyframe location behaviors (time_offset undefined), apply immediately
@@ -294,9 +303,12 @@ export class Layer {
         this.visible = true;
         this.isSelected = false; // For visual highlighting during interaction
         this.environmental_reaction = config.environmental_reaction || null;
+
+        log.info(`[${this.config.sprite_name}] Initialized: z=${this.z_depth}, scale=${this._baseScale}, pos=(${this.x_offset}, ${this.y_offset}), v_percent=${this.vertical_percent}`);
     }
 
     _initEvents(config) {
+        this.eventRuntimes = [];
         const events = config.behaviors || config.events || [];
 
         events.forEach(evt => {
@@ -320,6 +332,20 @@ export class Layer {
             } else if (evt.type === EventType.LOCATION) {
                 this.eventRuntimes.push(new LocationRuntime(evt));
             }
+        });
+    }
+
+    resetState() {
+        this.currentTilt = undefined;
+        this._currentYPhys = undefined;
+        this.lastDrawnX = undefined;
+        // Runtimes are now largely stateless, but we can reset cumulative values if any remain
+        this.eventRuntimes.forEach(rt => {
+            if (rt instanceof DriftRuntime) {
+                rt.currentValue = 0;
+                rt.reachedCap = false;
+            }
+            if (rt.timeAccum !== undefined) rt.timeAccum = 0;
         });
     }
 
@@ -425,10 +451,14 @@ export class Layer {
             imgH = screenH * this.height_scale;
             const aspect = (this.processedImage.width / this.processedImage.height);
             imgW = imgH * aspect;
+            log.debug(`[${this.config.sprite_name}] Base dims (height_scale=${this.height_scale}): ${imgW.toFixed(1)}x${imgH.toFixed(1)} (screenH=${screenH})`);
         } else if (this.config.target_height) {
             imgH = this.config.target_height;
             const aspect = (this.processedImage.width / this.processedImage.height);
             imgW = imgH * aspect;
+            log.debug(`[${this.config.sprite_name}] Base dims (target_height=${this.config.target_height}): ${imgW.toFixed(1)}x${imgH.toFixed(1)}`);
+        } else {
+            log.debug(`[${this.config.sprite_name}] Base dims (original): ${imgW.toFixed(1)}x${imgH.toFixed(1)}`);
         }
         return { width: imgW, height: imgH };
     }
@@ -472,7 +502,7 @@ export class Layer {
 
         // Apply events
         this.eventRuntimes.forEach(runtime => {
-            runtime.apply(this, dt, transform);
+            runtime.apply(this, dt, transform, elapsedTime);
         });
 
         // Apply time-based location keyframes
@@ -604,11 +634,14 @@ export class Layer {
             const clampedTilt = Math.max(-limit, Math.min(limit, targetTilt));
 
             // Smoothing / Inertia
-            if (this.currentTilt === undefined) this.currentTilt = 0;
-            // Use frame-rate independent smoothing: 0.1 at 60fps
-            // Use frameDtForSmoothing to ensure smoothing works even when paused
-            const smoothingFactor = 1.0 - Math.pow(0.9, frameDtForSmoothing * 60);
-            this.currentTilt += (clampedTilt - this.currentTilt) * smoothingFactor;
+            if (this.currentTilt === undefined) {
+                this.currentTilt = clampedTilt;
+            } else {
+                // Use frame-rate independent smoothing: 0.1 at 60fps
+                // Use frameDtForSmoothing to ensure smoothing works even when paused
+                const smoothingFactor = 1.0 - Math.pow(0.9, frameDtForSmoothing * 60);
+                this.currentTilt += (clampedTilt - this.currentTilt) * smoothingFactor;
+            }
             finalRot += this.currentTilt;
 
             // Vertical Position smoothing
@@ -624,9 +657,12 @@ export class Layer {
                 const lift = this.currentTilt * (reaction.tilt_lift_factor ?? 0.0);
                 desiredY -= lift;
 
-                if (this._currentYPhys === undefined) this._currentYPhys = finalY;
-                const ySmoothingFactor = 1.0 - Math.pow(0.9, frameDtForSmoothing * 60);
-                this._currentYPhys += (desiredY - this._currentYPhys) * ySmoothingFactor;
+                if (this._currentYPhys === undefined) {
+                    this._currentYPhys = desiredY;
+                } else {
+                    const ySmoothingFactor = 1.0 - Math.pow(0.9, frameDtForSmoothing * 60);
+                    this._currentYPhys += (desiredY - this._currentYPhys) * ySmoothingFactor;
+                }
                 finalY = this._currentYPhys;
             }
         }

@@ -1,5 +1,9 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { CameraController } from '../engine/CameraController.js';
+import { usePersistentState } from './usePersistentState';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('useCameraController');
 
 /**
  * React hook that provides camera state and controls backed by CameraController.
@@ -13,25 +17,49 @@ import { CameraController } from '../engine/CameraController.js';
  * @param {Theatre} theatre - Optional Theatre instance to bind
  * @returns {Object} Camera state and control methods
  */
-export function useCameraController(theatre = null) {
+export function useCameraController(theatre = null, storageKey = null) {
     // Use lazy initialization to avoid reading ref during render
     const [controller] = useState(() => new CameraController(theatre));
 
-    // React state mirrors controller state for UI reactivity
-    const [cameraState, setCameraState] = useState(() => controller.state);
+    // React state mirrors controller state for UI reactivity.
+    // If storageKey is provided, use PersistentState.
+    // We updated usePersistentState to handle null keys gracefully (acting as useState).
+    const [cameraState, setCameraState] = usePersistentState(storageKey, controller.state);
 
-    // Subscribe to controller changes
+    const lastSyncedKeyRef = useRef(null);
+
+    // Initial Sync from Storage -> Controller (on mount or key change)
+    useEffect(() => {
+        // Only sync if we have a key, state, and it's a NEW key (or first run)
+        // This prevents the feedback loop where:
+        // User Zoom -> Controller Update -> setCameraState -> cameraState change -> Effect fires -> Controller setZoom -> circular dependency
+        const isNewKey = storageKey !== lastSyncedKeyRef.current;
+
+        if (storageKey && cameraState && isNewKey) {
+            // Update the Ref immediately to lock out future updates from this loop
+            lastSyncedKeyRef.current = storageKey;
+
+            // Apply stored state to controller
+            log.debug(`Restoring state for key ${storageKey}: Z=${cameraState.zoom}`);
+            controller.setPan(cameraState.pan.x, cameraState.pan.y);
+            controller.setZoom(cameraState.zoom); // No anchor, plain set
+        }
+    }, [storageKey, controller, cameraState]); // Dependent on cameraState from storage
+
+    // Subscribe to controller changes -> Update React State
     useEffect(() => {
         const unsubscribe = controller.subscribe((newState) => {
             setCameraState(newState);
         });
         return unsubscribe;
-    }, [controller]);
+    }, [controller, setCameraState]); // Update when controller instance changes
 
     // Bind Theatre when available
     useEffect(() => {
         if (theatre) {
             controller.bindTheatre(theatre);
+            // Also ensure theatre gets current state immediately upon bind
+            controller.applyToTheatre();
         }
     }, [theatre, controller]);
 

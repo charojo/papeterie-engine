@@ -47,7 +47,7 @@ export function TimelineEditor({
             // 1. Base Z-Depth (Treat as Keyframe at t=0)
             const initialLocationIndex = sprite.behaviors?.findIndex(
                 b => b.type === 'location' && (b.time_offset === undefined || b.time_offset === 0)
-            );
+            ) ?? -1;
             const initialLocation = initialLocationIndex !== -1 ? sprite.behaviors[initialLocationIndex] : null;
 
             // Smart Default: If base has no Z, fallback to first behavior's Z, else 0.
@@ -210,6 +210,12 @@ export function TimelineEditor({
         const rect = e.currentTarget.getBoundingClientRect();
         const x = e.clientX - rect.left - HEADER_WIDTH - PADDING_LEFT; // Adjust for header AND padding
         const time = Math.max(0, Math.min(duration, x / zoom));
+
+        // Pause playback while scrubbing to prevent odd resumption behavior
+        if (isPlaying && onPlayPause) {
+            onPlayPause();
+        }
+
         onTimeChange(time);
 
         const handleMouseMove = (moveEvent) => {

@@ -8,6 +8,7 @@ export const SettingsMenu = ({
     onFontSizeChange,
     contrast,
     onContrastChange,
+    onResetAll,
     onLogout,
     user
 }) => {
@@ -56,7 +57,7 @@ export const SettingsMenu = ({
                             onChange={(e) => onThemeChange(e.target.value)}
                             className="input w-full px-3 py-2 text-sm bg-elevated text-muted border rounded cursor-pointer outline-none"
                         >
-                            <option value="blue">Blue</option>
+                            <option value="teal">Teal</option>
                             <option value="dark">Dark</option>
                             <option value="light">Light</option>
                             <option value="stark">Stark</option>
@@ -106,10 +107,7 @@ export const SettingsMenu = ({
                     </div>
 
                     <button
-                        onClick={() => {
-                            onContrastChange(0.60);
-                            onFontSizeChange('medium');
-                        }}
+                        onClick={onResetAll}
                         style={{
                             width: '100%',
                             padding: '12px 16px',
@@ -127,9 +125,10 @@ export const SettingsMenu = ({
                         }}
                         onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'var(--color-bg-elevated)'}
                         onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                        title="Reset all display settings, panel sizes, and toolbar positions"
                     >
                         <Icon name="history" size={14} />
-                        Reset Display Settings
+                        Reset All
                     </button>
 
                     {/* Logout */}

@@ -169,7 +169,7 @@ describe('BehaviorEditor', () => {
             // Expand the card first
             fireEvent.click(screen.getByText(/DRIFT/));
             const inputs = screen.getAllByRole('spinbutton');
-            fireEvent.change(inputs[1], { target: { value: '200' } });
+            fireEvent.change(inputs[2], { target: { value: '200' } });
             expect(mockOnChange).toHaveBeenCalledWith(expect.arrayContaining([
                 expect.objectContaining({ drift_cap: 200 })
             ]));
