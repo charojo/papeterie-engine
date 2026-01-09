@@ -32,6 +32,7 @@ This file lists features, improvements, and bugs to be addressed in the Papeteri
 ## Unprioritized / Ideas
 
 *   **[IDEA-001] Twinkling Stars Effect:** Implement a visual effect for star sprites that makes them appear to twinkle.
+*   **[IDEA-015] Git Hooks for Validation:** Implement pre-commit/push hooks to automatically run `./scripts/validate.sh --full` to prevent broken code from entering the repo.
 *   **[IDEA-002] Export Scene to Movie File:** Add functionality to export a specified number of seconds of the current animation scene as a movie file (e.g., MP4, GIF) for easy sharing. Design: [`docs/design/export_scene_design.md`](design/export_scene_design.md).
     > [!NOTE] 
     > **Workaround Available**: Users can use xbox capture (Win+G) or similar OS-level screen recording tools to capture playback.

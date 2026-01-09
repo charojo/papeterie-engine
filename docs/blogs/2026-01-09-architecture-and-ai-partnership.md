@@ -4,16 +4,18 @@
 
 ---
 
-> [!NOTE]
-> This comprehensive guide consolidates our technical architecture decisions, the "Component Map" design pattern, and the evolving human-AI partnership using the "Agent-in-the-Loop" methodology.
-
 ---
 
-## Introduction
+### The Role of Automation as Product
 
-The **Papeterie Engine** is a metadata-driven 2D animation system designed to create "Toy Theatre" style animations. But beyond the pixels, it represents a new way of building software: a partnership where an AI agent acts not just as a coder, but as a co-architect and meta-developer.
+Kevin Surace’s framing of modern tool-building—treating automation as a first-class product rather than an afterthought—served as a useful forcing function as I built Papeterie Engine. It sharpened a set of questions I was already wrestling with: where the “authoritative truth” of a creative system should live, how to keep multi-runtime implementations from drifting, and how to build validation so rigorously that iteration stays fast without becoming fragile.
 
-This post explores both the **System Architecture**—how we bridge natural language to physics-based animation—and the **Development Methodology** that made it possible.
+This post explores how those pressures turned into concrete architecture: a schema-first compiler pipeline, dual-runtime parity safeguards, React ↔ Theatre synchronization patterns, and a QA reasoning loop that made iteration dependable.
+
+<img src="../assets/diagrams/high_level_architecture.png" width="85%">
+<br>
+Source: <a href="https://github.com/charojo/papeterie-engine/blob/master/docs/assets/diagrams/high_level_architecture.dot">high_level_architecture.dot</a>
+
 
 ---
 
@@ -23,8 +25,9 @@ The engine is built on a strict **Compiler-Renderer** separation. This allows us
 
 ### 1.1 The High-Level Pipeline
 
-![Detailed Pipeline Flow](../assets/diagrams/detailed_pipeline_flow.png)
-*[Source: detailed_pipeline_flow.dot](../assets/diagrams/detailed_pipeline_flow.dot)*
+<img src="../assets/diagrams/detailed_pipeline_flow.png" width="33%">
+<br>
+Source: <a href="https://github.com/charojo/papeterie-engine/blob/master/docs/assets/diagrams/detailed_pipeline_flow.dot">detailed_pipeline_flow.dot</a>
 
 ### 1.2 The Two-Stage Gemini Pipeline
 
@@ -57,8 +60,9 @@ The frontend uses a **Component Map Architecture**, allowing a modern React UI t
 
 We avoid "two sources of truth" by using `useEffect` hooks to push React state updates into the imperative engine.
 
-![React-Theatre State Sync](../assets/diagrams/react_theatre_sync.png)
-*[Source: react_theatre_sync.dot](../assets/diagrams/react_theatre_sync.dot)*
+<img src="../assets/diagrams/react_theatre_sync.png" width="50%">
+<br>
+Source: <a href="https://github.com/charojo/papeterie-engine/blob/master/docs/assets/diagrams/react_theatre_sync.dot">react_theatre_sync.dot</a>
 
 The `useAssetController` hook acts as the central bridge, handling API persistence, selection state, and the command chain.
 
@@ -68,6 +72,32 @@ The runtime applies modular **Behaviors** to sprite transforms every frame.
 
 #### Timeline Synchronicity & Environmental Reactions
 The `elapsedTime` is the single source of truth. The engine supports complex interactions, like a boat tilting on ocean waves, using the "Pivot on Crest" algorithm which samples the height of the "target" layer dynamically.
+
+### 1.5 Dual-Runtime Parity
+
+A core architectural challenge—and one highlighted by the Surace context—is preventing "drift" when you have two separate physics engines. We have a Python backend (for accurate MP4 video rendering) and a JavaScript frontend (for real-time editing).
+
+If these two drift, the user sees one thing in the editor but gets a different result in the video.
+
+We solved this with **Schema-First Parity**:
+-   The **Pydantic Models** in `src/compiler/models.py` act as the single source of truth.
+-   Both the Python `theatre.py` and the JavaScript `Theatre.js` implement the **same math** (e.g., the Pivot-on-Crest algorithm) derived strictly from these models.
+-   We treat the JSON output from the compiler as a "Parity Contract." If the JSON says `tilt: 15deg`, both engines must respect it, regardless of their underlying language.
+
+### 1.6 UX Flow and User Journey Coherence
+
+The rigorous backend architecture ultimately serves the user experience. The flow was designed to mimic the "Creator's Loop": Prepare -> Assemble -> Refine.
+
+<img src="../assets/diagrams/user_journey_2026_01_09.png" width="100%">
+<br>
+Source: <a href="https://github.com/charojo/papeterie-engine/blob/master/docs/assets/diagrams/user_journey_2026_01_09.dot">user_journey_2026_01_09.dot</a>
+
+The journey is segmented to isolate complexity:
+1.  **Login/Dashboard**: Administrative management of assets.
+2.  **Sprite Compilation**: The "magic" phase where LLMs generate behaviors.
+3.  **Scene Editor**: The "craft" phase where users compose the scene.
+
+This separation prevents the "cockpit problem" where every tool is visible at once. By strictly enforcing these boundaries in the router (`src/web/src/App.jsx`), we ensure the user is only ever solving one problem at a time.
 
 ---
 
@@ -83,8 +113,9 @@ Our collaboration evolved through three distinct phases as the project's complex
 
 The engine uses a collaborative debugging partner model where the agent handles research and implementation while the human provides vision and judgment.
 
-![Agent-in-the-Loop Workflow](../assets/diagrams/agent_in_the_loop.png)
-*[Source: agent_in_the_loop.dot](../assets/diagrams/agent_in_the_loop.dot)*
+<img src="../assets/diagrams/agent_in_the_loop.png" width="66%">
+<br>
+Source: <a href="https://github.com/charojo/papeterie-engine/blob/master/docs/assets/diagrams/agent_in_the_loop.dot">agent_in_the_loop.dot</a>
 
 ### 2.2 Prompt Memory vs. Git History
 
@@ -110,18 +141,72 @@ To keep the feedback loop fast, we implemented a **Tiered Validation System** an
 
 ### 3.1 Tiered Validation
 
-![Tiered Validation System](../assets/diagrams/tiered_validation.png)
-*[Source: tiered_validation.dot](../assets/diagrams/tiered_validation.dot)*
+<img src="../assets/diagrams/tiered_validation.png" width="75%">
+<br>
+Source: <a href="https://github.com/charojo/papeterie-engine/blob/master/docs/assets/diagrams/tiered_validation.dot">tiered_validation.dot</a>
 
 *   **Fast**: Runs only tests affected by changed lines (LOC-based gating).
 *   **Full**: Pre-merge check with all tests.
 *   **Exhaustive**: Release-level deep analysis.
 
-This reduced quick fix validation time from **3 minutes to 5 seconds**.
+This reduced quick fix validation time from **2 minutes (--full) to 5 seconds (--fast, depending on changeset)**.
+
+**Token Optimization**: Fast local validation also directly impacts our "AI Economics." By catching errors early with targeted tests, the agent doesn't need to waste tokens reading thousands of lines of logs from a full suite run. It gets immediate, localized feedback, keeping the Context Window clean and focusing the reasoning loop strictly on the relevant changes.
+
+
+```text
+========================================================
+Codebase Summary
+========================================================
+
+  Metric               Backend         Frontend        Total          
+  -------------------- --------------- --------------- ---------------
+  Files                25              57              82             
+  LOC                  3273            10144           13417          
+  TODOs                1               1               2              
+  FIXMEs               0               0               0              
+  --------------------------------------------------------------------
+
+
+========================================================
+Validation Summary
+========================================================
+
+                                  Tests   Coverage     Time
+  ------------ ------------------------   -------- --------
+  Frontend                   227 passed        59%       5s
+  E2E                          8 passed        35%      25s
+  Backend      140 passed, 2 skipped           83%      50s
+  Contrast            12 tests (Passed)          -        -
+  CSS                 4 checks (Passed)          -        -
+  Paths                1 check (Passed)          -        -
+  Auto-Fix                         Done          -       2s
+  ------------ ------------------------   -------- --------
+  TOTAL                                     71.00%      82s
+  ------------ ------------------------   -------- --------
+
+  * 2 skipped are live API tests (use --live to run)
+```
 
 ### 3.2 Registered Agentic Workflows
 
-We maintain a catalog of workflows in `.agent/workflows/` that the agent can execute autonomously, such as `/validate`, `/css-review`, and `/security-review`.
+### 3.2 Registered Agentic Workflows
+
+These workflows are powered by **Antigravity**, the agentic engine that drives our development. Unlike standard scripts, these are "reasoning checklists"—structured Standard Operating Procedures (SOPs) that the agent reads to understand *how* to perform complex multi-step tasks like a security review or a design validation.
+
+The agent references these workflows to ensure consistency, effectively "training" itself on the project's specific culture and requirements without human micromanagement.
+
+| Workflow | Description | Source |
+| :--- | :--- | :--- |
+| **Add Scene** | SOP for adding new scenes, ensuring all metadata and assets are correctly placed. | [`/add-scene`](https://github.com/charojo/papeterie-engine/blob/master/.agent/workflows/add-scene.md) |
+| **Architecture** | Guidelines for implementing architectural changes and big features. | [`/architecture`](https://github.com/charojo/papeterie-engine/blob/master/.agent/workflows/architecture.md) |
+| **Cleanup** | Routine for cleaning up system files, caches, and logs. | [`/cleanup`](https://github.com/charojo/papeterie-engine/blob/master/.agent/workflows/cleanup.md) |
+| **CSS Review** | Checklist for reviewing CSS compliance against the design system. | [`/css-review`](https://github.com/charojo/papeterie-engine/blob/master/.agent/workflows/css-review.md) |
+| **Design Planning** | Process for planning UI/UX and system design tasks. | [`/design-planning`](https://github.com/charojo/papeterie-engine/blob/master/.agent/workflows/design-planning.md) |
+| **Docs Path Integrity** | Standards for maintaining relative paths in documentation. | [`/docs-path-integrity`](https://github.com/charojo/papeterie-engine/blob/master/.agent/workflows/docs-path-integrity.md) |
+| **Security Review** | Basic security review checklist. | [`/security-review`](https://github.com/charojo/papeterie-engine/blob/master/.agent/workflows/security-review.md) |
+| **UX Review** | Accessibility and UX consistency review protocols. | [`/ux-review`](https://github.com/charojo/papeterie-engine/blob/master/.agent/workflows/ux-review.md) |
+| **Validate** | The comprehensive QA validation strategy. | [`/validate`](https://github.com/charojo/papeterie-engine/blob/master/.agent/workflows/validate.md) |
 
 ---
 
@@ -147,11 +232,28 @@ Every major milestone in the Papeterie Engine was preceded by a "Compilation Ses
 
 ---
 
-## Conclusion
+## Part 5: Future Roadmap
+
+We are continuously evolving the engine. Our current backlog focuses on hardening the validation pipeline and expanding the visual test suite.
+
+*   **Git Hooks for Validation**: Ensuring that `validate.sh` runs automatically on pre-commit/push to prevent broken code from entering the repo ([IDEA-015](../BACKLOG.md)).
+*   **Visual Regression Testing**: Automating the detection of rendering regressions by comparing output frames against "known good" baselines.
+*   **E2E Playwright Flows**: Expanding our end-to-end coverage to include full playback verification.
+
+## Part 6: Conclusion & Call to Action
 
 The Papeterie Engine architecture demonstrates that you don't have to choose between modern web flexibility and high-performance imperative rendering. By using a strictly defined metadata contract and a bidirectional sync bridge, we created a tool that is both AI-smart and manually precise.
 
 But more importantly, it proved that the **Human-AI Partnership** allows us to move from "coding" to "architecting"—delegating the tedious parts to build faster, smarter, and with greater resilience.
+
+### Ready to Build?
+
+This project is open source and we are actively looking for contributors to help push the boundaries of AI-assisted creative tooling.
+
+*   **Explore the Code**: Clone the repository at [github.com/charojo/papeterie-engine](https://github.com/charojo/papeterie-engine).
+*   **Read the Docs**: Start with the [README.md](../../README.md) and the [High-Level Design](../design/high_level_design.md).
+*   **Pick a Task**: Check out [docs/BACKLOG.md](https://github.com/charojo/papeterie-engine/blob/master/docs/BACKLOG.md) for "Good First Issues" and design challenges.
+*   **Join the Shift**: Start treating your own automation tools as first-class products.
 
 ---
 

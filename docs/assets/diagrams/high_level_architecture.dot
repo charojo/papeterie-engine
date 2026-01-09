@@ -1,0 +1,43 @@
+digraph HighLevelArchitecture {
+    rankdir=LR;
+    node [shape=box, style="filled,rounded", fontname="Verdana", fontsize=10, margin="0.2,0.1"];
+    edge [fontname="Verdana", fontsize=9];
+
+    // User Node
+    User [label="End User 👤", shape=ellipse, fillcolor="lightblue"];
+
+    // Frontend Cluster
+    subgraph cluster_Frontend {
+        label = "Browser / Frontend 🖥️\n(Node.js / React)";
+        style="filled,rounded";
+        color="#e1f5fe";
+        fontsize=12;
+
+        ReactApp [label="React App\n(UI & State)", fillcolor="white"];
+        TheatreJS [label="Theatre.js\n(Editor Runtime)", fillcolor="white"];
+        
+        ReactApp -> TheatreJS [label="Syncs State\n(Hooks)"];
+    }
+
+    // Backend Cluster
+    subgraph cluster_Backend {
+        label = "Server / Backend ⚙️\n(Python 3.10+)";
+        style="filled,rounded";
+        color="#fff3e0";
+        fontsize=12;
+
+        FastAPI [label="FastAPI\n(REST API)", fillcolor="white"];
+        Compiler [label="SpriteCompiler\n(Gemini AI)", fillcolor="white"];
+        Pygame [label="Pygame Engine\n(Video Rendering)", fillcolor="white"];
+        DB [label="SQLite DB\n(Metadata)", shape=cylinder, fillcolor="#eeeeee"];
+
+        FastAPI -> Compiler [label="Transform\nPrompt"];
+        FastAPI -> Pygame [label="Render\nVideo"];
+        FastAPI -> DB [label="Persist"];
+    }
+
+    // Data Flow across boundaries
+    User -> ReactApp [label="Interacts\n(Click/Type)"];
+    ReactApp -> FastAPI [label="API Requests\n(JSON)"];
+    FastAPI -> ReactApp [label="Asset Data\n(JSON)"];
+}
