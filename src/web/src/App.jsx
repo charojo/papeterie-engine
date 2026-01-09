@@ -8,7 +8,7 @@ import { TopBar } from './components/TopBar';
 import { usePersistentState } from './hooks/usePersistentState';
 import { LoginView } from './components/LoginView';
 import { PromptsView } from './components/PromptsView';
-import { API_BASE } from './config';
+import { API_BASE, fetchWithTimeout } from './config';
 
 window.API_BASE = API_BASE;
 
@@ -53,6 +53,7 @@ function App() {
   const [fontSize, setFontSize] = usePersistentState('papeterie-font-size', 'medium'); // small, medium, large, xl
   const [storageMode, setStorageMode] = useState('LOCAL');
   const [isInitializing, setIsInitializing] = useState(true);
+  const [backendAvailable, setBackendAvailable] = useState(true);
 
   const [contextualActions, setContextualActions] = useState(null);
 
@@ -69,6 +70,8 @@ function App() {
   }, [fontSize]);
 
   const fetchData = useCallback(async () => {
+    // Skip fetching if backend is unavailable
+    if (!backendAvailable) return;
     if (!user && storageMode !== 'LOCAL') return;
 
     try {
@@ -99,16 +102,25 @@ function App() {
       console.error("Failed to fetch data", e);
       toast.error("Failed to fetch data", { description: e.message });
     }
-  }, [user, storageMode, selectedItem, view, setSelectedItem]);
+  }, [user, storageMode, selectedItem, view, setSelectedItem, backendAvailable]);
 
   useEffect(() => {
     const init = async () => {
       try {
-        const res = await fetch(`${API_BASE}/config`);
+        const res = await fetchWithTimeout(`${API_BASE}/config`, {}, 5000);
         const config = await res.json();
         setStorageMode(config.storage_mode);
+        setBackendAvailable(true);
       } catch (e) {
-        console.error("Failed to load config", e);
+        // Gracefully fall back to LOCAL mode when backend is unavailable
+        // This prevents console spam when running frontend-only or during backend startup
+        if (e.message === 'Request timed out' || e.message?.includes('Failed to fetch')) {
+          console.warn('Backend unavailable, running in offline mode with LOCAL storage');
+        } else {
+          console.error('Failed to load config', e);
+        }
+        setBackendAvailable(false);
+        setStorageMode('LOCAL');
       } finally {
         setIsInitializing(false);
       }

@@ -48,6 +48,31 @@ class GeminiCompilerClient:
 
         return response.text
 
+    def generate_text(self, system_instruction: str, user_prompt: str) -> str:
+        """Generates free-form text response (without JSON enforcement)."""
+        response = self.client.models.generate_content(
+            model=self.model_name,
+            contents=user_prompt,
+            config={
+                "system_instruction": system_instruction,
+            },
+        )
+
+        if not response.text:
+            raise ValueError("Gemini returned an empty response.")
+
+        if hasattr(response, "usage_metadata") and response.usage_metadata:
+            usage = response.usage_metadata
+            log_token_usage(
+                model_name=self.model_name,
+                prompt_tokens=usage.prompt_token_count,
+                candidate_tokens=usage.candidates_token_count,
+                total_tokens=usage.total_token_count,
+                task_name="generate_text",
+            )
+
+        return response.text
+
     def generate_image(self, prompt: str) -> bytes:
         """
         Generates an image from a text prompt using Gemini 3 Pro.

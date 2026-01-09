@@ -141,7 +141,7 @@ export class Theatre {
 
     async initialize() {
         this._isInitializing = true;
-        log.info(`[${this.sceneName}] Initializing scene with ${this.sceneData?.layers?.length || 0} layers`);
+        log.debug(`[${this.sceneName}] Initializing scene with ${this.sceneData?.layers?.length || 0} layers`);
 
 
         // Load layers
@@ -218,7 +218,7 @@ export class Theatre {
         // Resume specific audio context if needed (browsers require user interaction usually)
         this.isRunning = true;
         this.lastTime = performance.now();
-        log.info('Starting render loop');
+        log.debug('Starting render loop');
         this.animationFrameId = requestAnimationFrame(this.loop);
     }
 
@@ -245,7 +245,7 @@ export class Theatre {
             for (const user of paths) {
                 const assetUrl = `${this.assetBaseUrl}/users/${user}/sprites/${spriteName}/${spriteName}.png`;
                 try {
-                    log.info(`[${this.sceneName}] Loading sprite '${spriteName}' from: ${assetUrl}`);
+                    log.debug(`[${this.sceneName}] Loading sprite '${spriteName}' from: ${assetUrl}`);
                     image = await this._loadImage(assetUrl);
                     log.debug(`Loaded sprite '${spriteName}' from ${user}`);
                     return image;
@@ -370,13 +370,13 @@ export class Theatre {
 
     async updateScene(newSceneData) {
         if (this._isInitializing) {
-            log.info(`[${this.sceneName}] updateScene suppressed during initialization`);
+            log.debug(`[${this.sceneName}] updateScene suppressed during initialization`);
             this.sceneData = newSceneData; // Store it for post-init but don't re-create layers yet
             return;
         }
 
         this.sceneData = newSceneData;
-        log.info(`[${this.sceneName}] Updating scene data... (${newSceneData?.layers?.length || 0} layers)`);
+        log.debug(`[${this.sceneName}] Updating scene data... (${newSceneData?.layers?.length || 0} layers)`);
 
         // Smart update: Sync layers with new config, preserving state/images where possible
         const newLayerConfigs = newSceneData.layers || [];

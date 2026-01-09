@@ -313,7 +313,7 @@ export class Layer {
         this.isSelected = false; // For visual highlighting during interaction
         this.environmental_reaction = config.environmental_reaction || null;
 
-        log.info(`[${this.config.sprite_name}] Initialized: z=${this.z_depth}, scale=${this._baseScale}, pos=(${this.x_offset}, ${this.y_offset}), v_percent=${this.vertical_percent}`);
+        log.debug(`[${this.config.sprite_name}] Initialized: z=${this.z_depth}, scale=${this._baseScale}, pos=(${this.x_offset}, ${this.y_offset}), v_percent=${this.vertical_percent}`);
     }
 
     _initEvents(config) {

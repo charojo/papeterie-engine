@@ -26,11 +26,41 @@ class SpriteCompiler:
         """Helper to fetch prompt templates."""
         return (self.prompt_dir / f"{template_name}.prompt").read_text()
 
-    def compile_sprite(self, sprite_name: str, user_description: str) -> SpriteMetadata:
+    def compile_sprite(
+        self, sprite_name: str, user_description: str, two_stage: bool = True
+    ) -> SpriteMetadata:
         """Orchestrates the LLM generation and validation of sprite metadata."""
-        system_meta = self._get_prompt_template("MetaPrompt")
 
-        raw_response = self.client.generate_metadata(system_meta, user_description)
+        context_description = user_description
+
+        # Stage 1: Creative Elaboration (Optional but Default)
+        if two_stage:
+            logger.info(f"Starting Stage 1 (Creative) for {sprite_name}...")
+            try:
+                creative_prompt = self._get_prompt_template("CreativePrompt")
+                # format prompt with variables if needed, though client takes raw checks
+                # The template expects {sprite_name} and {user_description}
+                # We'll just pass the description and let the system instructions guide it,
+                # or better, format the system prompt here if it has placeholders
+                # But _get_prompt_template just reads text.
+
+                # Let's simple-format the user input side
+                stage1_input = f"Sprite Name: {sprite_name}\nDescription: {user_description}"
+
+                creative_output = self.client.generate_text(creative_prompt, stage1_input)
+                logger.info(f"Stage 1 Output: {creative_output[:100]}...")
+
+                # Use the creative output as the input for Stage 2
+                context_description = (
+                    f"User Request: {user_description}\n\nCreative Direction:\n{creative_output}"
+                )
+            except Exception as e:
+                logger.warning(f"Stage 1 failed ({e}), falling back to direct compilation.")
+
+        # Stage 2: Technical Compilation
+        logger.info(f"Starting Stage 2 (Technical) for {sprite_name}...")
+        system_meta = self._get_prompt_template("MetaPrompt")
+        raw_response = self.client.generate_metadata(system_meta, context_description)
 
         return self._validate_and_fix(sprite_name, raw_response)
 

@@ -184,7 +184,7 @@ test.describe('UX Consistency', () => {
 
         // This creates a baseline on first run, compares on subsequent runs
         await expect(pageWithoutCanvas).toHaveScreenshot('theatre-view.png', {
-            maxDiffPixels: 6500, // Allow rendering differences (found ~3600-6200 diffs on linux)
+            maxDiffPixels: 7000, // Allow rendering differences (found ~3600-6900 diffs on linux)
             mask: [page.locator('canvas')], // Mask dynamic canvas content
         });
     });

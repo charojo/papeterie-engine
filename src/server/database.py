@@ -1,8 +1,14 @@
+import os
 import sqlite3
+from pathlib import Path
 
 from src.config import PROJECT_ROOT
 
-DB_PATH = PROJECT_ROOT / "papeterie.db"
+env_path = os.environ.get("PAPETERIE_DB_PATH")
+if env_path:
+    DB_PATH = Path(env_path)
+else:
+    DB_PATH = PROJECT_ROOT / "papeterie.db"
 
 
 def get_db_connection():

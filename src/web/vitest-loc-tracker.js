@@ -112,7 +112,6 @@ function extractCoveredLines(coverage) {
 export default function vitestLocTracker(options = {}) {
     const rootDir = options.rootDir || process.cwd();
     let locMap = {};
-    let currentTestFile = null;
 
     return {
         name: 'vitest-loc-tracker',
@@ -130,8 +129,8 @@ export default function vitestLocTracker(options = {}) {
          * This is called by vitest's reporter system
          */
         reporter: {
-            onTestFileStart(testFile) {
-                currentTestFile = testFile;
+            onTestFileStart() {
+                // currentTestFile = testFile;
             },
 
             onTestFileEnd(testFile, coverageData) {

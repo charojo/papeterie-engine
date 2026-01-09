@@ -27,6 +27,7 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
         logs,
         isOptimizing,
         selectedImage,
+        setSelectedImage,
         visualPrompt,
         setVisualPrompt,
         configPrompt,
@@ -86,7 +87,7 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
             setSelectedKeyframe({ spriteName, behaviorIndex: null, time: 0 });
             // Force timeline to scroll even if this sprite was previously scrolled to
             setForceScrollCounter(c => c + 1);
-            log.info(`Synced timeline selection to sprite: ${spriteName} (base at time 0)`);
+            log.debug(`Synced timeline selection to sprite: ${spriteName} (base at time 0)`);
         }
     }, [handleSpriteSelected, type]);
 
@@ -98,14 +99,13 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
         { minRatio: 0.3, maxRatio: 0.85, direction: 'vertical' }
     );
 
-    // DEBUG: Log when theatre ratio changes
+    // Log when theatre ratio changes (debug level - hidden by default)
     useEffect(() => {
-        console.log('[GenericDetailView] Theatre ratio updated:', {
+        log.debug('Theatre ratio updated:', {
             theatreRatio: theatreRatio.toFixed(3),
             theatreFlexBasis: `${theatreRatio * 100}%`,
             timelineFlexBasis: `${(1 - theatreRatio) * 100}%`,
-            isResizing: isTheatreResizing,
-            containerRefExists: !!theatreTimelineContainerRef.current
+            isResizing: isTheatreResizing
         });
     }, [theatreRatio, isTheatreResizing]);
 
@@ -119,12 +119,12 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
                 time: behavior.time_offset ?? 0
             });
             setCurrentTime(behavior.time_offset ?? 0);
-            console.log(`[GenericDetailView] Selected behavior from sprite list:`, { spriteName, behaviorIndex, time: behavior.time_offset ?? 0 });
+            log.debug(`Selected behavior from sprite list:`, { spriteName, behaviorIndex, time: behavior.time_offset ?? 0 });
         }
     }, [asset.config, setSelectedKeyframe, setCurrentTime]);
 
     const handleKeyframeSelect = (spriteName, behaviorIndex, time) => {
-        log.info(`Keyframe selected: ${spriteName} (behavior: ${behaviorIndex === null ? 'base' : behaviorIndex}, time: ${time}s)`);
+        log.debug(`Keyframe selected: ${spriteName} (behavior: ${behaviorIndex === null ? 'base' : behaviorIndex}, time: ${time}s)`);
         setSelectedKeyframe({ spriteName, behaviorIndex, time });
         // CRITICAL FIX: Also update currentTime to the keyframe's time so the theatre
         // renders the sprite at the correct position/scale for this keyframe.
@@ -335,7 +335,7 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
                                                         behavior.z_depth = updates.z_depth;
                                                         // Ensure time is normalized if it was missing
                                                         if (behavior.time_offset === undefined) behavior.time_offset = 0;
-                                                        console.log(`[GenericDetailView] Updating behavior ${updates.behaviorIndex} Z-depth to ${updates.z_depth}`);
+                                                        log.debug(`Updating behavior ${updates.behaviorIndex} Z-depth to ${updates.z_depth}`);
                                                     }
                                                 } else if (updates.z_depth !== undefined) {
                                                     // Sprite-level Z-depth update
@@ -346,7 +346,7 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
                                                         initialLoc.z_depth = updates.z_depth;
                                                         initialLoc.time_offset = 0; // Normalize
                                                     }
-                                                    console.log(`[GenericDetailView] Updating sprite ${spriteName} Z-depth to ${updates.z_depth}`);
+                                                    log.debug(`Updating sprite ${spriteName} Z-depth to ${updates.z_depth}`);
                                                 } else {
                                                     layer.z_depth = (layer.z_depth || 0) + updates.z_depth_delta;
                                                 }
@@ -400,7 +400,7 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
                     </div>
                 }
                 configContent={
-                    <div className="flex-col h-full">
+                    <div className="flex-col h-full gap-md">
                         {/* Tab Switcher for Right Pane */}
                         <div className="tab-container tab-container-flush">
                             <button
@@ -449,12 +449,17 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
                             <div className="flex-1 overflow-auto flex-col gap-lg">
                                 <div className="panel-header">
                                     <span style={{ fontSize: '0.8rem', opacity: 0.8 }}>Debug Overlay</span>
-                                    <div style={{ display: 'flex', gap: '4px' }}>
+                                    <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
                                         {['auto', 'on', 'off'].map(mode => (
                                             <button
                                                 key={mode}
                                                 className={`btn btn-xs ${debugOverlayMode === mode ? 'btn-primary' : ''} p-1 text-xs capitalize`}
                                                 onClick={() => setDebugOverlayMode(mode)}
+                                                title={mode === 'auto'
+                                                    ? 'Shows debug overlay only when a sprite is selected. Clear selection to hide.'
+                                                    : mode === 'on'
+                                                        ? 'Always show debug overlay'
+                                                        : 'Never show debug overlay'}
                                             >
                                                 {mode}
                                             </button>
@@ -463,11 +468,11 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
                                 </div>
 
                                 <div style={{ background: 'var(--color-bg-elevated)', padding: '10px', borderRadius: '4px', border: '1px solid var(--color-border)' }}>
-                                    <h4 className="m-0 mb-2 text-base text-primary">Live Telemetry</h4>
+                                    <h4 className="m-0 mb-2 text-base" style={{ color: 'var(--color-primary)', opacity: 0.8 }}>Live Telemetry</h4>
                                     {!telemetry ? (
-                                        <div style={{ opacity: 0.5, fontSize: '0.8rem' }}>Play the scene to see live data.</div>
+                                        <div style={{ opacity: 0.4, fontSize: '0.8rem' }}>Play the scene to see live data.</div>
                                     ) : (
-                                        <table className="w-full text-xs" style={{ borderCollapse: 'collapse' }}>
+                                        <table className="w-full text-xs" style={{ borderCollapse: 'collapse', opacity: 0.8, color: 'var(--color-text-subtle)' }}>
                                             <thead>
                                                 <tr className="text-left text-subtle border-b">
                                                     <th className="pb-1 w-6"></th>
@@ -478,28 +483,71 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {telemetry.map(t => (
-                                                    <tr key={t.name} className="border-b-muted">
-                                                        <td className="py-1">
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={layerVisibility[t.name] !== false}
-                                                                onChange={() => toggleLayerVisibility(t.name)}
-                                                                className="cursor-pointer"
-                                                            />
-                                                        </td>
-                                                        <td className="py-1">{t.name}</td>
-                                                        <td className="py-1">{Math.round(t.x)}</td>
-                                                        <td className="py-1">{t.y.toFixed(1)}</td>
-                                                        <td className="py-1">{t.tilt.toFixed(1)}°</td>
-                                                    </tr>
-                                                ))}
+                                                {telemetry.map(t => {
+                                                    const isSelectedRow = selectedImage === t.name;
+                                                    return (
+                                                        <tr
+                                                            key={t.name}
+                                                            className="border-b-muted"
+                                                            style={{
+                                                                color: isSelectedRow ? 'var(--color-text-main)' : 'var(--color-text-muted)',
+                                                                fontWeight: isSelectedRow ? 600 : 500,
+                                                                opacity: isSelectedRow ? 1 : 0.7
+                                                            }}
+                                                        >
+                                                            <td className="py-1">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={layerVisibility[t.name] !== false}
+                                                                    onChange={() => toggleLayerVisibility(t.name)}
+                                                                    className="cursor-pointer"
+                                                                />
+                                                            </td>
+                                                            <td className="py-1">{t.name}</td>
+                                                            <td className="py-1">{Math.round(t.x)}</td>
+                                                            <td className="py-1">{t.y.toFixed(1)}</td>
+                                                            <td className="py-1">{t.tilt.toFixed(1)}°</td>
+                                                        </tr>
+                                                    );
+                                                })}
                                             </tbody>
                                         </table>
                                     )}
+
+                                    {debugOverlayMode === 'auto' && (
+                                        <div style={{ marginTop: '12px' }}>
+                                            <button
+                                                className={`btn btn-xs w-full flex items-center justify-center p-1 text-xs capitalize ${(!selectedImage || selectedImage === 'original') ? '' : ''}`}
+                                                onClick={() => setSelectedImage('original')}
+                                                disabled={!selectedImage || selectedImage === 'original'}
+                                                title="Clear sprite selection to hide debug overlay"
+                                                style={(!selectedImage || selectedImage === 'original') ? {
+                                                    height: '28px',
+                                                    color: 'var(--color-text-muted)',
+                                                    background: 'transparent',
+                                                    border: '1px solid var(--color-border)',
+                                                    textAlign: 'center',
+                                                    cursor: 'default',
+                                                    fontWeight: 500,
+                                                    opacity: 0.6
+                                                } : {
+                                                    height: '28px',
+                                                    color: 'var(--color-text-muted)',
+                                                    textAlign: 'center',
+                                                    fontWeight: 600,
+                                                    opacity: 1
+                                                }}
+                                            >
+                                                Clear Selection
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="panel text-sm">
-                                    <p className="m-0 text-subtle">Tip: Select a layer to see its environment sampling markers on the stage.</p>
+                                    <p className="m-0 text-subtle" style={{ opacity: 0.7 }}>
+                                        Tip: Select a layer to see its environment sampling markers on the stage.
+                                        {debugOverlayMode === 'auto' && " In 'auto' mode, metrics only appear for the selected sprite. Clear selection using the button above to hide the overlay."}
+                                    </p>
                                 </div>
                             </div>
                         )}
@@ -776,7 +824,7 @@ function useAssetController(type, asset, refresh, onDelete) {
     };
 
     const handleSpriteSelected = (spriteName) => {
-        log.info(`Sprite selected: ${spriteName}`);
+        log.debug(`Sprite selected: ${spriteName}`);
         if (type === 'scene') {
             setSelectedImage(spriteName);
             handleTabChange('sprites');

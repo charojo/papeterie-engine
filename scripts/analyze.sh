@@ -13,6 +13,10 @@ if [[ ! -f "$LOG_FILE" ]]; then
     exit 1
 fi
 
+# Extract Tier
+TIER=$(grep "Papeterie Validation - Tier:" "$LOG_FILE" | cut -d':' -f2 | tr -d ' ')
+: ${TIER:="unknown"}
+
 # Extract backend coverage percentage
 # Helper to strip ANSI colors
 strip_colors() {
@@ -53,10 +57,11 @@ extract_frontend_tests() {
 # Extract backend test summary (pytest format: "===== 134 passed, 2 skipped... =====")
 extract_backend_tests() {
     local file="$1"
-    # Look for the specific pytest summary line with = separator
-    # Use head -1 since the main backend run is Phase 2 (first)
-    # Strip colors to ensure regex matches
-    cat "$file" | strip_colors | grep -E "= [0-9]+ passed.* =" | head -1 || true
+    # Look for pytest summary line ONLY in the Backend Tests section
+    # Extract content between "=== Backend Tests" and "=== Frontend Tests" (or EOF)
+    # Then grep for the pytest summary line
+    sed -n '/=== Backend Tests/,/=== Frontend Tests/p' "$file" | strip_colors | \
+        grep -E '[0-9]+ (passed|skipped|deselected|failed|error).* in [0-9.]+s' | tail -1 || true
 }
 
 # Extract compliance checks
@@ -126,10 +131,16 @@ FRONTEND_COUNTS=$(extract_frontend_tests "$LOG_FILE")
 # Parse backend: "=== 134 passed, 2 skipped... ===" -> "134 passed, 2 skipped"
 BACKEND_PASSED=$(echo "$BACKEND_TESTS_RAW" | grep -oE "[0-9]+ passed" | head -1)
 BACKEND_SKIPPED=$(echo "$BACKEND_TESTS_RAW" | grep -oE "[0-9]+ skipped" || echo "")
+BACKEND_DESELECTED=$(echo "$BACKEND_TESTS_RAW" | grep -oE "[0-9]+ deselected" || echo "")
 
 # Get E2E summary
 E2E_TESTS_RAW=$(extract_e2e_tests "$LOG_FILE")
 E2E_PASSED=$(echo "$E2E_TESTS_RAW" | grep -oE "[0-9]+ passed" | head -1)
+
+# If E2E was skipped, ignore any falsely matched passed count
+if grep -q "Skipping E2E tests" "$LOG_FILE"; then
+    E2E_PASSED=""
+fi
 
 # Compliance status & counts
 CONTRAST_STATUS=$(check_compliance "$LOG_FILE" "Contrast" "Papeterie Contrast Standards Report")
@@ -176,7 +187,31 @@ printf "  %-12s %24s %10s %8s\n" "" "Tests" "Coverage" "Time"
 printf "  %-12s %24s %10s %8s\n" "------------" "------------------------" "--------" "--------"
 
 # 1. Frontend
-printf "  %-12s %24s %10s %8s\n" "Frontend" "$FRONTEND_COUNTS" "${FRONTEND_COV}%" "${FRONTEND_TIME}"
+# 1. Frontend
+FRONTEND_COV_DISPLAY="${FRONTEND_COV:--}%"
+if [[ -z "$FRONTEND_COV" ]]; then
+    if [[ "$TIER" == "full" || "$TIER" == "exhaustive" ]]; then
+         FRONTEND_COV_DISPLAY="-" # Failed to collect
+    else
+         FRONTEND_COV_DISPLAY="-" # Not run
+    fi
+fi
+
+if [[ -n "$FRONTEND_COUNTS" ]]; then
+    printf "  %-12s %24s %10s %8s\n" "Frontend" "$FRONTEND_COUNTS" "$FRONTEND_COV_DISPLAY" "${FRONTEND_TIME}"
+else
+    # Check if skipped
+    if grep -q "Skipping frontend" "$LOG_FILE"; then
+         printf "  %-12s %24s %10s %8s\n" "Frontend" "Skipped" "-" "-"
+    else
+         # Might be fast mode or failed
+         if [[ "$TIER" == "fast" || "$TIER" == "medium" || "$TIER" == "fast" ]]; then
+             printf "  %-12s %24s %10s %8s\n" "Frontend" "$FRONTEND_COUNTS" "-" "${FRONTEND_TIME}"
+         else
+             printf "  %-12s %24s %10s %8s\n" "Frontend" "No Results" "-" "${FRONTEND_TIME}"
+         fi
+    fi
+fi
 
 # 2. E2E
 E2E_COV_DISPLAY="${E2E_COV:--}"
@@ -194,10 +229,39 @@ else
 fi
 
 # 3. Backend
-if [[ -n "$BACKEND_SKIPPED" ]]; then
-    printf "  %-12s %24s %10s %8s\n" "Backend" "$BACKEND_PASSED, $BACKEND_SKIPPED" "${BACKEND_COV}%" "${BACKEND_TIME}"
+# 3. Backend
+BACKEND_COV_DISPLAY="${BACKEND_COV:--}%"
+if [[ -z "$BACKEND_COV" ]]; then
+    if [[ "$TIER" == "full" || "$TIER" == "exhaustive" ]]; then
+         BACKEND_COV_DISPLAY="-" 
+    else
+         BACKEND_COV_DISPLAY="-" 
+    fi
+fi
+
+if [[ -n "$BACKEND_PASSED" || -n "$BACKEND_DESELECTED" ]]; then
+    RESULT_STR=""
+    if [[ -n "$BACKEND_PASSED" ]]; then RESULT_STR="$BACKEND_PASSED"; fi
+    
+    if [[ -n "$BACKEND_SKIPPED" ]]; then 
+        if [[ -n "$RESULT_STR" ]]; then RESULT_STR="$RESULT_STR, $BACKEND_SKIPPED"; else RESULT_STR="$BACKEND_SKIPPED"; fi
+    fi
+    
+    if [[ -n "$BACKEND_DESELECTED" ]]; then
+        if [[ -n "$RESULT_STR" ]]; then RESULT_STR="$RESULT_STR, $BACKEND_DESELECTED"; else RESULT_STR="$BACKEND_DESELECTED"; fi
+    fi
+    
+    # If we have only deselected and no passed, it might be 0 passed implicit, but we just show what we have.
+    # If result string is empty but we entered this block, default to "0 passed" if not deselected?
+    if [[ -z "$RESULT_STR" ]]; then RESULT_STR="0 passed"; fi
+
+    printf "  %-12s %24s %10s %8s\n" "Backend" "$RESULT_STR" "$BACKEND_COV_DISPLAY" "${BACKEND_TIME}"
 else
-    printf "  %-12s %24s %10s %8s\n" "Backend" "$BACKEND_PASSED" "${BACKEND_COV}%" "${BACKEND_TIME}"
+    if grep -q "Skipping backend" "$LOG_FILE"; then
+         printf "  %-12s %24s %10s %8s\n" "Backend" "Skipped" "-" "-"
+    else
+         printf "  %-12s %24s %10s %8s\n" "Backend" "No Results" "-" "${BACKEND_TIME}"
+    fi
 fi
 
 # 4. Static Checks

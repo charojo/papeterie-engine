@@ -1,10 +1,15 @@
+import os
 from pathlib import Path
 from typing import List
 
 # Base Paths
 PROJECT_ROOT = Path(__file__).parent.parent
 LOGS_DIR = PROJECT_ROOT / "logs"
-ASSETS_DIR = PROJECT_ROOT / "assets"
+env_assets = os.environ.get("PAPETERIE_ASSETS_DIR")
+if env_assets:
+    ASSETS_DIR = Path(env_assets)
+else:
+    ASSETS_DIR = PROJECT_ROOT / "assets"
 
 # Asset Directories
 SPRITES_DIR = ASSETS_DIR / "users" / "default" / "sprites"
@@ -12,11 +17,11 @@ SCENES_DIR = ASSETS_DIR / "users" / "default" / "scenes"
 PROMPTS_DIR = ASSETS_DIR / "prompts"
 
 # Ensure directories exist
-LOGS_DIR.mkdir(exist_ok=True)
-ASSETS_DIR.mkdir(exist_ok=True)
-SPRITES_DIR.mkdir(exist_ok=True)
-SCENES_DIR.mkdir(exist_ok=True)
-PROMPTS_DIR.mkdir(exist_ok=True)
+LOGS_DIR.mkdir(parents=True, exist_ok=True)
+ASSETS_DIR.mkdir(parents=True, exist_ok=True)
+SPRITES_DIR.mkdir(parents=True, exist_ok=True)
+SCENES_DIR.mkdir(parents=True, exist_ok=True)
+PROMPTS_DIR.mkdir(parents=True, exist_ok=True)
 
 # Server Configuration
 CORS_ORIGINS: List[str] = [

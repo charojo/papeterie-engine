@@ -1,5 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { usePersistentState } from './usePersistentState';
+import { createLogger } from '../utils/logger';
+
+const log = createLogger('useResizable');
 
 /**
  * Hook for creating resizable panels with persistent size.
@@ -89,8 +92,7 @@ export function useResizableRatio(storageKey, initialRatio, options = {}) {
     const startResize = useCallback((e, container) => {
         e.preventDefault();
         const mousePos = direction === 'horizontal' ? e.clientX : e.clientY;
-        console.log(`[useResizableRatio:${storageKey}] startResize called`, {
-            container: container,
+        log.debug(`[${storageKey}] startResize called`, {
             containerExists: !!container,
             direction,
             currentRatio: ratio,
@@ -105,11 +107,11 @@ export function useResizableRatio(storageKey, initialRatio, options = {}) {
     useEffect(() => {
         if (!isResizing) return;
 
-        console.log(`[useResizableRatio:${storageKey}] Resize started, attaching listeners`);
+        log.debug(`[${storageKey}] Resize started, attaching listeners`);
 
         const handleMouseMove = (e) => {
             if (!containerRef.current) {
-                console.warn(`[useResizableRatio:${storageKey}] No container ref!`);
+                log.warn(`[${storageKey}] No container ref!`);
                 return;
             }
 
@@ -126,14 +128,10 @@ export function useResizableRatio(storageKey, initialRatio, options = {}) {
             const rawRatio = startRatioRef.current + deltaRatio;
             const newRatio = Math.max(minRatio, Math.min(maxRatio, rawRatio));
 
-            console.log(`[useResizableRatio:${storageKey}] mousemove`, {
+            log.debug(`[${storageKey}] mousemove`, {
                 containerSize,
-                startPos: startPosRef.current,
-                currentPos,
                 delta,
                 startRatio: startRatioRef.current.toFixed(3),
-                deltaRatio: deltaRatio.toFixed(3),
-                rawRatio: rawRatio.toFixed(3),
                 clampedRatio: newRatio.toFixed(3)
             });
 

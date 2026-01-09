@@ -93,12 +93,20 @@ export function TheatreStage({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isPlaying]);
 
-    // Sync debugMode
+    // Sync debugMode - Convert mode string to boolean
+    // 'on' -> always show, 'off' -> never show, 'auto' -> show only when sprite selected
     useEffect(() => {
         if (theatreRef.current) {
-            theatreRef.current.debugMode = debugMode;
+            let effectiveDebugMode = false;
+            if (debugMode === 'on' || debugMode === true) {
+                effectiveDebugMode = true;
+            } else if (debugMode === 'auto') {
+                effectiveDebugMode = !!selectedSprite;
+            }
+            // 'off' or false -> effectiveDebugMode remains false
+            theatreRef.current.debugMode = effectiveDebugMode;
         }
-    }, [debugMode]);
+    }, [debugMode, selectedSprite]);
 
     // Sync Layer Visibility
     useEffect(() => {
@@ -135,12 +143,13 @@ export function TheatreStage({
         const userType = isCommunity ? 'community' : 'default';
         const theatre = new Theatre(canvasRef.current, scene, sceneName, resolvedAssetBaseUrl, userType);
         theatre.onTelemetry = onTelemetry;
-        theatre.debugMode = debugMode;
+        // Initial debugMode: Convert mode string to boolean (same logic as sync effect)
+        theatre.debugMode = debugMode === 'on' || debugMode === true || (debugMode === 'auto' && !!selectedSprite);
         theatreRef.current = theatre;
 
         // CRITICAL: Explicitly bind camera controller to the new Theatre instance
         if (cameraController) {
-            log.info(`Binding CameraController to new Theatre instance: ${sceneName}`);
+            log.debug(`Binding CameraController to new Theatre instance: ${sceneName}`);
             cameraController.bindTheatre(theatre);
         }
 
@@ -159,7 +168,7 @@ export function TheatreStage({
 
             // CRITICAL: Check if cleanup has already run before starting
             if (cancelled) {
-                log.info(`[${sceneName}] Init completed but effect was already cleaned up - not starting`);
+                log.debug(`[${sceneName}] Init completed but effect was already cleaned up - not starting`);
                 return;
             }
 
@@ -198,7 +207,7 @@ export function TheatreStage({
         const theatreToCleanup = theatre;
         return () => {
             cancelled = true; // Prevent async init from starting the loop
-            log.info(`[${sceneName}] Cleaning up Theatre instance`);
+            log.debug(`[${sceneName}] Cleaning up Theatre instance`);
             theatreToCleanup._cleanupWheel?.();
             theatreToCleanup.stop();
         };
@@ -597,7 +606,7 @@ export function TheatreStage({
                                         const loc = (layer?.behaviors || []).find(b => b.type === 'location' && b.time_offset !== undefined && Math.abs(b.time_offset - (currentTime || 0)) < 0.2);
                                         const targetDesc = loc ? `Behavior at ${loc.time_offset}s` : "Base Rotation";
 
-                                        log.info(`Rotating sprite ${selectedSprite} (${targetDesc}) by 90° to ${nextRot}°`);
+                                        log.debug(`Rotating sprite ${selectedSprite} (${targetDesc}) by 90° to ${nextRot}°`);
                                         setLocalRotation(nextRot);
                                         updateTheatreRotation(nextRot);
                                         onSpriteRotationChanged(selectedSprite, nextRot, currentTime || 0);
@@ -618,15 +627,15 @@ export function TheatreStage({
                                         const loc = (layer?.behaviors || []).find(b => b.type === 'location' && b.time_offset !== undefined && Math.abs(b.time_offset - (currentTime || 0)) < 0.2);
                                         const targetDesc = loc ? `Behavior at ${loc.time_offset}s` : "Base Rotation";
 
-                                        log.info(`Rotation slider interaction end: ${selectedSprite} (${targetDesc}) at ${localRotation}°`);
+                                        log.debug(`Rotation slider interaction end: ${selectedSprite} (${targetDesc}) at ${localRotation}°`);
                                         onSpriteRotationChanged(selectedSprite, localRotation, currentTime || 0);
                                     }}
                                     onTouchEnd={() => {
-                                        log.info(`Rotation slider interaction (touch) end: ${selectedSprite} at ${localRotation}°`);
+                                        log.debug(`Rotation slider interaction (touch) end: ${selectedSprite} at ${localRotation}°`);
                                         onSpriteRotationChanged(selectedSprite, localRotation, currentTime || 0);
                                     }}
                                     onKeyUp={() => {
-                                        log.info(`Rotation slider keyboard interaction end: ${selectedSprite} at ${localRotation}°`);
+                                        log.debug(`Rotation slider keyboard interaction end: ${selectedSprite} at ${localRotation}°`);
                                         onSpriteRotationChanged(selectedSprite, localRotation, currentTime || 0);
                                     }}
                                     style={{ width: '80px', cursor: 'pointer', height: '4px' }}

@@ -1,20 +1,33 @@
 ---
-description: Run full project validation (linting, testing, coverage)
+description: Run exhaustive QA and full project validation
+model: gemini-1.5-pro, gemini-2.0-flash
 ---
-1. Run the validation script (auto-fixes formatting by default)
+1. Run Validation (Select a Tier)
+
+- **Fast** (Changeset only, ~5s):
 // turbo
-./scripts/validate.sh
+./scripts/validate.sh --fast
 
-2. (Faster) Run Smart Validation (only tests affected by changes):
+- **Medium** (File-level, formatting, ~10s):
 // turbo
-./scripts/smart_validate.sh
+./scripts/validate.sh --medium
 
-3. To skip auto-fixing (e.g., for CI), use:
-./scripts/validate.sh --nofix
+- **Full** (All Unit/Integration, E2E, ~90s) - *Recommended for Pre-Commit*:
+// turbo
+./scripts/validate.sh --full
 
-4. To include E2E UX consistency tests (requires servers running):
-./scripts/validate.sh --e2e
+- **Exhaustive** (Parallel execution, Max coverage, ~75s) - *Recommended for Pre-Merge*:
+// turbo
+./scripts/validate.sh --exhaustive
 
-5. To run ALL tests including live API calls:
-./scripts/validate.sh --live
+2. Options
 
+- Include Live API tests: `--live`
+- Skip Auto-fix: `--no-fix`
+- E2E Only: `--e2e-only`
+
+3. Troubleshooting
+
+- If backend tests show "1 passed" instead of full count, check `analyze.sh` section parsing.
+- 2 tests are always skipped (live API tests) unless `--live` is used.
+- Parallel mode may reveal flaky tests that pass in serial mode.

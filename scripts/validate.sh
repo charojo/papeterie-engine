@@ -76,7 +76,6 @@ for arg in "$@"; do
         --help|-h) show_help; exit 0 ;;
         --medium) TIER="medium" ;;
         --full) TIER="full" ;;
-        --full) TIER="full" ;;
         --exhaustive) TIER="exhaustive" ;;
         --fast) TIER="fast" ;;
         --live) INCLUDE_LIVE=true ;;
@@ -117,6 +116,7 @@ esac
 # Setup
 # ============================================
 mkdir -p logs
+rm -f logs/static_analysis.log
 LOG_FILE="logs/validate.log"
 
 # Timing
@@ -163,7 +163,7 @@ run_auto_fix() {
     
     local end=$(date +%s)
     FIX_DURATION=$((end - start))
-    echo "TIMING: AutoFix=${FIX_DURATION}s" >> "$LOG_FILE"
+    echo "TIMING_METRIC: AutoFix=${FIX_DURATION}s" >> "$LOG_FILE"
 }
 
 # ============================================
@@ -247,18 +247,18 @@ run_backend_tests() {
     echo "$output" | tee -a "$LOG_FILE"
     
     # Parse results - handle empty grep results
-    BACKEND_PASSED=$(echo "$output" | grep -oP '\d+(?= passed)' | tail -1)
+    BACKEND_PASSED=$(echo "$output" | grep -oP '\d+(?= passed)' | tail -1 || echo 0)
     BACKEND_PASSED=${BACKEND_PASSED:-0}
-    BACKEND_FAILED=$(echo "$output" | grep -oP '\d+(?= failed)' | tail -1)
+    BACKEND_FAILED=$(echo "$output" | grep -oP '\d+(?= failed)' | tail -1 || echo 0)
     BACKEND_FAILED=${BACKEND_FAILED:-0}
-    BACKEND_SKIPPED=$(echo "$output" | grep -oP '\d+(?= skipped)' | tail -1)
+    BACKEND_SKIPPED=$(echo "$output" | grep -oP '\d+(?= skipped)' | tail -1 || echo 0)
     BACKEND_SKIPPED=${BACKEND_SKIPPED:-0}
-    BACKEND_DESELECTED=$(echo "$output" | grep -oP '\d+(?= deselected)' | tail -1)
+    BACKEND_DESELECTED=$(echo "$output" | grep -oP '\d+(?= deselected)' | tail -1 || echo 0)
     BACKEND_DESELECTED=${BACKEND_DESELECTED:-0}
     
     local end=$(date +%s)
     BACKEND_DURATION=$((end - start))
-    echo "TIMING: Backend=${BACKEND_DURATION}s" >> "$LOG_FILE"
+    echo "TIMING_METRIC: Backend=${BACKEND_DURATION}s" >> "$LOG_FILE"
 }
 
 # ============================================
@@ -321,7 +321,7 @@ run_frontend_tests() {
     
     local end=$(date +%s)
     FRONTEND_DURATION=$((end - start))
-    echo "TIMING: Frontend=${FRONTEND_DURATION}s" >> "$LOG_FILE"
+    echo "TIMING_METRIC: Frontend=${FRONTEND_DURATION}s" >> "$LOG_FILE"
 }
 
 # ============================================
@@ -348,7 +348,7 @@ run_e2e_tests() {
     
     local end=$(date +%s)
     E2E_DURATION=$((end - start))
-    echo "TIMING: E2E=${E2E_DURATION}s" >> "$LOG_FILE"
+    echo "TIMING_METRIC: E2E=${E2E_DURATION}s" >> "$LOG_FILE"
 }
 
 # ============================================
@@ -403,15 +403,31 @@ print_summary() {
     fi
     
     echo "" | tee -a "$LOG_FILE"
-    echo "Total Time:  ${total_duration}s" | tee -a "$LOG_FILE"
+
+    # Append detailed logs from wrappers so analyze.sh can find them
+    if [ -f "logs/static_analysis.log" ]; then
+        echo "" >> "$LOG_FILE" 
+        echo "Appending Static Analysis logs..." >> "$LOG_FILE"
+        cat logs/static_analysis.log >> "$LOG_FILE"
+    fi
+
+    # Record Total Time for analyze.sh
+    echo "TIMING_METRIC: Total=${total_duration}s" >> "$LOG_FILE"
+
+    # Run Analysis (LOC metrics, coverage summary, etc.)
+    # Only run in full/exhaustive or if verbose, to keep fast mode fast? 
+    # User asked for it, so let's run it unless fast mode?
+    # Actually, analyze.sh is fast (just reading logs/counting lines).
     
-    # Overall status
+    echo "" | tee -a "$LOG_FILE"
+    echo "Running Validation Analysis..." | tee -a "$LOG_FILE"
+    ./scripts/analyze.sh "$LOG_FILE" | tee -a "$LOG_FILE" || true
+
+    # Overall status (Original print_summary does return 0/1, we should preserve that)
     local overall_failed=$((${BACKEND_FAILED:-0} + ${FRONTEND_FAILED:-0} + ${E2E_FAILED:-0}))
     if [ "$overall_failed" -eq 0 ]; then
-        echo -e "Status:      ${GREEN}✓ PASS${NC}" | tee -a "$LOG_FILE"
         return 0
     else
-        echo -e "Status:      ${RED}✗ FAIL${NC} ($overall_failed failed)" | tee -a "$LOG_FILE"
         return 1
     fi
 }

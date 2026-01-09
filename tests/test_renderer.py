@@ -34,10 +34,8 @@ def setup_pygame(mocker):
     mock_smooth.set_alpha = MagicMock()
     mocker.patch("pygame.transform.smoothscale", return_value=mock_smooth)
 
-    # Mock rotate for tests that might use it (defaults to 0 rotation often)
-    mock_rotated = MagicMock(spec=pygame.Surface)
-    mock_rotated.set_alpha = MagicMock()
-    mocker.patch("pygame.transform.rotate", return_value=mock_rotated)
+    # NOTE: rotate is NOT mocked here to allow individual tests to control it
+    # Tests that need rotation should set up their own mocks
 
     yield
     pygame.quit()
@@ -109,19 +107,27 @@ def test_scaling_logic(mocker):
             os.remove(test_path)
 
 
+@pytest.mark.xdist_group("pygame_mocks")
 def test_environmental_reaction_pivot_on_crest(mocker, dummy_png):
     """
     Verify a sprite correctly reacts to environment using the Hull Contact model.
+
+    This test is grouped to run on a single worker in parallel mode to avoid
+    mock interference between workers.
     """
-    mocker.patch(
-        "pygame.transform.rotate",
-        return_value=MagicMock(
-            spec=pygame.Surface,
-            get_size=lambda: (100, 50),
-            get_rect=lambda **kwargs: pygame.Rect(0, 0, 100, 50),
-            set_alpha=MagicMock(),
-        ),
+    # Completely isolate this test's mocks from the autouse fixture
+    # by patching at the renderer module level
+    mock_rotated_surface = MagicMock(
+        spec=pygame.Surface,
+        get_size=lambda: (100, 50),
+        get_rect=lambda **kwargs: pygame.Rect(0, 0, 100, 50),
+        set_alpha=MagicMock(),
     )
+    rotate_mock = mocker.patch(
+        "renderer.theatre.pygame.transform.rotate",
+        return_value=mock_rotated_surface,
+    )
+
     # Configure image mock with set_alpha and dimensions
     mock_img = MagicMock(spec=pygame.Surface)
     mock_img.get_size.return_value = (100, 50)
@@ -130,8 +136,8 @@ def test_environmental_reaction_pivot_on_crest(mocker, dummy_png):
     mock_img.set_alpha = MagicMock()
     mock_img.convert_alpha.return_value = mock_img
 
-    mocker.patch("pygame.image.load", return_value=mock_img)
-    mocker.patch("pygame.transform.smoothscale", return_value=mock_img)
+    mocker.patch("renderer.theatre.pygame.image.load", return_value=mock_img)
+    mocker.patch("renderer.theatre.pygame.transform.smoothscale", return_value=mock_img)
 
     # Mock screen for draw method
     mock_screen = MagicMock(spec=pygame.Surface, get_size=lambda: (800, 600), blit=MagicMock())
@@ -157,12 +163,15 @@ def test_environmental_reaction_pivot_on_crest(mocker, dummy_png):
         environmental_reaction=boat_reaction,
     )
 
+    # Reset mock call count before test assertions
+    rotate_mock.reset_mock()
+
     # Test 1: Flat surface (no tilt)
     boat_layer.draw(
         mock_screen, scroll_x=0, elapsed_time=0, dt=0.016, env_y=None, env_layer=wave_layer
     )
     # Optimization: rotate is skipped when angle is near zero (abs < 0.1)
-    pygame.transform.rotate.assert_not_called()
+    rotate_mock.assert_not_called()
 
     # Test 2: Rising wave (bow up)
     # With hull_length_factor=0.5 and img_w=100, sampling +/- 25px from center.
@@ -179,7 +188,8 @@ def test_environmental_reaction_pivot_on_crest(mocker, dummy_png):
     )
 
     # Check if rotate was called with the damped angle
-    args, kwargs = pygame.transform.rotate.call_args
+    assert rotate_mock.called, "Expected pygame.transform.rotate to be called for non-zero tilt"
+    args, kwargs = rotate_mock.call_args
     assert args[1] == pytest.approx(2.855, abs=0.1)
 
     # Check vertical position: target_env_y = (y_stern + y_bow) / 2 = 405

@@ -147,7 +147,7 @@ export function TimelineEditor({
 
         // If forceScrollToSelection changed, reset the scroll cache to force scroll
         if (forceScrollToSelection !== lastForceScrollRef.current) {
-            log.info('[TimelineScroll] Force scroll requested, resetting cache', {
+            log.debug('[TimelineScroll] Force scroll requested, resetting cache', {
                 prev: lastForceScrollRef.current,
                 new: forceScrollToSelection
             });
@@ -167,7 +167,7 @@ export function TimelineEditor({
                 return;
             }
 
-            log.info('[TimelineScroll] Processing scroll for:', selectionKey);
+            log.debug('[TimelineScroll] Processing scroll for:', selectionKey);
 
             // Calculate which lane we should scroll to
             // Priority: selectedKeyframe's lane > sprite's base lane
@@ -198,7 +198,7 @@ export function TimelineEditor({
                 }
             }
 
-            log.info('[TimelineScroll] Final targetZ=', targetZ, 'exists in laneRefs:', !!(targetZ !== null && laneRefs.current[targetZ]));
+            log.debug('[TimelineScroll] Final targetZ=', targetZ, 'exists in laneRefs:', !!(targetZ !== null && laneRefs.current[targetZ]));
 
             if (targetZ !== null && laneRefs.current[targetZ]) {
                 const el = laneRefs.current[targetZ];
@@ -229,15 +229,12 @@ export function TimelineEditor({
 
                     const isVisibleX = targetX >= visibleMinX && targetX <= visibleMaxX;
 
-                    log.info('[TimelineScroll] Visibility Check', {
+                    log.debug('[TimelineScroll] Visibility Check', {
                         targetZ,
                         targetTime,
                         isFullyVisibleY,
                         isPartiallyVisibleY,
-                        isVisibleX,
-                        targetX,
-                        visibleMinX,
-                        visibleMaxX
+                        isVisibleX
                     });
 
                     let scrolled = false;
@@ -246,7 +243,7 @@ export function TimelineEditor({
                     if (!isFullyVisibleY && !isPartiallyVisibleY) {
                         const newScrollTop = container.scrollTop + elTopRel - RULER_HEIGHT;
                         container.scrollTop = newScrollTop;
-                        log.info('[TimelineScroll] Vertical: Scrolled to reveal (out of view)', { newScrollTop });
+                        log.debug('[TimelineScroll] Vertical: Scrolled to reveal (out of view)');
                         scrolled = true;
                     } else if (!isFullyVisibleY) {
                         if (elTopRel < visibleMinY) {
@@ -254,7 +251,7 @@ export function TimelineEditor({
                         } else if (elBottomRel > visibleMaxY) {
                             container.scrollTop = container.scrollTop + (elBottomRel - visibleMaxY);
                         }
-                        log.info('[TimelineScroll] Vertical: Nudged to fully reveal');
+                        log.debug('[TimelineScroll] Vertical: Nudged to fully reveal');
                         scrolled = true;
                     }
 
@@ -262,18 +259,18 @@ export function TimelineEditor({
                     if (!isVisibleX) {
                         const newScrollLeft = Math.max(0, targetX - (containerWidth / 2));
                         container.scrollLeft = newScrollLeft;
-                        log.info('[TimelineScroll] Horizontal: Scrolled to reveal time', { targetTime, newScrollLeft });
+                        log.debug('[TimelineScroll] Horizontal: Scrolled to reveal time');
                         scrolled = true;
                     }
 
                     if (!scrolled) {
-                        log.info('[TimelineScroll] Already in view (both axis), skipping scroll');
+                        log.debug('[TimelineScroll] Already in view, skipping scroll');
                     }
 
                     lastScrolledSelectionRef.current = selectionKey;
                 }
             } else {
-                log.warn('[TimelineScroll] targetZ invalid or ref missing', { targetZ });
+                log.debug('[TimelineScroll] targetZ invalid or ref missing', { targetZ });
             }
         }
     }, [selectedLayer, selectedKeyframe, layers, lanes, forceScrollToSelection, zoom]);
@@ -360,12 +357,7 @@ export function TimelineEditor({
             // Activate drag mode (use local variable, not state)
             if (!dragActivated) {
                 dragActivated = true;
-                log.info('Drag started', {
-                    item: item.key,
-                    type: item.type,
-                    initialZ,
-                    initialTime
-                });
+                log.debug('Drag started', { item: item.key, type: item.type });
                 setDraggingKeyframe({
                     id: item.key,
                     spriteName: item.sprite.sprite_name,
@@ -439,7 +431,7 @@ export function TimelineEditor({
                 return;
             }
 
-            log.info('Drag end', { dx, dy, dragActivated });
+            log.debug('Drag end', { dx, dy });
 
             // 1. Calculate New Time
             const newTimeRaw = initialTime + (dx / zoom);
@@ -491,7 +483,7 @@ export function TimelineEditor({
                         const upperZ = sortedZDepths[upperIndex];
                         const lowerZ = sortedZDepths[lowerIndex];
                         finalZ = (upperZ + lowerZ) / 2;
-                        log.info('Creating midpoint Z:', { upperZ, lowerZ, finalZ });
+                        log.debug('Creating midpoint Z:', { finalZ });
                     } else {
                         // Snap to nearest lane
                         finalZ = sortedZDepths[trackIndex];
@@ -506,33 +498,19 @@ export function TimelineEditor({
                 }
             }
 
-            log.info('Final Result:', {
-                itemType: item.type,
-                spriteName: item.sprite.sprite_name,
-                initialZ,
-                finalZ,
-                zChanged: finalZ !== initialZ,
-                initialTime,
-                newTime
-            });
+            log.debug('Final Result:', { spriteName: item.sprite.sprite_name, finalZ, newTime });
 
             // 3. Commit Changes
             if (item.type === 'behavior' || (item.type === 'base' && item.behaviorIndex !== null)) {
                 // Update Time if changed (or always if calling onKeyframeMove)
                 if (newTime !== initialTime) {
-                    log.info(`Moving keyframe for ${item.type}`, {
-                        spriteName: item.sprite.sprite_name,
-                        newTime
-                    });
+                    log.debug(`Moving keyframe for ${item.type}`);
                     onKeyframeMove && onKeyframeMove(item.sprite.sprite_name, item.behaviorIndex, newTime, true);
                 }
 
                 // Update Z if changed
                 if (finalZ !== initialZ && onLayerUpdate) {
-                    log.info('Updating Z-depth for keyframe', {
-                        spriteName: item.sprite.sprite_name,
-                        z_depth: finalZ
-                    });
+                    log.debug('Updating Z-depth for keyframe:', finalZ);
                     onLayerUpdate(item.sprite.sprite_name, {
                         z_depth: finalZ,
                         behaviorIndex: item.behaviorIndex
@@ -541,10 +519,7 @@ export function TimelineEditor({
             } else if (item.type === 'base') {
                 // Base Item with no behaviorIndex (update sprite-level Z only)
                 if (finalZ !== initialZ && onLayerUpdate) {
-                    log.info('Updating Z-depth for sprite', {
-                        spriteName: item.sprite.sprite_name,
-                        z_depth: finalZ
-                    });
+                    log.debug('Updating Z-depth for sprite:', finalZ);
                     onLayerUpdate(item.sprite.sprite_name, { z_depth: finalZ });
                 }
                 if (newTime !== initialTime) {
@@ -604,7 +579,7 @@ export function TimelineEditor({
                     step="0.1"
                     value={currentTime}
                     onChange={e => onTimeChange(parseFloat(e.target.value))}
-                    style={{ flex: 1, maxWidth: '200px', cursor: 'pointer' }}
+                    className="timeline-scrubber"
                     title={`Scrub to ${currentTime.toFixed(1)}s`}
                 />
                 <div style={{ flex: 1 }} />
@@ -616,7 +591,7 @@ export function TimelineEditor({
                         max="100"
                         value={zoom}
                         onChange={e => setZoom(parseInt(e.target.value))}
-                        style={{ width: '80px', cursor: 'pointer' }}
+                        className="timeline-zoom-input"
                         title={`Zoom: ${zoom}px per second`}
                     />
                 </div>
@@ -661,13 +636,7 @@ export function TimelineEditor({
                                             className="absolute"
                                             style={{ left: (t * zoom) + PADDING_LEFT, top: 0, height: '100%' }}
                                         >
-                                            <div style={{
-                                                position: 'absolute',
-                                                bottom: 0,
-                                                left: 0,
-                                                height: '3px',
-                                                borderLeft: '1px solid var(--color-text-muted)'
-                                            }} />
+                                            <div className="timeline-tick-line" style={{ height: '3px' }} />
                                         </div>
                                     );
                                 }
@@ -683,13 +652,7 @@ export function TimelineEditor({
                                         className="absolute"
                                         style={{ left: (t * zoom) + PADDING_LEFT, top: 0, height: '100%' }}
                                     >
-                                        <div style={{
-                                            position: 'absolute',
-                                            bottom: 0,
-                                            left: 0,
-                                            height: '6px',
-                                            borderLeft: '1px solid var(--color-text-muted)'
-                                        }} />
+                                        <div className="timeline-tick-line" style={{ height: '6px' }} />
                                     </div>
                                 );
                             }
@@ -699,22 +662,11 @@ export function TimelineEditor({
                                 ticks.push(
                                     <div key={`major-${sec}`} className="absolute" style={{ left: (sec * zoom) + PADDING_LEFT, top: 0, height: '100%' }}>
                                         {/* Centered time label at top */}
-                                        <div className="absolute whitespace-nowrap text-subtle text-xxs" style={{
-                                            top: '1px',
-                                            left: '-10px',
-                                            width: '20px',
-                                            textAlign: 'center'
-                                        }}>
+                                        <div className="absolute  text-subtle text-xxs timeline-major-tick-label">
                                             {sec}s
                                         </div>
                                         {/* Large tick at bottom */}
-                                        <div style={{
-                                            position: 'absolute',
-                                            bottom: 0,
-                                            left: 0,
-                                            height: '10px',
-                                            borderLeft: '1px solid var(--color-text-muted)'
-                                        }} />
+                                        <div className="timeline-tick-line" style={{ height: '10px' }} />
                                     </div>
                                 );
                             }
@@ -736,16 +688,7 @@ export function TimelineEditor({
                                     title={`Keyframe at ${offset.toFixed(1)}s`}
                                 >
                                     {/* Upward-pointing triangle at bottom of ruler */}
-                                    <div style={{
-                                        position: 'absolute',
-                                        bottom: '2px',
-                                        left: '-3px',
-                                        width: 0,
-                                        height: 0,
-                                        borderLeft: '4px solid transparent',
-                                        borderRight: '4px solid transparent',
-                                        borderBottom: `5px solid ${isSelectedOffset ? 'var(--color-text-main)' : 'var(--color-selection-accent)'}`
-                                    }} />
+                                    <div className={`timeline-offset-marker-triangle ${isSelectedOffset ? 'selected' : ''}`} />
                                 </div>
                             );
                         })}
@@ -779,15 +722,7 @@ export function TimelineEditor({
                                 {/* Track Content */}
                                 <div className="flex-1 relative overflow-hidden">
                                     {/* Swimlane separator line - visible full-width line at bottom */}
-                                    <div style={{
-                                        position: 'absolute',
-                                        bottom: 0,
-                                        left: 0,
-                                        right: 0,
-                                        height: '1px',
-                                        backgroundColor: 'var(--color-border)',
-                                        pointerEvents: 'none'
-                                    }} />
+                                    <div className="timeline-swimlane-separator" />
                                     {items.map(item => {
                                         const isDragging = draggingKeyframe && draggingKeyframe.id === item.key;
                                         const isSelected = selectedLayer === item.sprite.sprite_name;
@@ -817,7 +752,7 @@ export function TimelineEditor({
                                                 onContextMenu={(e) => handleContextMenu(e, item, z)}
                                                 onClick={(e) => {
                                                     e.stopPropagation();
-                                                    log.info(`Keyframe clicked: ${item.sprite.sprite_name} (${item.type === 'behavior' ? 'behavior: ' + item.behaviorIndex : 'base'}), time: ${item.time}s`);
+                                                    log.debug(`Keyframe clicked: ${item.sprite.sprite_name}, time: ${item.time}s`);
                                                     // Mark that selection is from a timeline click - skip auto-scroll
                                                     skipScrollRef.current = true;
                                                     onSelectLayer && onSelectLayer(item.sprite.sprite_name);

@@ -26,7 +26,7 @@ wheels/
 node_modules/
 
 # Testing and Coverage
-.coverage
+.coverage*
 htmlcov/
 coverage.xml
 coverage/

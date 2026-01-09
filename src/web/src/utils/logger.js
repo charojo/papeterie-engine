@@ -10,8 +10,9 @@ const LOG_LEVELS = {
     NONE: 4
 };
 
-// Default to INFO in production, DEBUG in dev
-const CURRENT_LEVEL = import.meta.env.DEV ? LOG_LEVELS.DEBUG : LOG_LEVELS.INFO;
+// Default to INFO in all environments. Enable debug with: localStorage.setItem('papeterie_debug', '1')
+const DEBUG_ENABLED = typeof localStorage !== 'undefined' && localStorage.getItem('papeterie_debug') === '1';
+const CURRENT_LEVEL = DEBUG_ENABLED ? LOG_LEVELS.DEBUG : LOG_LEVELS.INFO;
 
 class Logger {
     constructor(namespace) {

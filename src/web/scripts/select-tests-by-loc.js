@@ -72,7 +72,7 @@ function getChangedLines() {
         }
 
         return changes;
-    } catch (_e) {
+    } catch {
         // No changes or git error
         return [];
     }
