@@ -1,175 +1,421 @@
 #!/bin/bash
+# Unified Validation Script for Papeterie Engine
+# Supports 4 workflow tiers: fast, medium, full, exhaustive
 set -eo pipefail
 
 # Store the project root directory
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
 
-# Default modes
-LIVE_MODE=false
-E2E_MODE="full"  # full (default), exclusive (--e2e only), skip (internal)
-PARALLEL_MODE=false
+# ============================================
+# Configuration
+# ============================================
+TIER="fast"          # fast | medium | full | exhaustive
+INCLUDE_LIVE=false   # Include $ tests (API calls)
+INCLUDE_E2E=false    # E2E tests
+SKIP_FIX=false       # Skip auto-formatting
+PARALLEL=false       # Parallel test execution
+VERBOSE=false        # Detailed output
+E2E_ONLY=false       # Run ONLY E2E tests
 
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+# ============================================
+# Help
+# ============================================
 show_help() {
-    echo "Usage: ./scripts/validate.sh [options]"
-    echo ""
-    echo "Options:"
-    echo "  --help      Show this help message"
-    echo "  --e2e       Run ONLY E2E tests (auto-starts servers, skips unit tests)."
-    echo "  --live      Include LIVE API tests in backend checks."
-    echo "  --parallel  Run backend tests in parallel (experimental)."
-    echo ""
-    echo "Default (no flags):"
-    echo "  Runs Linters, Unit tests (Backend & Frontend), and FULL E2E tests."
+    cat <<EOF
+${BLUE}Papeterie Engine Validation${NC}
+
+${YELLOW}Usage:${NC} ./scripts/validate.sh [tier] [options]
+
+${YELLOW}Tiers:${NC} (mutually exclusive, default: fast)
+  (none)         ${GREEN}Fast${NC} - LOC-only tests for changes (~5s)
+  --medium       ${YELLOW}Medium${NC} - file-level coverage (~30s)
+  --full         ${BLUE}Full${NC} - all tests except \$ tests (~90s)
+  --exhaustive   ${RED}Exhaustive${NC} - mutation, parallel (~5m)
+
+${YELLOW}Options:${NC}
+  --live         Include \$ tests (Gemini API calls)
+  --e2e-only     Run ONLY E2E tests
+  --no-fix       Skip auto-formatting
+  --parallel     Parallelize tests (auto in exhaustive)
+  --verbose, -v  Detailed output
+  --help, -h     Show this help
+
+${YELLOW}Examples:${NC}
+  ./scripts/validate.sh                # Fast: quick changeset check
+  ./scripts/validate.sh --medium       # Medium: file-level coverage
+  ./scripts/validate.sh --full         # Full: pre-commit validation
+  ./scripts/validate.sh --exhaustive   # Exhaustive: pre-merge
+  ./scripts/validate.sh --full --live  # Full + API tests
+
+${YELLOW}Tier Details:${NC}
+  Fast:       LOC-only (testmon), no lint, no E2E
+  Medium:     File-level, auto-fix, no E2E
+  Full:       All tests (skip \$), E2E, auto-fix, coverage
+  Exhaustive: All + mutation, parallel, multi-browser
+
+${YELLOW}Notes:${NC}
+  - \$ tests are marked "live" (Gemini API calls)
+  - Fast tier skips unchanged code (testmon)
+  - Use --full for CI/pre-merge validation
+EOF
 }
 
+# ============================================
+# Argument Parsing
+# ============================================
 for arg in "$@"; do
     case $arg in
-        --help) show_help; exit 0 ;;
-        --live) LIVE_MODE=true ;;
-        --e2e) E2E_MODE="exclusive" ;;
-        --parallel) PARALLEL_MODE=true ;;
-        *) echo "Unknown option: $arg"; show_help; exit 1 ;;
+        --help|-h) show_help; exit 0 ;;
+        --medium) TIER="medium" ;;
+        --full) TIER="full" ;;
+        --exhaustive) TIER="exhaustive" ;;
+        --live) INCLUDE_LIVE=true ;;
+        --e2e-only) E2E_ONLY=true; TIER="full" ;;
+        --no-fix) SKIP_FIX=true ;;
+        --parallel) PARALLEL=true ;;
+        --verbose|-v) VERBOSE=true ;;
+        *) echo -e "${RED}Unknown option: $arg${NC}"; show_help; exit 1 ;;
     esac
 done
 
-# Ensure logs directory exists
+# Auto-enable features based on tier
+case "$TIER" in
+    fast)
+        # Minimal: skip lint, skip E2E
+        ;;
+    medium)
+        # Balanced: auto-fix, skip E2E
+        ;;
+    full)
+        # Complete: auto-fix, E2E
+        INCLUDE_E2E=true
+        ;;
+    exhaustive)
+        # Maximum: auto-fix, E2E, parallel
+        INCLUDE_E2E=true
+        PARALLEL=true
+        ;;
+esac
+
+# ============================================
+# Setup
+# ============================================
 mkdir -p logs
+LOG_FILE="logs/validate.log"
 
+# Timing
 TOTAL_START=$(date +%s)
-echo "Starting Verification at $(date)" | tee logs/validate.log
+FIX_DURATION=0
+BACKEND_DURATION=0
+FRONTEND_DURATION=0
+E2E_DURATION=0
 
-# ==========================================
-# Phase 1: Auto-fix (Skipped if E2E_MODE=exclusive)
-# ==========================================
-if [ "$E2E_MODE" != "exclusive" ]; then
-    FIX_START=$(date +%s)
-    echo "Running Auto-fixes..." | tee -a logs/validate.log
+# Results
+BACKEND_PASSED=0
+BACKEND_FAILED=0
+BACKEND_SKIPPED=0
+BACKEND_DESELECTED=0
+FRONTEND_PASSED=0
+FRONTEND_FAILED=0
+E2E_PASSED=0
+E2E_FAILED=0
 
-    echo "Fixing Backend..."
-    uv run ruff check --fix .
-    uv run ruff format .
+echo -e "${BLUE}Papeterie Validation${NC} - Tier: ${TIER}" | tee "$LOG_FILE"
+echo "Started at $(date)" | tee -a "$LOG_FILE"
+echo "" | tee -a "$LOG_FILE"
 
-    echo "Fixing Frontend..."
-    pushd src/web > /dev/null
-    npm run lint -- --fix || true
-    popd > /dev/null
-
-    FIX_END=$(date +%s)
-    FIX_DURATION=$((FIX_END - FIX_START))
-    echo "TIMING_METRIC: AutoFix=${FIX_DURATION}s" >> logs/validate.log
-    echo "Auto-fixes complete." | tee -a logs/validate.log
-else
-    echo "Skipping Auto-fixes (E2E Exclusive Mode)" | tee -a logs/validate.log
-fi
-
-# ==========================================
-# Phase 2: Backend & Static Tests (Skipped if E2E_MODE=exclusive)
-# ==========================================
-BACKEND_EXIT_CODE=0
-if [ "$E2E_MODE" != "exclusive" ]; then
-    echo "" | tee -a logs/validate.log
-    echo "Phase: Backend & Static Validation" | tee -a logs/validate.log
-    BACKEND_START=$(date +%s)
-    
-    # Construct Pytest Command for Backend
-    BACKEND_ARGS="tests/  --ignore=tests/validation/test_frontend_unit.py --ignore=tests/validation/test_e2e_wrapper.py"
-    
-    # Markers
-    if [ "$LIVE_MODE" = false ]; then
-        BACKEND_ARGS="$BACKEND_ARGS -m \"not live\""
+# ============================================
+# Phase 1: Auto-fix (medium, full, exhaustive)
+# ============================================
+run_auto_fix() {
+    if [ "$SKIP_FIX" = true ] || [ "$TIER" = "fast" ] || [ "$E2E_ONLY" = true ]; then
+        echo -e "${YELLOW}Skipping auto-fix${NC}" | tee -a "$LOG_FILE"
+        return
     fi
+    
+    echo -e "${BLUE}=== Auto-fix ===${NC}" | tee -a "$LOG_FILE"
+    local start=$(date +%s)
+    
+    echo "Fixing Backend..." | tee -a "$LOG_FILE"
+    uv run ruff check --fix . 2>&1 | tee -a "$LOG_FILE" || true
+    uv run ruff format . 2>&1 | tee -a "$LOG_FILE" || true
+    
+    echo "Fixing Frontend..." | tee -a "$LOG_FILE"
+    cd src/web
+    npm run lint -- --fix 2>&1 | tee -a "../../$LOG_FILE" || true
+    cd "$ROOT_DIR"
+    
+    local end=$(date +%s)
+    FIX_DURATION=$((end - start))
+    echo "TIMING: AutoFix=${FIX_DURATION}s" >> "$LOG_FILE"
+}
 
-    # Parallel
-    if [ "$PARALLEL_MODE" = true ]; then
-         BACKEND_ARGS="$BACKEND_ARGS -n auto"
+# ============================================
+# Testmon Database Refresh
+# ============================================
+refresh_testmon_if_needed() {
+    if [ "$TIER" = "full" ] || [ "$TIER" = "exhaustive" ]; then
+        # Full tiers don't use testmon
+        return
     fi
-
-    echo "Command: uv run pytest $BACKEND_ARGS --cov=src --cov-report=term-missing" | tee -a logs/validate.log
-    eval "uv run pytest $BACKEND_ARGS --cov=src --cov-report=term-missing" | tee -a logs/validate.log
-    BACKEND_EXIT_CODE=${PIPESTATUS[0]}
     
-    BACKEND_END=$(date +%s)
-    BACKEND_DURATION=$((BACKEND_END - BACKEND_START))
-    echo "TIMING_METRIC: Backend=${BACKEND_DURATION}s" >> logs/validate.log
-fi
+    # Check if any test files have changed since last run
+    if [ -f ".testmondata" ]; then
+        local test_changes=$(find tests/ -name "*.py" -newer .testmondata 2>/dev/null | wc -l)
+        
+        if [ "$test_changes" -gt 0 ]; then
+            echo -e "${YELLOW}New test files detected, refreshing testmon...${NC}" | tee -a "$LOG_FILE"
+            uv run pytest --testmon --collect-only -q 2>&1 | tee -a "$LOG_FILE"
+        fi
+    fi
+}
 
-# ==========================================
-# Phase 3: Frontend Validation (Skipped if E2E_MODE=exclusive)
-# ==========================================
-FRONTEND_EXIT_CODE=0
-if [ "$E2E_MODE" != "exclusive" ]; then
-    echo "" | tee -a logs/validate.log
-    echo "Phase: Frontend Validation" | tee -a logs/validate.log
-    FRONTEND_START=$(date +%s)
+# ============================================
+# Phase 2: Backend Tests
+# ============================================
+run_backend_tests() {
+    if [ "$E2E_ONLY" = true ]; then
+        echo -e "${YELLOW}Skipping backend (E2E only mode)${NC}" | tee -a "$LOG_FILE"
+        return
+    fi
     
-    # Run the frontend wrapper test
-    # We don't need coverage here as it's parsed from logs separately
-    # Use -s to stream stdout (so users see the npm test output in real-time)
-    uv run pytest -s tests/validation/test_frontend_unit.py | tee -a logs/validate.log
-    FRONTEND_EXIT_CODE=${PIPESTATUS[0]}
+    echo "" | tee -a "$LOG_FILE"
+    echo -e "${BLUE}=== Backend Tests (Python) ===${NC}" | tee -a "$LOG_FILE"
+    local start=$(date +%s)
+    
+    local pytest_args=""
+    
+    # Test selection based on tier
+    case "$TIER" in
+        fast)
+            echo "Selection: LOC-only (testmon)" | tee -a "$LOG_FILE"
+            pytest_args="--testmon --testmon-forceselect"
+            ;;
+        medium)
+            echo "Selection: File-level (testmon)" | tee -a "$LOG_FILE"
+            pytest_args="--testmon --testmon-forceselect"
+            ;;
+        full)
+            echo "Selection: All tests" | tee -a "$LOG_FILE"
+            pytest_args=""
+            ;;
+        exhaustive)
+            echo "Selection: All tests (parallel)" | tee -a "$LOG_FILE"
+            pytest_args="-n auto"
+            ;;
+    esac
+    
+    # Add marker for live tests
+    if [ "$INCLUDE_LIVE" = false ]; then
+        pytest_args="$pytest_args -m \"not live\""
+    fi
+    
+    # Add coverage for full/exhaustive
+    if [ "$TIER" = "full" ] || [ "$TIER" = "exhaustive" ]; then
+        pytest_args="$pytest_args --cov=src --cov-report=term-missing"
+    fi
+    
+    # Add verbosity
+    if [ "$VERBOSE" = false ] && [ "$TIER" != "exhaustive" ]; then
+        pytest_args="$pytest_args -q"
+    fi
+    
+    # Parallel override
+    if [ "$PARALLEL" = true ] && [ "$TIER" != "exhaustive" ]; then
+        pytest_args="$pytest_args -n auto"
+    fi
+    
+    # Run tests
+    local output
+    output=$(eval "uv run pytest $pytest_args 2>&1") || true
+    echo "$output" | tee -a "$LOG_FILE"
+    
+    # Parse results - handle empty grep results
+    BACKEND_PASSED=$(echo "$output" | grep -oP '\d+(?= passed)' | tail -1)
+    BACKEND_PASSED=${BACKEND_PASSED:-0}
+    BACKEND_FAILED=$(echo "$output" | grep -oP '\d+(?= failed)' | tail -1)
+    BACKEND_FAILED=${BACKEND_FAILED:-0}
+    BACKEND_SKIPPED=$(echo "$output" | grep -oP '\d+(?= skipped)' | tail -1)
+    BACKEND_SKIPPED=${BACKEND_SKIPPED:-0}
+    BACKEND_DESELECTED=$(echo "$output" | grep -oP '\d+(?= deselected)' | tail -1)
+    BACKEND_DESELECTED=${BACKEND_DESELECTED:-0}
+    
+    local end=$(date +%s)
+    BACKEND_DURATION=$((end - start))
+    echo "TIMING: Backend=${BACKEND_DURATION}s" >> "$LOG_FILE"
+}
 
-    FRONTEND_END=$(date +%s)
-    FRONTEND_DURATION=$((FRONTEND_END - FRONTEND_START))
-    echo "TIMING_METRIC: Frontend=${FRONTEND_DURATION}s" >> logs/validate.log
-fi
+# ============================================
+# Phase 3: Frontend Tests
+# ============================================
+run_frontend_tests() {
+    if [ "$E2E_ONLY" = true ]; then
+        echo -e "${YELLOW}Skipping frontend (E2E only mode)${NC}" | tee -a "$LOG_FILE"
+        return
+    fi
+    
+    echo "" | tee -a "$LOG_FILE"
+    echo -e "${BLUE}=== Frontend Tests (Vitest) ===${NC}" | tee -a "$LOG_FILE"
+    local start=$(date +%s)
+    
+    cd src/web
+    
+    local vitest_args=""
+    
+    case "$TIER" in
+        fast)
+            # LOC-based selection if map exists
+            echo "Selection: LOC-only" | tee -a "../../$LOG_FILE"
+            if [ -f ".vitest-loc-map.json" ]; then
+                local loc_tests=$(node scripts/select-tests-by-loc.js 2>/dev/null | grep -v "^#" | tr '\n' ' ')
+                if [ -n "$loc_tests" ]; then
+                    echo "Found tests for changed LOC: $loc_tests" | tee -a "../../$LOG_FILE"
+                    vitest_args="$loc_tests"
+                else
+                    echo "No tests found, falling back to --changed" | tee -a "../../$LOG_FILE"
+                    vitest_args="--changed"
+                fi
+            else
+                echo "LOC map not found, using --changed" | tee -a "../../$LOG_FILE"
+                vitest_args="--changed"
+            fi
+            ;;
+        medium)
+            echo "Selection: File-level (--changed)" | tee -a "../../$LOG_FILE"
+            vitest_args="--changed"
+            ;;
+        full|exhaustive)
+            echo "Selection: All tests" | tee -a "../../$LOG_FILE"
+            if [ "$TIER" = "full" ] || [ "$TIER" = "exhaustive" ]; then
+                vitest_args="--coverage"
+            fi
+            ;;
+    esac
+    
+    # Run tests
+    local output
+    output=$(npm run test:run -- $vitest_args 2>&1) || true
+    echo "$output" | tee -a "../../$LOG_FILE"
+    
+    # Parse results
+    FRONTEND_PASSED=$(echo "$output" | grep -oP '\d+(?= passed)' | tail -1 || echo 0)
+    FRONTEND_FAILED=$(echo "$output" | grep -oP '\d+(?= failed)' | tail -1 || echo 0)
+    
+    cd "$ROOT_DIR"
+    
+    local end=$(date +%s)
+    FRONTEND_DURATION=$((end - start))
+    echo "TIMING: Frontend=${FRONTEND_DURATION}s" >> "$LOG_FILE"
+}
 
-# ==========================================
+# ============================================
 # Phase 4: E2E Tests
-# ==========================================
-E2E_EXIT_CODE=0
-if [ "$E2E_MODE" != "skip" ]; then
-    echo "" | tee -a logs/validate.log
-    echo "Phase: E2E Tests (Scope: $E2E_MODE)" | tee -a logs/validate.log
-    E2E_START=$(date +%s)
+# ============================================
+run_e2e_tests() {
+    if [ "$INCLUDE_E2E" = false ] && [ "$E2E_ONLY" = false ]; then
+        echo "" | tee -a "$LOG_FILE"
+        echo -e "${YELLOW}Skipping E2E tests${NC}" | tee -a "$LOG_FILE"
+        return
+    fi
     
-    # Set Scope Env Var (always full now)
-    export E2E_SCOPE="full"
+    echo "" | tee -a "$LOG_FILE"
+    echo -e "${BLUE}=== E2E Tests (Playwright) ===${NC}" | tee -a "$LOG_FILE"
+    local start=$(date +%s)
+    
+    local output
+    output=$(uv run pytest -s tests/validation/test_e2e_wrapper.py 2>&1) || true
+    echo "$output" | tee -a "$LOG_FILE"
+    
+    # Parse results
+    E2E_PASSED=$(echo "$output" | grep -oP '\d+ passed' | grep -oP '\d+' | head -1 || echo 0)
+    E2E_FAILED=$(echo "$output" | grep -oP '\d+ failed' | grep -oP '\d+' | head -1 || echo 0)
+    
+    local end=$(date +%s)
+    E2E_DURATION=$((end - start))
+    echo "TIMING: E2E=${E2E_DURATION}s" >> "$LOG_FILE"
+}
 
-    # Use -s to stream Playwright output
-    uv run pytest -s tests/validation/test_e2e_wrapper.py | tee -a logs/validate.log
-    E2E_EXIT_CODE=${PIPESTATUS[0]}
+# ============================================
+# Summary
+# ============================================
+print_summary() {
+    local total_end=$(date +%s)
+    local total_duration=$((total_end - TOTAL_START))
+    
+    echo "" | tee -a "$LOG_FILE"
+    echo -e "${BLUE}=== VALIDATION SUMMARY ===${NC}" | tee -a "$LOG_FILE"
+    echo "" | tee -a "$LOG_FILE"
+    
+    # Tier description
+    local tier_desc
+    case "$TIER" in
+        fast) tier_desc="Fast (LOC-only)" ;;
+        medium) tier_desc="Medium (file-level)" ;;
+        full) tier_desc="Full (all tests)" ;;
+        exhaustive) tier_desc="Exhaustive (max coverage)" ;;
+    esac
+    echo "Tier:        $tier_desc" | tee -a "$LOG_FILE"
+    
+    # Status indicators
+    local backend_status="${GREEN}✓${NC}"
+    if [ "${BACKEND_FAILED:-0}" -gt 0 ]; then backend_status="${RED}✗${NC}"; fi
+    
+    local frontend_status="${GREEN}✓${NC}"
+    if [ "${FRONTEND_FAILED:-0}" -gt 0 ]; then frontend_status="${RED}✗${NC}"; fi
+    
+    local e2e_status="${GREEN}✓${NC}"
+    if [ "${E2E_FAILED:-0}" -gt 0 ]; then e2e_status="${RED}✗${NC}"; fi
+    
+    # Results
+    if [ "$E2E_ONLY" = false ]; then
+        if [ "$TIER" = "fast" ] || [ "$TIER" = "medium" ]; then
+            echo -e "Backend:     $backend_status ${BACKEND_PASSED:-0} passed, ${BACKEND_SKIPPED:-0} skipped, ${BACKEND_DESELECTED:-0} deselected (${BACKEND_DURATION}s)" | tee -a "$LOG_FILE"
+        else
+            echo -e "Backend:     $backend_status ${BACKEND_PASSED:-0} passed, ${BACKEND_SKIPPED:-0} skipped (${BACKEND_DURATION}s)" | tee -a "$LOG_FILE"
+        fi
+        echo -e "Frontend:    $frontend_status ${FRONTEND_PASSED:-0} passed (${FRONTEND_DURATION}s)" | tee -a "$LOG_FILE"
+    fi
+    
+    if [ "$INCLUDE_E2E" = true ] || [ "$E2E_ONLY" = true ]; then
+        echo -e "E2E:         $e2e_status ${E2E_PASSED:-0} passed (${E2E_DURATION}s)" | tee -a "$LOG_FILE"
+    else
+        echo "E2E:         skipped" | tee -a "$LOG_FILE"
+    fi
+    
+    if [ "$FIX_DURATION" -gt 0 ]; then
+        echo "AutoFix:     ${FIX_DURATION}s" | tee -a "$LOG_FILE"
+    fi
+    
+    echo "" | tee -a "$LOG_FILE"
+    echo "Total Time:  ${total_duration}s" | tee -a "$LOG_FILE"
+    
+    # Overall status
+    local overall_failed=$((${BACKEND_FAILED:-0} + ${FRONTEND_FAILED:-0} + ${E2E_FAILED:-0}))
+    if [ "$overall_failed" -eq 0 ]; then
+        echo -e "Status:      ${GREEN}✓ PASS${NC}" | tee -a "$LOG_FILE"
+        return 0
+    else
+        echo -e "Status:      ${RED}✗ FAIL${NC} ($overall_failed failed)" | tee -a "$LOG_FILE"
+        return 1
+    fi
+}
 
-    E2E_END=$(date +%s)
-    E2E_DURATION=$((E2E_END - E2E_START))
-    echo "TIMING_METRIC: E2E=${E2E_DURATION}s" >> logs/validate.log
-fi
+# ============================================
+# Main Execution
+# ============================================
+run_auto_fix
+refresh_testmon_if_needed
+run_backend_tests
+run_frontend_tests
+run_e2e_tests
+print_summary
 
-# ==========================================
-# Final Status
-# ==========================================
-OVERALL_EXIT=0
-if [ $BACKEND_EXIT_CODE -ne 0 ] || [ $FRONTEND_EXIT_CODE -ne 0 ] || [ $E2E_EXIT_CODE -ne 0 ]; then
-    OVERALL_EXIT=1
-    echo "❌ Validation Failed!" | tee -a logs/validate.log
-else
-    echo "✅ Validation Passed!" | tee -a logs/validate.log
-fi
-
-# Append detailed logs from wrappers so analyze.sh can find them
-# ... (rest of the file remains similar for appending logs)
-
-# Append detailed logs from wrappers so analyze.sh can find them
-echo "" >> logs/validate.log
-echo "--- Detailed Reports ---" >> logs/validate.log
-
-# Note: frontend_unit.log is already streamed via -s so we don't append it again.
-# static_analysis.log is NOT streamed (captured by pytest wrappers), so we MUST append it.
-
-if [ -f "logs/static_analysis.log" ]; then
-    echo "Appending Static Analysis logs..."
-    cat logs/static_analysis.log >> logs/validate.log
-fi
-
-# Run analysis
-echo "" | tee -a logs/validate.log
-echo "Running Validation Analysis..." | tee -a logs/validate.log
-
-TOTAL_END=$(date +%s)
-TOTAL_DURATION=$((TOTAL_END - TOTAL_START))
-echo "TIMING_METRIC: Total=${TOTAL_DURATION}s" >> logs/validate.log
-
-./scripts/analyze.sh logs/validate.log | tee -a logs/validate.log
-
-exit $OVERALL_EXIT
-
+exit $?

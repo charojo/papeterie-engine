@@ -22,6 +22,14 @@ export default defineConfig({
     coverage: {
       include: ['src/**/*.jsx', 'src/**/*.js'],
       exclude: ['src/setupTests.js', 'src/**/__tests__/**'],
+      reporter: ['text', 'json', 'html'],
+    },
+    // Enable coverage collection for LOC tracking
+    reporters: ['default'],
+    onConsoleLog(log, _type) {
+      // Suppress noisy logs during test runs
+      if (log.includes('[TimelineEditor] [TimelineScroll]')) return false;
+      return true;
     },
   },
 })

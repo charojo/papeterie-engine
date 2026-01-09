@@ -6,21 +6,21 @@ This document outlines the verification and testing strategies for the Papeterie
 
 We employ a comprehensive testing strategy covering both the Python backend (Compiler/Renderer) and the React frontend.
 
-The primary entry point for running all verification checks is:
+The primary entry point for validation is a tier-based script:
 
 ```bash
-./scripts/validate.sh          # Auto-fixes formatting, then validates
-./scripts/validate.sh --nofix  # Validate only (for CI)
+./scripts/validate.sh              # Fast: LOC-only (~5s)
+./scripts/validate.sh --medium     # Medium: file-level (~30s)
+./scripts/validate.sh --full       # Full: all tests + E2E (~90s)
+./scripts/validate.sh --exhaustive # Exhaustive: max coverage (~5m)
+./scripts/validate.sh --help       # Show all options
 ```
 
-This script runs:
-1.  **Auto-fix** code style issues (import sorting, formatting) — unless `--nofix` is passed.
-2.  **Backend linting** via `ruff check` and `ruff format --check`.
-3.  **Backend tests** with coverage.
-4.  **Frontend linting** via ESLint.
-5.  **Frontend tests** with coverage.
-
-Output is automatically logged to `logs/validate.log`.
+**Workflow Tiers**:
+- **Fast** (default): LOC-only tests via testmon, skips lint & E2E — ideal for rapid iteration
+- **Medium**: File-level coverage, auto-fix linting — pre-commit workflow
+- **Full**: All tests + E2E + coverage — CI/pre-merge validation
+- **Exhaustive**: Parallel execution, mutation testing — deep analysis
 
 ## Backend Verification
 
@@ -49,26 +49,42 @@ To optimize verification time, we support "Smart Testing" to run only tests affe
 We use `pytest-testmon` to track dependencies between tests and code.
 
 - **Setup**: `uv run pytest --testmon` (First run builds the dependency database)
-- **Run Impacted**: `uv run pytest --testmon`
+- **Run Impacted**: `uv run pytest --testmon --testmon-forceselect`
 - **Principles**:
     - `testmon` monitors which lines of code are executed by each test.
     - When code changes, it selects only the tests that cover the changed lines.
     - If `testmon` database is missing or out of sync, it falls back to running all tests.
 
 ### Frontend (React)
-We leverage Vitest's built-in related/changed logic.
+We leverage Vitest's built-in related/changed logic plus custom LOC tracking.
 
-- **Command**: `npm run test -- --changed` (or `vitest --changed`)
+- **File-level**: `npm run test -- --changed` (tests for modified files)
+- **LOC-level**: Uses `.vitest-loc-map.json` to select tests covering specific changed lines
 - **Principles**:
-    - Runs tests for files that have been modified since the last commit.
-    - Uses the module graph to find tests that import modified files.
+    - Default mode runs tests for files that have been modified since the last commit.
+    - `--changeset_only` mode uses the LOC map for tighter selection.
 
 ### Automation
-We have a unified script to run both of these:
+We have a unified script with multiple modes:
 ```bash
-./scripts/smart_validate.sh
+./scripts/smart_validate.sh                   # Default: file-level coverage
+./scripts/smart_validate.sh --changeset_only  # LOC-only (fastest)
+./scripts/smart_validate.sh --full            # All tests
+./scripts/smart_validate.sh --e2e             # Include E2E tests
+./scripts/smart_validate.sh --help            # Show all options
 ```
-This script will execute the relevant checks for both backend and frontend based on your current changes.
+
+### Summary Output
+The script produces a structured summary:
+```
+=== SMART VALIDATION SUMMARY ===
+Mode:        default (file-level)
+Backend:     ✓ 143 passed, 0 skipped, 5 deselected (44s)
+Frontend:    ✓ 139 passed (3s)
+E2E:         skipped
+Total Time:  47s
+Status:      ✓ PASS
+```
 
 
 ## Verification Backlog

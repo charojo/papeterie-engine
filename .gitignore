@@ -22,11 +22,16 @@ wheels/
 .aider*
 *.orig
 
+# Dependencies
+node_modules/
+
 # Testing and Coverage
 .coverage
 htmlcov/
 coverage.xml
+coverage/
 .testmondata*
+.vitest-loc-map.json*
 test-results/
 playwright-report/
 .nyc_output/
