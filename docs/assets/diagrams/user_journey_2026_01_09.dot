@@ -1,0 +1,48 @@
+digraph UserJourney {
+    rankdir=LR;
+    node [shape=box, style="filled,rounded", fontname="Arial", fontsize=10];
+    edge [fontname="Arial", fontsize=9];
+
+    subgraph cluster_auth {
+        label = "Authentication";
+        style = filled;
+        color = "#e6f3ff";
+        node [fillcolor="#ffffff"];
+        
+        Login [label="Login Screen\n(Improved Design)"];
+        LocalAuth [label="Local Theater\n(No Auth Required)"];
+        CloudAuth [label="Cloud Theater\n(Login/Register)"];
+    }
+
+    subgraph cluster_dashboard {
+        label = "Dashboard";
+        style = filled;
+        color = "#fff0f0";
+        node [fillcolor="#ffffff"];
+        
+        Dashboard [label="Main Dashboard\nRecent Scenes"];
+        CreateScene [label="Create New Scene"];
+    }
+
+    subgraph cluster_editor {
+        label = "Scene Editor";
+        style = filled;
+        color = "#f0fff0";
+        node [fillcolor="#ffffff"];
+        
+        Editor [label="Unified Scene View\n(Theatre + Timeline)"];
+        Sprite [label="Sprite Management"];
+    }
+
+    Login -> LocalAuth [label="Click 'Enter Local'"];
+    Login -> CloudAuth [label="Credentials"];
+    
+    LocalAuth -> Dashboard [label="Access Granted"];
+    CloudAuth -> Dashboard [label="Access Granted"];
+    
+    Dashboard -> Editor [label="Select Scene"];
+    Dashboard -> CreateScene [label="New Project"];
+    CreateScene -> Editor [label="Initialize"];
+    
+    Editor -> Sprite [label="Add/Edit Assets"];
+}

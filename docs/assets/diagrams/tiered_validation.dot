@@ -1,0 +1,16 @@
+digraph TieredValidation {
+    rankdir=TB;
+    node [shape=box, style=filled, fontname="Verdana"];
+    edge [fontname="Verdana", fontsize=10];
+
+    EX [label="EXHAUSTIVE (~5m)\n--exhaustive", fillcolor="#ffcccc"];
+    FULL [label="FULL (~90s)\n--full", fillcolor="#ffe6e6"];
+    MED [label="MEDIUM (~30s)\n--medium", fillcolor="#e6ffe6"];
+    FAST [label="FAST (~5s)\n(default)", fillcolor="#e6f2ff"];
+
+    EX -> FULL [label="Includes"];
+    FULL -> MED [label="Includes"];
+    MED -> FAST [label="Includes"];
+
+    {rank=same; EX; FULL; MED; FAST}
+}

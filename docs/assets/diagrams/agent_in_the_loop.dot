@@ -1,0 +1,20 @@
+digraph AgentInTheLoop {
+    rankdir=LR;
+    node [shape=box, style="filled,rounded", fillcolor="#f0f4f8", fontname="Arial", fontsize=10];
+    edge [fontname="Arial", fontsize=10];
+
+    Observe [label="OBSERVE\nUser reports symptom", fillcolor="#e3f2fd"];
+    Diagnose [label="DIAGNOSE\nAgent researches codebase", fillcolor="#fff3e0"];
+    Implement [label="IMPLEMENT\nAgent writes fix + tests", fillcolor="#e8f5e9"];
+    Verify [label="VERIFY\nRun validation", fillcolor="#fce4ec"];
+
+    Observe -> Diagnose;
+    Diagnose -> Implement;
+    Implement -> Verify;
+    Verify -> Observe [label="If fails"];
+    Verify -> Done [label="If passes", style=dashed];
+    
+    Done [shape=doublecircle, label="Done", fillcolor="#c8e6c9", style=filled];
+
+    {rank=same; Observe; Done}
+}

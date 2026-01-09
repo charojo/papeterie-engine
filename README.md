@@ -30,5 +30,25 @@ The engine follows a strict **Compiler-Renderer** separation:
 ## 🚀 Getting Started
 Check out **[docs/HOWTO_Develop.md](docs/HOWTO_Develop.md)** for installation, environment setup, and development workflows.
 
+---
+
+## 📖 Blog Timeline: How This Project Matured
+
+This project was developed with an AI coding agent as a collaborative partner. The following blog posts document key phases of the architecture effort:
+
+| Date | Post | Focus |
+|------|------|-------|
+| 2026-01-09 | [Component Map Architecture](docs/blogs/2026-01-09-component-map-architecture.md) | Frontend-backend communication, Theatre.js engine, state synchronization |
+| 2026-01-09 | [Integration Pattern: Gemini API](docs/blogs/2026-01-09-integration-pattern-gemini-api.md) | LLM validation-fixup loop, two-stage analysis, async patterns |
+| 2026-01-09 | [The AI Partnership](docs/blogs/2026-01-09-ai-partnership-debugging.md) | Agent-in-the-loop debugging, mindset shift from coder to thought partner |
+| 2026-01-09 | [QA System & Workflows](docs/blogs/2026-01-09-qa-system-tests-workflows.md) | Tiered validation, agentic workflows, QA reasoning loops |
+
+These posts serve as both:
+- **Developer onboarding**: Understand the architecture and design decisions
+- **Process documentation**: How AI-assisted development shaped the codebase
+
+---
+
 ## 🤖 AI Interaction Protocol
-This project uses an `AGENTS.md` file to maintain persistent context for LLM collaborators. When working with Gemini, ensure **Agent Mode** is active to allow full-repository awareness. See the "AI Agent Initialization" section in **[HOWTO_Develop.md](docs/HOWTO_Develop.md)** for details.
+This project uses an `AGENTS.md` file to maintain persistent context for LLM collaborators. When working with Gemini, ensure **Agent Mode** is active to allow full-repository awareness. See the \"AI Agent Initialization\" section in **[HOWTO_Develop.md](docs/HOWTO_Develop.md)** for details.
+

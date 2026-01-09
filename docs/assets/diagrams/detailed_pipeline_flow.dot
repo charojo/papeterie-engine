@@ -1,0 +1,27 @@
+digraph DetailedPipeline {
+    rankdir=TB;
+    node [shape=box, style=filled, fontname="Verdana"];
+    edge [fontname="Verdana", fontsize=10];
+
+    User [label="User Upload\n(PNG + .prompt)", shape=Mdiamond];
+    Compiler [label="SpriteCompiler", fillcolor=lightblue];
+    
+    subgraph cluster_gemini {
+        label="Gemini API (Two-Stage)";
+        S1 [label="Stage 1: Creative Analysis\n(Gemini 2.5-Flash)", fillcolor=lightpink];
+        S2 [label="Stage 2: Structured JSON\n(Gemini 3 Pro)", fillcolor=lightpink];
+        S1 -> S2 [label="Vibrant Text"];
+    }
+
+    Validation [label="Pydantic Validation", fillcolor=lightgrey];
+    Fixup [label="MetaFixupPrompt\n(Logic Retry)", fillcolor=lightpink, style=dashed];
+    Storage [label=".prompt.json\n(Asset Folder)", shape=folder, fillcolor=lightyellow];
+
+    User -> Compiler;
+    Compiler -> S1 [label="Image + Prompt"];
+    S2 -> Validation [label="Raw JSON"];
+    
+    Validation -> Storage [label="Success ✅", color=green];
+    Validation -> Fixup [label="Fail ❌", color=red];
+    Fixup -> S2 [label="Retry w/ Error", style=dashed];
+}

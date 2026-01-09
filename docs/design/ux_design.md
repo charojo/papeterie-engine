@@ -2,6 +2,8 @@
 
 This document defines the visual design system and UX patterns for the Papeterie Engine web dashboard. It serves as the authoritative reference for maintaining consistency.
 
+> **📖 Related**: The `/css-review` and `/ux-review` workflows are documented in [QA System & Workflows](../blogs/2026-01-09-qa-system-tests-workflows.md).
+
 ---
 
 ## 1. Design Tokens
@@ -137,3 +139,22 @@ Use `/css-review` workflow before merging UI changes.
 Previous design documents:
 - UI Overhaul & Workflow Refinement (Jan 2026) - Removed sidebar, scene-centric layout
 - Scene Editing Architecture - Behavior system, timeline editor
+
+---
+
+## 6. User Journey Workflow
+
+The application follows a streamlined user flow designed to get creators into the editor as quickly as possible.
+
+### High-Level Flow
+1.  **Authentication**: Users start at the Login Screen.
+    *   **Local Theater**: Direct entry to the dashboard (no credentials required).
+    *   **Cloud Theater**: Standard username/password login or registration.
+2.  **Dashboard**: The central hub displaying "Recent Scenes" and the option to "Create New Scene".
+3.  **Scene Editor**: The core workspace where users interact with the Theatre stage, timeline, and sprite assets.
+
+### Diagram
+The following diagram illustrates the state transitions:
+
+![User Journey Diagram](../assets/diagrams/user_journey_2026_01_09.png)
+*[Source: user_journey_2026_01_09.dot](../assets/diagrams/user_journey_2026_01_09.dot)*

@@ -1,10 +1,16 @@
 This design document outlines the architecture for the **Papeterie Engine**, a 2D "Toy Theatre" animation system that uses AI-processed metadata to animate hand-drawn layers with realistic physics-based environmental reactions.
 
+> **📖 Technical Deep-Dives**
+> 
+> For detailed architectural walkthroughs, see the [blog posts](../blogs/):
+> - [Consolidated Blogs](../blogs/) — Technical deep-dives and development history
+
 ---
 
 ## 🎭 Papeterie Engine: System Design
 
 ### 1. Architectural Overview
+
 
 The system is divided into two primary domains: the **Compiler Pipeline**, which handles AI-driven asset preparation, and the **Theatre Runtime**, which executes the parallax rendering and physics simulations.
 
@@ -48,12 +54,21 @@ The runtime engine translates static metadata into dynamic movement.
 * **Parallax Logic**: Layers are sorted by `z_depth`. Scrolling speeds are calculated based on these depths to create an illusion of 3D space.
 * **Pivot-on-Crest Algorithm**: This physics routine samples the Y-position of a target "environment" layer (like a wave) at two points (ahead and behind the sprite) to determine the appropriate rotation (tilt).
 
+#### E. React-Theatre Bridge
+
+The frontend uses a bidirectional communication pattern to synchronize the React UI with the imperative Pygame-based `Theatre.js` engine.
+
+![React-Theatre State Sync](../assets/diagrams/react_theatre_sync.png)
+*[Source: react_theatre_sync.dot](../assets/diagrams/react_theatre_sync.dot)*
+
 ---
 
-### 3. Data Flow
+### 3. Pipeline Data Flow
 
-![Data Flow](../assets/diagrams/data_flow.png)
-> [Source (DOT)](../assets/diagrams/data_flow.dot)
+The metadata pipeline ensures a reliable transition from creative intent to structured animation.
+
+![Detailed Pipeline Flow](../assets/diagrams/detailed_pipeline_flow.png)
+*[Source: detailed_pipeline_flow.dot](../assets/diagrams/detailed_pipeline_flow.dot)*
 
 ---
 
@@ -199,9 +214,25 @@ The `AssetLogger` tracks the progression of an asset through its lifecycle, prov
 *   **Environment**: Built for **Python 3.10+** using `uv` and **Node.js 20+**.
 *   **Governance**: All changes must pass `scripts/validate.sh` and occur on feature branches.
 
+### 9. Methodology: The AI Partnership
+
+This project is built on an **Agent-in-the-Loop** methodology where the AI partner is treated as a thought partner and infrastructure architect, not just a code generator.
+
+#### A. Prompt Memory vs. Git History
+
+| Feature | Git History (The *What*) | Prompt History (The *How* & *Why*) |
+|---------|-------------------------|-----------------------------------|
+| **Storage** | Local `.git` folder | AI Platform (Cloud) |
+| **Resilience** | Wiped by `git reset --hard` | Survives all local file deletions |
+| **Context** | Shows the final diff | Records reasoning and failed attempts |
+
+#### B. Reasoning Loops
+
+The agent employs structured chain-of-thought processing when debugging or implementing complex features, ensuring that architectural integrity is maintained even through rapid iterations.
+
 ---
 
-### 8. Token Usage & Cost Tracking
+### 10. Token Usage & Cost Tracking
 
 *   **Persistence**: All token counts are recorded in `logs/token_ledger.csv`.
 *   **Transparency**: Each entry includes a timestamp, the task name, and the specific model used.

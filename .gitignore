@@ -30,6 +30,7 @@ node_modules/
 htmlcov/
 coverage.xml
 coverage/
+.coverage/
 .testmondata*
 .vitest-loc-map.json*
 test-results/

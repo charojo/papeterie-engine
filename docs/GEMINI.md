@@ -111,8 +111,21 @@ Detailed design documentation is located in the `docs/design/` directory. Key do
 *   [`docs/design/high_level_design.md`](design/high_level_design.md): System architecture, data flow, and core component overview.
 *   [`docs/design/persistence_and_user_design.md`](design/persistence_and_user_design.md): User management and data persistence strategy.
 
+## Blog Posts: Development History
+
+Technical deep-dives documenting the architecture decisions and AI-assisted development methodology:
+
+| Post | Focus |
+|------|-------|
+| [Engine Architecture & Gemini Integration](blogs/2026-01-09-engine-architecture-and-gemini-integration.md) | Component Map architecture, React-Theatre sync, and the Gemini metadata pipeline |
+| [The AI Partnership & QA Workflows](blogs/2026-01-09-the-ai-partnership-and-qa-workflows.md) | Agent-in-the-loop debugging, tiered validation, and Prompt Memory |
+
+These posts document both **architecture decisions** and **AI-assisted development methodology**.
+
 ## Diagrams & Visuals
 *   **Location**: All `.dot` (source) and generated `.png` diagram files MUST be placed in `docs/assets/diagrams/`. Do not place them in the root of `docs/assets/`.
 *   **Documentation**: Documentation must embed the generated `.png` image and provide a link to the source `.dot` file.
 *   **Source of Truth**: The `.dot` files are the authoritative source for system architecture visuals. Always read the `.dot` file to understand the system structure.
 *   **Generation**: After modifying any `.dot` file, you MUST run `python scripts/generate_diagrams.py` to update the corresponding `.png` images.
+*   **Mermaid Warning**: Mermaid code blocks (`` `mermaid ``) DO NOT render in the repository environment and should be avoided in permanent documentation.
+

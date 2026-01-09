@@ -1,0 +1,21 @@
+digraph ReactTheatreSync {
+    rankdir=TD;
+    node [shape=box, style=filled, fontname="Verdana"];
+    edge [fontname="Verdana", fontsize=10];
+
+    subgraph cluster_react {
+        label="React Context / Hooks";
+        RS [label="React State:\nselectedSprite, currentTime", fillcolor=lightyellow];
+        UAC [label="useAssetController", fillcolor=lightyellow];
+    }
+
+    subgraph cluster_theatre {
+        label="Theatre.js Engine";
+        TE [label="Theatre.js Runtime", fillcolor=lightblue];
+        LR [label="Layer.js Runtimes", fillcolor=lightgreen];
+    }
+
+    RS -> TE [label="useEffect\n(props sync)"];
+    TE -> RS [label="Callbacks\n(onSpriteSelected)", dir=back, style=dashed];
+    UAC -> TE [label="Imperative\nCalls"];
+}

@@ -31,4 +31,15 @@ This workflow ensures that all project documentation (files in `docs/`) uses rel
     - Always verify the link by clicking it in your editor or checking the rendered markdown.
 
 4.  **Diagrams and Assets**:
-    - All diagrams in `docs/` should reference images in `docs/assets/diagrams/` via relative paths (e.g., `../assets/diagrams/image.png`).
+    - **Visual Standard**: All diagrams MUST use the **Graphviz DOT** standard for source files (`.dot`) and **PNG** for rendering.
+    - **Mermaid Warning**: Mermaid code blocks (`` `mermaid ``) DO NOT render in the repository environment and should be avoided in permanent documentation.
+    - **Registry**: Place `.dot` source files in `docs/assets/diagrams/`.
+    - **Generation**: After modifying any `.dot` file, you MUST generate/update the corresponding PNG:
+      ```bash
+      python scripts/generate_diagrams.py
+      ```
+    - **Linking**: Embed diagrams using relative PNG paths and provide a link to the DOT source:
+      ```markdown
+      ![Diagram Name](../assets/diagrams/name.png)
+      *[Source: name.dot](../assets/diagrams/name.dot)*
+      ```

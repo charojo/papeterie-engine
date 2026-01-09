@@ -2,9 +2,12 @@
 
 This document outlines the verification and testing strategies for the Papeterie Engine.
 
+> **📖 Deep-Dive**: For the full QA reasoning loop and agentic workflow catalog, see the [consolidated blogs](../blogs/).
+
 ## Overview
 
 We employ a comprehensive testing strategy covering both the Python backend (Compiler/Renderer) and the React frontend.
+
 
 The primary entry point for validation is a tier-based script:
 
@@ -17,10 +20,14 @@ The primary entry point for validation is a tier-based script:
 ```
 
 **Workflow Tiers**:
-- **Fast** (default): LOC-only tests via testmon, skips lint & E2E — ideal for rapid iteration
-- **Medium**: File-level coverage, auto-fix linting — pre-commit workflow
-- **Full**: All tests + E2E + coverage — CI/pre-merge validation
-- **Exhaustive**: Parallel execution, mutation testing — deep analysis
+
+![Tiered Validation System](../assets/diagrams/tiered_validation.png)
+*[Source: tiered_validation.dot](../assets/diagrams/tiered_validation.dot)*
+
+- **Fast** (default): LOC-only tests via `pytest-testmon` and custom JS locator.
+- **Medium**: File-level coverage, auto-fix linting.
+- **Full**: All tests + E2E + coverage.
+- **Exhaustive**: Parallel execution, maximum coverage.
 
 ## Backend Verification
 
@@ -85,6 +92,13 @@ E2E:         skipped
 Total Time:  47s
 Status:      ✓ PASS
 ```
+
+## QA Reasoning Loop
+
+When validation fails, the agent follows a structured chain-of-thought to identify and fix the root cause.
+
+![QA Reasoning Loop](../assets/diagrams/qa_reasoning_loop.png)
+*[Source: qa_reasoning_loop.dot](../assets/diagrams/qa_reasoning_loop.dot)*
 
 
 ## Verification Backlog

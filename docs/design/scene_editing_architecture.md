@@ -2,6 +2,8 @@
 
 The Papeterie Engine provides a comprehensive system for creating and editing 2D "Toy Theatre" animations through scene configuration, sprite behaviors, and an interactive web frontend.
 
+> **📖 Deep-Dive**: For React-Theatre.js state synchronization patterns and technical deep-dives, see the [consolidated blogs](../blogs/).
+
 ---
 
 ## 1. Overview
@@ -450,7 +452,14 @@ This section provides detailed UI design specifications for implementing advance
 
 [Source Diagram (.dot)](../assets/diagrams/scene_editor_components.dot)
 
-### 7.2 Timeline Editor Component
+### 7.2 Timeline State Flow
+
+The timeline provides temporal control by synchronizing React playback state with the imperative physics engine.
+
+![Timeline State Flow](../assets/diagrams/timeline_state_flow.png)
+*[Source: timeline_state_flow.dot](../assets/diagrams/timeline_state_flow.dot)*
+
+### 7.3 Timeline Editor Component
 
 The Timeline Editor provides visual control over time-based behaviors.
 

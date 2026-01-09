@@ -1,0 +1,23 @@
+digraph QAReasoningLoop {
+    rankdir=TB;
+    node [shape=box, style=filled, fillcolor=lightblue, fontname="Verdana"];
+    edge [fontname="Verdana", fontsize=10];
+
+    D [label="1. DETECT: Parse failure"];
+    L [label="2. LOCATE: Find failing test"];
+    T [label="3. TRACE: Read code-under-test"];
+    H [label="4. HYPOTHESIZE: Root cause"];
+    V [label="5. VERIFY: Check hypotheses"];
+    I [label="6. IMPLEMENT: Fix source/test"];
+    C [label="7. CONFIRM: Re-run tests"];
+    Done [label="DONE", fillcolor=lightgreen];
+
+    D -> L;
+    L -> T;
+    T -> H;
+    H -> V;
+    V -> I;
+    I -> C;
+    C -> H [label="FAIL", style=dashed, color=red];
+    C -> Done [label="PASS", color=green];
+}

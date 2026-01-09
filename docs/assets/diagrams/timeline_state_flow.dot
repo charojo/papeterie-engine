@@ -1,0 +1,17 @@
+digraph TimelineStateFlow {
+    rankdir=LR;
+    node [shape=box, style=filled, fillcolor=lightblue, fontname="Verdana"];
+    edge [fontname="Verdana", fontsize=10];
+
+    UI [label="TimelineEditor (React)", fillcolor=lightyellow];
+    Stage [label="TheatreStage (Bridge)", fillcolor=orange];
+    Engine [label="Theatre.js (Core)", fillcolor=lightblue];
+    Layer [label="Layer.js (Runtime)", fillcolor=lightgreen];
+
+    UI -> Stage [label="currentTime /\nisPlaying"];
+    Stage -> Engine [label="setTime(t) /\nupdate()"];
+    Engine -> Layer [label="apply(t)"];
+    Layer -> Layer [label="Interp Keyframes"];
+    Layer -> Engine [label="Transforms", style=dashed];
+    Engine -> Stage [label="Frame", style=dashed];
+}

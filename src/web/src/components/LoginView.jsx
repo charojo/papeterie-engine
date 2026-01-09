@@ -69,7 +69,7 @@ export function LoginView({ onLogin }) {
                 </div>
 
                 {/* Right Side: Cloud Theater (Login/Register) */}
-                <div className="flex-1-2 p-10 flex flex-col justify-center gap-6">
+                <div className="flex-1-2 login-right-pane flex flex-col justify-center gap-6">
                     <div>
                         <h2 className="text-2xl font-bold mb-3">
                             {isRegistering ? 'New Playwright' : 'Cloud Theater'}
@@ -159,6 +159,9 @@ export function LoginView({ onLogin }) {
                 }
                 .btn-text:hover {
                     opacity: 0.8;
+                }
+                .login-right-pane {
+                    padding: 5rem; /* Increased from p-10 (2.5rem) to reduce crowding */
                 }
             `}</style>
         </div>

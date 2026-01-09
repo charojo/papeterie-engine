@@ -10,7 +10,7 @@ cd "$ROOT_DIR"
 # ============================================
 # Configuration
 # ============================================
-TIER="fast"          # fast | medium | full | exhaustive
+TIER=""          # fast | medium | full | exhaustive
 INCLUDE_LIVE=false   # Include $ tests (API calls)
 INCLUDE_E2E=false    # E2E tests
 SKIP_FIX=false       # Skip auto-formatting
@@ -34,8 +34,8 @@ ${BLUE}Papeterie Engine Validation${NC}
 
 ${YELLOW}Usage:${NC} ./scripts/validate.sh [tier] [options]
 
-${YELLOW}Tiers:${NC} (mutually exclusive, default: fast)
-  (none)         ${GREEN}Fast${NC} - LOC-only tests for changes (~5s)
+${YELLOW}Tiers:${NC} (mutually exclusive)
+  --fast         ${GREEN}Fast${NC} - LOC-only tests for changes (~5s)
   --medium       ${YELLOW}Medium${NC} - file-level coverage (~30s)
   --full         ${BLUE}Full${NC} - all tests except \$ tests (~90s)
   --exhaustive   ${RED}Exhaustive${NC} - mutation, parallel (~5m)
@@ -49,7 +49,7 @@ ${YELLOW}Options:${NC}
   --help, -h     Show this help
 
 ${YELLOW}Examples:${NC}
-  ./scripts/validate.sh                # Fast: quick changeset check
+  ./scripts/validate.sh --fast         # Fast: quick changeset check
   ./scripts/validate.sh --medium       # Medium: file-level coverage
   ./scripts/validate.sh --full         # Full: pre-commit validation
   ./scripts/validate.sh --exhaustive   # Exhaustive: pre-merge
@@ -76,7 +76,9 @@ for arg in "$@"; do
         --help|-h) show_help; exit 0 ;;
         --medium) TIER="medium" ;;
         --full) TIER="full" ;;
+        --full) TIER="full" ;;
         --exhaustive) TIER="exhaustive" ;;
+        --fast) TIER="fast" ;;
         --live) INCLUDE_LIVE=true ;;
         --e2e-only) E2E_ONLY=true; TIER="full" ;;
         --no-fix) SKIP_FIX=true ;;
@@ -85,11 +87,17 @@ for arg in "$@"; do
         *) echo -e "${RED}Unknown option: $arg${NC}"; show_help; exit 1 ;;
     esac
 done
+    
+if [ $# -eq 0 ]; then
+    show_help
+    exit 0
+fi
 
 # Auto-enable features based on tier
 case "$TIER" in
     fast)
         # Minimal: skip lint, skip E2E
+        TIER="fast"
         ;;
     medium)
         # Balanced: auto-fix, skip E2E
