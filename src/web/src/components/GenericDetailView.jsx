@@ -27,7 +27,6 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
         logs,
         isOptimizing,
         selectedImage,
-        setSelectedImage,
         visualPrompt,
         setVisualPrompt,
         configPrompt,
@@ -75,6 +74,22 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
     // Fine-grained keyframe selection: { spriteName, behaviorIndex, time } or null
     const [selectedKeyframe, setSelectedKeyframe] = useState(null);
 
+    // Counter to force timeline to scroll to selection (for Theatre-originated selections)
+    const [forceScrollCounter, setForceScrollCounter] = useState(0);
+
+    // Wrapper to sync Theatre selection with Timeline selection
+    const handleSpriteSelectedWithTimelineSync = useCallback((spriteName) => {
+        handleSpriteSelected(spriteName);
+        // Also update the timeline's keyframe selection to base (time 0) for the selected sprite
+        // Use time: 0 for base selection to match how Timeline finds the base lane
+        if (spriteName && type === 'scene') {
+            setSelectedKeyframe({ spriteName, behaviorIndex: null, time: 0 });
+            // Force timeline to scroll even if this sprite was previously scrolled to
+            setForceScrollCounter(c => c + 1);
+            log.info(`Synced timeline selection to sprite: ${spriteName} (base at time 0)`);
+        }
+    }, [handleSpriteSelected, type]);
+
     // Vertical resize between theatre and timeline (ratio for theatre section)
     const theatreTimelineContainerRef = useRef(null);
     const { ratio: theatreRatio, isResizing: isTheatreResizing, startResize: startTheatreResize } = useResizableRatio(
@@ -111,6 +126,11 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
     const handleKeyframeSelect = (spriteName, behaviorIndex, time) => {
         log.info(`Keyframe selected: ${spriteName} (behavior: ${behaviorIndex === null ? 'base' : behaviorIndex}, time: ${time}s)`);
         setSelectedKeyframe({ spriteName, behaviorIndex, time });
+        // CRITICAL FIX: Also update currentTime to the keyframe's time so the theatre
+        // renders the sprite at the correct position/scale for this keyframe.
+        // Without this, the sprite would be rendered at the previous time, causing
+        // size/position mismatch and click detection failures.
+        setCurrentTime(time ?? 0);
     };
 
     const [isPlaying, setIsPlaying] = useState(false);
@@ -245,7 +265,7 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
                             onSpriteRotationChanged={handleSpriteRotationChanged}
                             onSaveScale={handleSaveScale}
                             onSavePosition={handleSpritePositionChanged}
-                            onSpriteSelected={handleSpriteSelected}
+                            onSpriteSelected={handleSpriteSelectedWithTimelineSync}
                             onAddSpriteRequested={() => setShowSpriteLibrary(true)}
 
                             // Props for sprite controls in TheatreStage Toolbar
@@ -365,11 +385,12 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
                                     }}
                                     onKeyframeMove={handleKeyframeMove}
                                     onKeyframeDelete={handleKeyframeDelete}
-                                    onSelectLayer={handleSpriteSelected}
+                                    onSelectLayer={handleSpriteSelectedWithTimelineSync}
                                     onKeyframeSelect={handleKeyframeSelect}
                                     assetBaseUrl={ASSET_BASE + '/assets'}
                                     onPlayPause={() => setIsPlaying(!isPlaying)}
                                     isPlaying={isPlaying}
+                                    forceScrollToSelection={forceScrollCounter}
                                 />
                             </div>
                         )}
@@ -410,7 +431,7 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
                                     asset={asset}
                                     selectedSprite={selectedImage}
                                     selectedBehaviorIndex={selectedKeyframe?.spriteName === selectedImage ? selectedKeyframe.behaviorIndex : null}
-                                    onSpriteSelected={setSelectedImage}
+                                    onSpriteSelected={handleSpriteSelectedWithTimelineSync}
                                     onBehaviorSelect={handleBehaviorSelect}
                                     layerVisibility={layerVisibility}
                                     onToggleVisibility={toggleLayerVisibility}
@@ -534,7 +555,7 @@ function SmartConfigViewer({ configData, selectedImage, type, scrollContainerRef
         if (el) {
             el.scrollIntoView({ behavior: 'smooth', block: 'start' });
             // Highlight effect
-            el.style.backgroundColor = 'var(--color-primary-glow)';
+            el.style.backgroundColor = 'var(--color-selection-glow)';
             setTimeout(() => {
                 if (el) el.style.backgroundColor = 'transparent';
             }, 1000);
@@ -578,7 +599,7 @@ function SmartConfigViewer({ configData, selectedImage, type, scrollContainerRef
                             id={`json-layer-${layer.sprite_name}`}
                             style={{
                                 padding: '8px',
-                                border: layer.sprite_name === selectedImage ? '1px solid var(--color-primary)' : '1px solid transparent',
+                                border: layer.sprite_name === selectedImage ? '1px solid var(--color-selection-accent)' : '1px solid transparent',
                                 background: layer.sprite_name === selectedImage ? 'var(--color-bg-elevated)' : 'var(--color-bg-surface)',
                                 borderRadius: '4px',
                                 transition: 'all 0.3s'

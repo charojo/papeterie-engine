@@ -224,11 +224,17 @@ class LocationRuntime extends EventRuntime {
             }
 
             // Scale and Rotation interpolation
+            // SAFEGUARD: Never allow scale to be 0 or negative - minimum is 0.001
             if (prevKeyframe.scale !== undefined && nextKeyframe.scale !== undefined) {
-                transform.scale = prevKeyframe.scale + (nextKeyframe.scale - prevKeyframe.scale) * smoothT;
-            } else if (prevKeyframe.scale !== undefined) {
+                const interpolatedScale = prevKeyframe.scale + (nextKeyframe.scale - prevKeyframe.scale) * smoothT;
+                // Only apply if positive; otherwise preserve existing scale
+                if (interpolatedScale > 0) {
+                    transform.scale = interpolatedScale;
+                }
+            } else if (prevKeyframe.scale !== undefined && prevKeyframe.scale > 0) {
                 transform.scale = prevKeyframe.scale;
             }
+            // If prevKeyframe.scale is 0 or undefined, keep the existing transform.scale (baseScale)
 
             if (prevKeyframe.rotation !== undefined && nextKeyframe.rotation !== undefined) {
                 transform.rotation = prevKeyframe.rotation + (nextKeyframe.rotation - prevKeyframe.rotation) * smoothT;
@@ -246,9 +252,12 @@ class LocationRuntime extends EventRuntime {
             if (prevKeyframe.horizontal_percent !== undefined) {
                 transform.horizontal_percent = prevKeyframe.horizontal_percent;
             }
-            if (prevKeyframe.scale !== undefined) {
+            // SAFEGUARD: Only apply scale if it's a positive value
+            if (prevKeyframe.scale !== undefined && prevKeyframe.scale > 0) {
                 transform.scale = prevKeyframe.scale;
             }
+            // If prevKeyframe.scale is 0 or undefined, keep the existing transform.scale (baseScale)
+
             if (prevKeyframe.rotation !== undefined) {
                 transform.rotation = prevKeyframe.rotation;
             }
@@ -728,10 +737,17 @@ export class Layer {
         // This allows users to see and interact with the sprite bounds at any time
         const showHandles = this.isSelected && !this.is_background;
         if (showHandles) {
+            // Pull selection colors from CSS variables to ensure theme consistency
+            const style = (typeof window !== 'undefined' && window.getComputedStyle && document.documentElement)
+                ? window.getComputedStyle(document.documentElement)
+                : null;
+            const accentColor = style?.getPropertyValue('--color-selection-accent')?.trim() || '#00ffff';
+            const glowColor = style?.getPropertyValue('--color-selection-glow')?.trim() || 'rgba(0, 255, 255, 0.4)';
+
             const handleSize = 8;
             const rotateHandleSize = 10;
-            const handleGlow = 'rgba(0, 255, 255, 0.4)';
-            const handleFill = 'rgba(0, 255, 255, 1.0)';
+            const handleGlow = glowColor;
+            const handleFill = accentColor;
 
             const drawHandles = (x, y, w, h) => {
                 ctx.save();
@@ -739,7 +755,7 @@ export class Layer {
                 ctx.rotate(finalRot * Math.PI / 180);
 
                 // Main bounding box
-                ctx.strokeStyle = 'rgba(0, 255, 255, 0.8)';
+                ctx.strokeStyle = accentColor;
                 ctx.setLineDash([5, 5]);
                 ctx.lineWidth = 2;
                 ctx.strokeRect(-w / 2, -h / 2, w, h);

@@ -1,3 +1,4 @@
+
 # Python-generated files
 __pycache__/
 *.py[oc]
@@ -61,3 +62,6 @@ assets/users/*
 !assets/users/community/sprites/stars/
 !assets/users/community/sprites/wave*/
 !docs/assets/
+
+# Playwright snapshots
+*-snapshots/

@@ -18,7 +18,8 @@ export function TimelineEditor({
     onSelectLayer,
     onKeyframeSelect, // (spriteName, behaviorIndex, time) => void
     isPlaying = false,
-    assetBaseUrl = '/assets'
+    assetBaseUrl = '/assets',
+    forceScrollToSelection = 0 // Counter to force scroll even if selection hasn't changed
 }) {
     const [zoom, setZoom] = useState(20); // pixels per second
     const containerRef = useRef(null);
@@ -126,21 +127,63 @@ export function TimelineEditor({
         return Array.from(offsets).sort((a, b) => a - b);
     }, [lanes]);
 
-    // Scroll Logic (Smart "Scroll Into View")
+    // Track last scrolled selection to prevent re-scrolling oscillation
+    const lastScrolledSelectionRef = useRef(null);
+
+    // Track forceScrollToSelection to detect when external selection wants to force scroll
+    const lastForceScrollRef = useRef(forceScrollToSelection);
+
+    // Flag to skip scrolling when selection originates from a timeline click
+    const skipScrollRef = useRef(false);
+
+    // Scroll Logic (Smart "Scroll Into View" - both vertical and horizontal)
     useEffect(() => {
+        // Skip scrolling if selection originated from a timeline click
+        if (skipScrollRef.current) {
+            log.debug('[TimelineScroll] Skipping - selection from timeline click');
+            skipScrollRef.current = false;
+            return;
+        }
+
+        // If forceScrollToSelection changed, reset the scroll cache to force scroll
+        if (forceScrollToSelection !== lastForceScrollRef.current) {
+            log.info('[TimelineScroll] Force scroll requested, resetting cache', {
+                prev: lastForceScrollRef.current,
+                new: forceScrollToSelection
+            });
+            lastScrolledSelectionRef.current = null;
+            lastForceScrollRef.current = forceScrollToSelection;
+        }
+
         if (selectedLayer && laneRefs.current) {
+            // Generate a unique key for this selection to prevent re-scrolling oscillation
+            const selectionKey = selectedKeyframe
+                ? `${selectedLayer}-${selectedKeyframe.behaviorIndex}-${selectedKeyframe.time}`
+                : selectedLayer;
+
+            // Skip if we've already scrolled to this exact selection (and no force scroll was requested)
+            if (lastScrolledSelectionRef.current === selectionKey) {
+                log.debug('[TimelineScroll] Skipping - already scrolled to:', selectionKey);
+                return;
+            }
+
+            log.info('[TimelineScroll] Processing scroll for:', selectionKey);
+
             // Calculate which lane we should scroll to
             // Priority: selectedKeyframe's lane > sprite's base lane
             let targetZ = null;
 
             if (selectedKeyframe && selectedKeyframe.spriteName === selectedLayer) {
-                // Find lane containing this specific keyframe
+                log.debug('[TimelineScroll] Seeking lane for keyframe:', selectedKeyframe);
+                // Find lane containing this specific keyframe - MUST match sprite name
                 for (const [z, items] of Object.entries(lanes)) {
                     const found = items.find(it =>
+                        it.sprite.sprite_name === selectedLayer &&
                         (selectedKeyframe.behaviorIndex === null ? it.type === 'base' : (it.type === 'behavior' && it.behaviorIndex === selectedKeyframe.behaviorIndex)) &&
                         Math.abs(it.time - selectedKeyframe.time) < 0.01
                     );
                     if (found) {
+                        log.debug('[TimelineScroll] Found keyframe in lane Z=', z);
                         targetZ = z;
                         break;
                     }
@@ -150,36 +193,90 @@ export function TimelineEditor({
             if (targetZ === null) {
                 const sprite = layers.find(l => l.sprite_name === selectedLayer);
                 if (sprite) {
-                    targetZ = sprite.z_depth || 0;
+                    targetZ = sprite.z_depth !== undefined ? sprite.z_depth : 0;
+                    log.debug('[TimelineScroll] Using sprite base Z=', targetZ);
                 }
             }
+
+            log.info('[TimelineScroll] Final targetZ=', targetZ, 'exists in laneRefs:', !!(targetZ !== null && laneRefs.current[targetZ]));
 
             if (targetZ !== null && laneRefs.current[targetZ]) {
                 const el = laneRefs.current[targetZ];
                 const container = containerRef.current;
                 if (el && container) {
-                    const elTop = el.offsetTop;
-                    const elHeight = el.offsetHeight;
-                    const containerScrollTop = container.scrollTop;
-                    const containerHeight = container.clientHeight;
-
-                    // Vertical-only scroll into view logic
-                    // Accounts for sticky ruler (RULER_HEIGHT = 24)
                     const RULER_HEIGHT = 24;
-                    const visibleMin = containerScrollTop + RULER_HEIGHT;
-                    const visibleMax = containerScrollTop + containerHeight;
+                    const elRect = el.getBoundingClientRect();
+                    const containerRect = container.getBoundingClientRect();
 
-                    if (elTop < visibleMin) {
-                        log.debug(`Vertical scroll (Up) for layer ${selectedLayer} at Z ${targetZ}`, { elTop, visibleMin });
-                        container.scrollTop = elTop - RULER_HEIGHT;
-                    } else if (elTop + elHeight > visibleMax) {
-                        log.debug(`Vertical scroll (Down) for layer ${selectedLayer} at Z ${targetZ}`, { elTop, elHeight, visibleMax });
-                        container.scrollTop = elTop + elHeight - containerHeight;
+                    // 1. Vertical Visibility (Lanes)
+                    const elTopRel = elRect.top - containerRect.top;
+                    const elBottomRel = elRect.bottom - containerRect.top;
+                    const visibleMinY = RULER_HEIGHT;
+                    const visibleMaxY = containerRect.height;
+
+                    const isFullyVisibleY = elTopRel >= visibleMinY && elBottomRel <= visibleMaxY;
+                    const isPartiallyVisibleY = (elTopRel < visibleMaxY && elBottomRel > visibleMinY);
+
+                    // 2. Horizontal Visibility (Time)
+                    const targetTime = (selectedKeyframe && selectedKeyframe.spriteName === selectedLayer) ? selectedKeyframe.time : 0;
+                    const targetX = HEADER_WIDTH + (targetTime * zoom) + PADDING_LEFT;
+                    const scrollLeft = container.scrollLeft;
+                    const containerWidth = container.clientWidth;
+
+                    const buffer = 50;
+                    const visibleMinX = scrollLeft + HEADER_WIDTH + buffer;
+                    const visibleMaxX = scrollLeft + containerWidth - buffer;
+
+                    const isVisibleX = targetX >= visibleMinX && targetX <= visibleMaxX;
+
+                    log.info('[TimelineScroll] Visibility Check', {
+                        targetZ,
+                        targetTime,
+                        isFullyVisibleY,
+                        isPartiallyVisibleY,
+                        isVisibleX,
+                        targetX,
+                        visibleMinX,
+                        visibleMaxX
+                    });
+
+                    let scrolled = false;
+
+                    // Vertical Scroll
+                    if (!isFullyVisibleY && !isPartiallyVisibleY) {
+                        const newScrollTop = container.scrollTop + elTopRel - RULER_HEIGHT;
+                        container.scrollTop = newScrollTop;
+                        log.info('[TimelineScroll] Vertical: Scrolled to reveal (out of view)', { newScrollTop });
+                        scrolled = true;
+                    } else if (!isFullyVisibleY) {
+                        if (elTopRel < visibleMinY) {
+                            container.scrollTop = container.scrollTop + (elTopRel - visibleMinY);
+                        } else if (elBottomRel > visibleMaxY) {
+                            container.scrollTop = container.scrollTop + (elBottomRel - visibleMaxY);
+                        }
+                        log.info('[TimelineScroll] Vertical: Nudged to fully reveal');
+                        scrolled = true;
                     }
+
+                    // Horizontal Scroll
+                    if (!isVisibleX) {
+                        const newScrollLeft = Math.max(0, targetX - (containerWidth / 2));
+                        container.scrollLeft = newScrollLeft;
+                        log.info('[TimelineScroll] Horizontal: Scrolled to reveal time', { targetTime, newScrollLeft });
+                        scrolled = true;
+                    }
+
+                    if (!scrolled) {
+                        log.info('[TimelineScroll] Already in view (both axis), skipping scroll');
+                    }
+
+                    lastScrolledSelectionRef.current = selectionKey;
                 }
+            } else {
+                log.warn('[TimelineScroll] targetZ invalid or ref missing', { targetZ });
             }
         }
-    }, [selectedLayer, selectedKeyframe, layers, lanes]);
+    }, [selectedLayer, selectedKeyframe, layers, lanes, forceScrollToSelection, zoom]);
 
     // Auto-scroll to keep playhead in view during scrub
     useEffect(() => {
@@ -647,7 +744,7 @@ export function TimelineEditor({
                                         height: 0,
                                         borderLeft: '4px solid transparent',
                                         borderRight: '4px solid transparent',
-                                        borderBottom: `5px solid ${isSelectedOffset ? 'var(--color-text-main)' : 'var(--color-primary)'}`
+                                        borderBottom: `5px solid ${isSelectedOffset ? 'var(--color-text-main)' : 'var(--color-selection-accent)'}`
                                     }} />
                                 </div>
                             );
@@ -721,6 +818,8 @@ export function TimelineEditor({
                                                 onClick={(e) => {
                                                     e.stopPropagation();
                                                     log.info(`Keyframe clicked: ${item.sprite.sprite_name} (${item.type === 'behavior' ? 'behavior: ' + item.behaviorIndex : 'base'}), time: ${item.time}s`);
+                                                    // Mark that selection is from a timeline click - skip auto-scroll
+                                                    skipScrollRef.current = true;
                                                     onSelectLayer && onSelectLayer(item.sprite.sprite_name);
                                                     // Report specific keyframe selection
                                                     onKeyframeSelect && onKeyframeSelect(

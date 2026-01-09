@@ -111,7 +111,7 @@ export function BehaviorEditor({ behaviors = [], onChange, readOnly = false, spr
                 </div>
             )}
 
-            <div className="flex-1 overflow-auto flex-col gap-0 border-t">
+            <div className={`flex-1 flex-col gap-0 border-t ${inline ? 'overflow-visible' : 'overflow-auto'}`}>
                 {filteredBehaviors.length === 0 && (
                     <div className="p-2 text-center text-subtle italic text-xs">
                         No {activeTab.toLowerCase()} behaviors defined.
@@ -175,7 +175,7 @@ function BehaviorCard({ behavior, _index, onChange, onRemove, onSelect, readOnly
 
 
     return (
-        <div className={`bg-surface rounded-sm border overflow-hidden ${isHighlighted ? 'border-primary ring-1 ring-primary-glow' : ''}`}>
+        <div className={`bg-surface rounded-sm border overflow-hidden ${isHighlighted ? 'border-selection ring-selection-glow mx-px' : ''}`}>
             <div
                 className="px-2 bg-elevated items-center gap-sm cursor-pointer min-h-5 flex-row"
                 style={{
