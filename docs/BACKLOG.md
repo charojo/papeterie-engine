@@ -18,8 +18,10 @@ This file lists features, improvements, and bugs to be addressed in the Papeteri
 *   **[SEC-003] Secure Secret Management**: Move sensitive keys like `AUTH_SECRET_KEY` from `src/config.py` to environment variables managed via `.env`.
 *   **[SEC-004] Sanitize API Error Responses**: Ensure internal server errors and tracebacks are not leaked to the client in `HTTPException` details.
 
+
 ## Active Development
 (Empty)
+*   **[TASK-003] Local-First Storage Research**: Research and prototype a move to client-side asset storage (File System Access API / IndexedDB) to enable a stateless, privacy-focused backend architecture.
 
 ## Verification & Quality Assurance
 (Empty)

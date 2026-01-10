@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from src.config import ASSETS_DIR, CORS_ORIGINS, LOGS_DIR
 from src.server.database import init_db
 from src.server.logger import setup_server_logger
-from src.server.routers import auth, behaviors, prompts, scenes, sounds, sprites, system
+from src.server.routers import auth, behaviors, processing, prompts, scenes, sounds, sprites, system
 
 # Setup logging
 logger = setup_server_logger(LOGS_DIR)
@@ -106,6 +106,7 @@ app.include_router(system.router, prefix="/api")
 app.include_router(behaviors.router, prefix="/api")
 app.include_router(sounds.router, prefix="/api")
 app.include_router(prompts.router, prefix="/api")
+app.include_router(processing.router, prefix="/api")
 
 
 @app.get("/")

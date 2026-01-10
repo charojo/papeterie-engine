@@ -28,8 +28,19 @@ vi.mock('sonner', () => ({
     toast: {
         error: vi.fn(),
         success: vi.fn(),
-        warning: vi.fn()
+        warning: vi.fn(),
+        promise: vi.fn((p) => p)
     }
+}));
+
+// Mock AssetRepository
+vi.mock('./repositories/AssetRepository', () => ({
+    createAssetRepository: () => ({
+        getSprites: () => Promise.resolve([]),
+        getScenes: () => Promise.resolve([{ name: 'castle' }]),
+        saveSprite: () => Promise.resolve({ name: 'new_sprite' }),
+        saveScene: () => Promise.resolve({ name: 'new_scene' })
+    })
 }));
 
 const mockScenes = [{ name: 'castle' }];

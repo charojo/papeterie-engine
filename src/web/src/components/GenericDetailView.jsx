@@ -22,7 +22,7 @@ import { useResizableRatio } from '../hooks/useResizable';
 import { API_BASE, ASSET_BASE } from '../config';
 
 
-export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, toggleExpand, _onOpenSprite, sprites, setContextualActions }) {
+export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, toggleExpand, _onOpenSprite, sprites, setContextualActions, repo }) {
     const {
         logs,
         isOptimizing,
@@ -260,6 +260,7 @@ export function GenericDetailView({ type, asset, refresh, onDelete, isExpanded, 
                             // Tabs removed
                             isExpanded={isExpanded}
                             toggleExpand={toggleExpand}
+                            repo={repo}
 
                             onSaveRotation={(name, deg) => type === 'scene' ? handleSpriteRotationChanged(name, deg) : handleSaveRotation(deg)}
                             onSpriteRotationChanged={handleSpriteRotationChanged}

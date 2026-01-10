@@ -36,7 +36,8 @@ export const ImageViewer = ({
     onTimeUpdate,
     isPlaying,
     isCommunity = false, // New prop
-    style // Style prop for flex sizing
+    style, // Style prop for flex sizing
+    repo // Asset Repository
 }) => {
     return (
         <div
@@ -75,6 +76,7 @@ export const ImageViewer = ({
                     onAddBehavior={onAddBehavior}
                     onSave={onSave}
                     hasChanges={hasChanges}
+                    repo={repo}
                 />
 
                 {isOptimizing && (

@@ -10,15 +10,14 @@ const _cancelAnimationFrame = (id) => (globalThis.cancelAnimationFrame || ((i) =
 
 
 export class Theatre {
-    constructor(canvas, sceneData, sceneName, assetBaseUrl = "http://localhost:8000/assets", userType = "default") {
+    constructor(canvas, sceneData, sceneName, assetBaseUrl = "http://localhost:8000/assets", userType = "default", repo = null) {
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d');
         this.sceneData = sceneData;
         this.sceneName = sceneName;
         this.assetBaseUrl = assetBaseUrl;
-        this.userType = userType; // 'default' or 'community'
-
-
+        this.userType = userType;
+        this.repo = repo; // Asset Repository
 
         this.audioManager = new AudioManager();
         this.audioManager.setBasePath(`${assetBaseUrl}/sounds/`);
@@ -233,8 +232,21 @@ export class Theatre {
         }
 
         const loadPromise = (async () => {
-            // Construct target URL
-            // SPRITES are located at: /assets/users/{user}/sprites/{spriteName}/{spriteName}.png
+            // 1. Try Repository First (Local Mode or Optimized Server Mode)
+            if (this.repo) {
+                try {
+                    const repoUrl = await this.repo.getSpriteImage(spriteName);
+                    if (repoUrl) {
+                        const img = await this._loadImage(repoUrl);
+                        log.debug(`[${this.sceneName}] Loaded sprite '${spriteName}' from Repository`);
+                        return img;
+                    }
+                } catch (e) {
+                    log.warn(`Repo load failed for ${spriteName}`, e);
+                }
+            }
+
+            // 2. Fallback to Legacy Fetch Logic
             const paths = this.userType === 'community'
                 ? ['community', 'default']
                 : ['default', 'community'];
@@ -313,7 +325,25 @@ export class Theatre {
      * Metadata serves as the "base" which scene overrides.
      */
     async _fetchAndMergeMetadata(config, image) {
+        // 1. Try Repository based metadata
+        if (this.repo && config.sprite_name) {
+            try {
+                const meta = await this.repo.getSpriteMetadata(config.sprite_name);
+                if (meta) {
+                    const merged = { ...meta, ...config };
+                    log.debug(`[${this.sceneName}] Merged metadata for ${config.sprite_name} (from Repo)`);
+                    return merged;
+                }
+            } catch (e) {
+                log.warn(`Repo metadata fetch failed for ${config.sprite_name}`, e);
+            }
+        }
+
+        // 2. Legacy URL fetching (only if image.src is http/https)
         if (!image || !image.src) return config;
+
+        // If blob URL (Local Mode) AND step 1 failed, we can't do anything else.
+        if (image.src.startsWith('blob:')) return config;
 
         try {
             const cleanSrc = image.src.split('?')[0];

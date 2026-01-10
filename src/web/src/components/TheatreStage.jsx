@@ -36,7 +36,8 @@ export function TheatreStage({
     onAddBehavior,
     onSave,
     hasChanges,
-    onPlayPause
+    onPlayPause,
+    repo // Asset Repository
 }) {
     const canvasRef = useRef(null);
     const theatreRef = useRef(null);
@@ -141,7 +142,7 @@ export function TheatreStage({
         }
 
         const userType = isCommunity ? 'community' : 'default';
-        const theatre = new Theatre(canvasRef.current, scene, sceneName, resolvedAssetBaseUrl, userType);
+        const theatre = new Theatre(canvasRef.current, scene, sceneName, resolvedAssetBaseUrl, userType, repo);
         theatre.onTelemetry = onTelemetry;
         // Initial debugMode: Convert mode string to boolean (same logic as sync effect)
         theatre.debugMode = debugMode === 'on' || debugMode === true || (debugMode === 'auto' && !!selectedSprite);

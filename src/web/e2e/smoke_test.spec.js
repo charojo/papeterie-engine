@@ -19,6 +19,11 @@ test.describe('Smoke Test', () => {
         // 1.8 Ensure a scene exists
         await ensureSceneExists(page);
 
+        // 1.9 Ensure we are in the scene list (Scene Selection Dialog)
+        // Click the "Create/Open a Scene" button which is always in TopBar
+        const openSceneBtn = page.getByTitle('Create/Open a Scene');
+        await openSceneBtn.click();
+
         // Check that the title is correct or some element exists
         await expect(page).toHaveTitle(/Papeterie Engine/);
 
