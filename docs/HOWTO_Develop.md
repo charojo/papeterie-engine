@@ -15,7 +15,15 @@ Before you begin, ensure you have the following installed:
 ## 2. Getting Started
 
 ### Environment Initialization
-Run these commands to build your local development environment:
+The most reliable way to initialize or refresh your environment is to run the automated check script. This script is also automatically called by `validate.sh` and `start_dev.sh`.
+
+```bash
+# Automated environment check and setup
+./scripts/ensure_env.sh
+```
+
+#### Manual Setup (Fallback)
+If the automated script fails or you need more granular control, you can follow these manual steps:
 
 ```bash
 # 1. Sync Python dependencies and create .venv
@@ -27,6 +35,41 @@ uv pip install -e .
 # 3. Install Web Dashboard dependencies
 cd src/web && npm install && cd ../..
 ```
+
+### Nuclear Reset (Re-Clone)
+The absolute cleanest start is to delete the directory and re-clone (shallowly for speed/size).
+
+> [!CAUTION]
+> **Backup your `.env` file first!** e.g., `cp .env ../papeterie.env`
+
+```bash
+# 1. Delete the directory
+cd ..
+rm -rf papeterie-clean # or whatever your folder is named
+
+# 2. Shallow Clone (Depth 1 = No History, fast & small)
+git clone --depth 1 https://github.com/charojo/papeterie-engine.git papeterie-clean
+cd papeterie-clean
+
+# 3. Restore .env
+cp ../papeterie.env .env
+
+# 4. Bootstrap
+```bash
+./scripts/ensure_env.sh
+```
+
+### Repository Footprint
+With the shallow clone strategy (`git clone --depth 1`), the project footprint is maybe reasonable for vibe coding:
+*   **Repository History (`.git`)**: ~16 MB
+*   **Source & Assets**: ~52 MB
+*   **Total Source Control**: ~68 MB
+
+The bulk of the disk usage (~1.2 GB) comes from build artifacts and dependencies generated during setup:
+*   `.venv` (Python env): ~961 MB
+*   `node_modules` (Web env): ~182 MB
+
+The shallow clone strategy is an efficient way to perform a clean start.
 
 ### Configuration (`.env`)
 You must manually create a `.env` file in the root directory. This file is ignored by Git.
@@ -81,12 +124,45 @@ The `scripts/` directory contains essential tools for maintenance and validation
 ### VS Code Integration
 1. Ensure the `.vscode/settings.json` file exists.
 2. If the terminal doesn't show `(.venv)`, use `Ctrl+Shift+P` -> `Python: Select Interpreter` and select the path to `./.venv/bin/python`.
-3. Use the **Python Debugger** extension for direct test execution.
+3. **Recommended Extensions**:
+    *   **Python** (Microsoft): Core Python language support.
+    *   **Markdown All in One**: Enhanced markdown editing and preview.
+    *   **ESLint**: JavaScript/React linting.
+    *   **Prettier**: Code formatting.
+    *   **Python Debugger**: Direct test execution and debugging.
 
 ### AI Agent Initialization (Gemini/Claude)
 When starting a new session with an AI Agent:
 1. Enable **Agent Mode** in the IDE.
 2. Instruct the AI: *"Read HOWTO_develop.md and AGENTS.md to initialize project context."*
+
+### Antigravity Integration & Living HOWTO
+We use the Antigravity agent as the canonical assistant for development tasks and for capturing issues encountered during work on feature branches. Follow these steps when you start work on a backlog item (for example, a `clean development` pull):
+
+1. Enable **Agent Mode** and ensure the Antigravity brain is available at `.gemini/antigravity/brain` (the project already reserves this path).
+2. Start an Antigravity session and ask it to scan `docs/HOWTO_Develop.md`, `docs/AGENTS.md`, and `docs/BACKLOG.md` (the project backlog is the canonical ledger for issues).
+3. For every blocker, environment quirk, or procedural gap you encounter, run the helper script to record it immediately (see `scripts/capture_issue.sh`). This creates a timestamped entry in `docs/BACKLOG.md` so the HOWTO can be updated incrementally.
+4. After resolving an issue or completing a task, update `docs/HOWTO_Develop.md` with the fix or guidance and mark the corresponding `docs/BACKLOG.md` entry as resolved by appending `- RESOLVED: <date> by <your-name>` under the issue.
+5. Run `python scripts/update_workflow_docs.py` when you add or change agent workflows so `docs/HOWTO_Agent_Workflows.md` stays in sync.
+
+Guidelines for living documentation
+- Record issues at the moment they occur; short, factual notes are best.
+- Prefer step-by-step remediation notes (commands and expected output) when possible.
+- Use the branch and PR to propose HOWTO changes; the PR description should reference `docs/BACKLOG.md` entries you addressed.
+
+
+Example capture flow:
+
+```bash
+# Start working on feature branch
+git checkout -b feature/clean-development
+
+# When you hit a missing env var or a failing test, capture it:
+./scripts/capture_issue.sh "Missing GEMINI_API_KEY in .env when running uv run pytest -m live"
+
+# After fixing, append a resolution note to the issue entry and update HOWTO
+git add docs/BACKLOG.md docs/HOWTO_Develop.md && git commit -m "docs: record and resolve env var issue in HOWTO"
+```
 
 ## 6. Project Directory Structure
 

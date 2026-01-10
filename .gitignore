@@ -9,7 +9,10 @@ wheels/
 
 # Virtual environments
 .venv/
+logs/.pytest_cache/
 .pytest_cache/
+logs/.ruff_cache/
+.ruff_cache/
 
 # SECRETS (Critical)
 .env
@@ -27,11 +30,13 @@ node_modules/
 
 # Testing and Coverage
 .coverage*
+logs/.coverage*
 htmlcov/
 coverage.xml
 coverage/
 .coverage/
 .testmondata*
+logs/.testmondata*
 .vitest-loc-map.json*
 test-results/
 playwright-report/
@@ -69,5 +74,6 @@ assets/users/*
 !assets/users/community/sprites/wave*/
 !docs/assets/
 
-# Playwright snapshots
-*-snapshots/
+# Playwright snapshots (allow tracking for visual regression)
+!*-snapshots/
+# *-snapshots/

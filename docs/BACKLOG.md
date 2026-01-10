@@ -4,7 +4,6 @@ This file lists features, improvements, and bugs to be addressed in the Papeteri
 
 ## High Priority
 
-*   **[TASK-001] Clean Git Pull Validation**: Validate the project on a fresh environment (simulating another developer) to ensure `uv sync`, `pytest`, and build processes work seamlessly. This mimics a "clean git pull" scenario to catch environment-specific dependencies or missing files.
 *   **[TASK-002] PythonAnywhere Hosting**: Plan and implement hosting on PythonAnywhere (Free/Low-cost AWS alternative). This includes setting up the WSGI entry point, configuring static file serving, and adapting the environment setup (virtualenv) for the hosting platform.
 
 ## Defects & Known Issues
@@ -77,5 +76,10 @@ This file lists features, improvements, and bugs to be addressed in the Papeteri
 *   **[DEF-002] Timeline Selection Jumping**: `skipScrollRef` logic is implemented in `TimelineEditor.jsx` to prevent auto-scrolling on direct interaction.
 *   **[DEF-003] Negative Timeline Values**: Resolved as "Overcome by Events" per user decision. Issue is no longer relevant.
 *   **[DEF-005] CSS Design System Violations**: Refactored `TimelineEditor.jsx` to use CSS classes, significantly reducing inline styles (from >23 to 18).
-*   **[DEF-007] Backend Connection Flakiness**: Frontend now uses `fetchWithTimeout` with 5-second timeout and gracefully falls back to LOCAL storage mode when backend is unavailable, preventing console error spam.
+*   **[FIX-007] E2E Visual Snapshots Missing from Git**: Fixed `.gitignore` which was excluding Playwright snapshots. These are now allowed in the repository to ensure visual regression tests pass on fresh clones.
+*   **[FIX-006] Missing Asset Directories on Clean Pull**: `SpriteCompiler` and other components now ensure their required directories exist during initialization, preventing failures on clean environments where empty untracked directories are missing.
+*   **[DONE-021] Clean Git Pull Validation**: Successfully validated the environment cleanup and rebuild process (`git clean -fdx`, `uv sync`, `npm install`). The validation suite now includes hints for initial/clean runs.
+
+### 2026-01-10T03:10:06Z - master (c0febb4)
+- ISSUE: Unit Test Failure: tests/test_backend.py fails in clean env due to missing mkdir(parents=True)
 

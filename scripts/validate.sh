@@ -7,6 +7,9 @@ set -eo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
 
+# Ensure Environment
+./scripts/ensure_env.sh
+
 # ============================================
 # Configuration
 # ============================================
@@ -17,6 +20,9 @@ SKIP_FIX=false       # Skip auto-formatting
 PARALLEL=false       # Parallel test execution
 VERBOSE=false        # Detailed output
 E2E_ONLY=false       # Run ONLY E2E tests
+INITIALIZING=false   # Internal flag for missing coverage
+REFRESHING=false     # Internal flag for outdated coverage
+PYTEST_SELECTION=""  # Centralized selection args
 
 # Colors
 RED='\033[0;31m'
@@ -79,6 +85,7 @@ for arg in "$@"; do
         --exhaustive) TIER="exhaustive" ;;
         --fast) TIER="fast" ;;
         --live) INCLUDE_LIVE=true ;;
+        --debug) VERBOSE=true; PARALLEL=false ;; # Debug mode implies verbose and sequential
         --e2e-only) E2E_ONLY=true; TIER="full" ;;
         --no-fix) SKIP_FIX=true ;;
         --parallel) PARALLEL=true ;;
@@ -116,8 +123,10 @@ esac
 # Setup
 # ============================================
 mkdir -p logs
-rm -f logs/static_analysis.log
+# Preserve .testmondata if it exists
+find logs/ -maxdepth 1 -type f ! -name ".testmondata" -delete
 LOG_FILE="logs/validate.log"
+export TESTMON_DATAFILE="logs/.testmondata"
 
 # Timing
 TOTAL_START=$(date +%s)
@@ -136,9 +145,50 @@ FRONTEND_FAILED=0
 E2E_PASSED=0
 E2E_FAILED=0
 
+# Check for initial run or clean environment BEFORE tier specific logic
+INITIAL_CLEAN=false
+if [[ ! -f "$TESTMON_DATAFILE" ]] || [[ ! -f ".coverage" ]]; then
+    INITIAL_CLEAN=true
+fi
+
 echo -e "${BLUE}Papeterie Validation${NC} - Tier: ${TIER}" | tee "$LOG_FILE"
 echo "Started at $(date)" | tee -a "$LOG_FILE"
+
+if [ "$INITIAL_CLEAN" = true ]; then
+    echo -e "${YELLOW}Initial run or clean environment detected: This may take 1-3 minutes...${NC}" | tee -a "$LOG_FILE"
+    echo -e "${BLUE}Note: We are building the test/coverage metadata for the first time.${NC}" | tee -a "$LOG_FILE"
+fi
+
 echo "" | tee -a "$LOG_FILE"
+
+# Centralized Test Selection Logic
+if [[ "$TIER" == "fast" || "$TIER" == "medium" ]]; then
+    if [[ ! -f "$TESTMON_DATAFILE" ]]; then
+        echo -e "${YELLOW}Initial run detected: Building testmon coverage database...${NC}" | tee -a "$LOG_FILE"
+        echo -e "${BLUE}Note: This initial scan may take 1-3 minutes depending on your environment.${NC}" | tee -a "$LOG_FILE"
+        INITIALIZING=true
+        PYTEST_SELECTION="--testmon"
+    else
+        # Check if tests are newer than data
+        test_changes=$(find tests/ -name "*.py" -newer "$TESTMON_DATAFILE" 2>/dev/null | wc -l)
+        if [[ "$test_changes" -gt 0 ]]; then
+            echo -e "${YELLOW}New test files detected, will refresh testmon...${NC}" | tee -a "$LOG_FILE"
+            REFRESHING=true
+            PYTEST_SELECTION="--testmon"
+        else
+            echo "Selection: $([[ "$TIER" == "fast" ]] && echo "LOC-only" || echo "File-level") (testmon)" | tee -a "$LOG_FILE"
+            PYTEST_SELECTION="--testmon --testmon-forceselect"
+        fi
+    fi
+    # Always exclude E2E from non-full tiers
+    PYTEST_SELECTION="$PYTEST_SELECTION -m \"not e2e\""
+elif [[ "$TIER" == "full" ]]; then
+    echo "Selection: All tests" | tee -a "$LOG_FILE"
+    PYTEST_SELECTION=""
+elif [[ "$TIER" == "exhaustive" ]]; then
+    echo "Selection: All tests (parallel)" | tee -a "$LOG_FILE"
+    PYTEST_SELECTION="-n auto"
+fi
 
 # ============================================
 # Phase 1: Auto-fix (medium, full, exhaustive)
@@ -166,29 +216,6 @@ run_auto_fix() {
     echo "TIMING_METRIC: AutoFix=${FIX_DURATION}s" >> "$LOG_FILE"
 }
 
-# ============================================
-# Testmon Database Refresh
-# ============================================
-refresh_testmon_if_needed() {
-    if [ "$TIER" = "full" ] || [ "$TIER" = "exhaustive" ]; then
-        # Full tiers don't use testmon
-        return
-    fi
-    
-    # Check if any test files have changed since last run
-    if [ -f ".testmondata" ]; then
-        local test_changes=$(find tests/ -name "*.py" -newer .testmondata 2>/dev/null | wc -l)
-        
-        if [ "$test_changes" -gt 0 ]; then
-            echo -e "${YELLOW}New test files detected, refreshing testmon...${NC}" | tee -a "$LOG_FILE"
-            uv run pytest --testmon --collect-only -q 2>&1 | tee -a "$LOG_FILE"
-        fi
-    fi
-}
-
-# ============================================
-# Phase 2: Backend Tests
-# ============================================
 run_backend_tests() {
     if [ "$E2E_ONLY" = true ]; then
         echo -e "${YELLOW}Skipping backend (E2E only mode)${NC}" | tee -a "$LOG_FILE"
@@ -201,25 +228,9 @@ run_backend_tests() {
     
     local pytest_args=""
     
-    # Test selection based on tier
-    case "$TIER" in
-        fast)
-            echo "Selection: LOC-only (testmon)" | tee -a "$LOG_FILE"
-            pytest_args="--testmon --testmon-forceselect"
-            ;;
-        medium)
-            echo "Selection: File-level (testmon)" | tee -a "$LOG_FILE"
-            pytest_args="--testmon --testmon-forceselect"
-            ;;
-        full)
-            echo "Selection: All tests" | tee -a "$LOG_FILE"
-            pytest_args=""
-            ;;
-        exhaustive)
-            echo "Selection: All tests (parallel)" | tee -a "$LOG_FILE"
-            pytest_args="-n auto"
-            ;;
-    esac
+    # Selection already computed upfront
+    # CRITICAL: Ignore tests/validation to prevent double-execution and deadlocks
+    pytest_args="$PYTEST_SELECTION --ignore=tests/validation"
     
     # Add marker for live tests
     if [ "$INCLUDE_LIVE" = false ]; then
@@ -232,8 +243,12 @@ run_backend_tests() {
     fi
     
     # Add verbosity
-    if [ "$VERBOSE" = false ] && [ "$TIER" != "exhaustive" ]; then
-        pytest_args="$pytest_args -q"
+    if [ "$VERBOSE" = true ]; then
+        pytest_args="$pytest_args -vv -s --timeout=300"
+    elif [ "$TIER" != "exhaustive" ]; then
+        pytest_args="$pytest_args -q --timeout=300"
+    else
+        pytest_args="$pytest_args --timeout=300"
     fi
     
     # Parallel override
@@ -241,11 +256,26 @@ run_backend_tests() {
         pytest_args="$pytest_args -n auto"
     fi
     
-    # Run tests
-    local output
-    output=$(eval "uv run pytest $pytest_args 2>&1") || true
-    echo "$output" | tee -a "$LOG_FILE"
+    # Run tests with streaming output
+    local output_tmp="logs/backend_output.tmp"
+    echo "Command: uv run pytest $pytest_args" | tee -a "$LOG_FILE"
+    echo "----------------------------------------" | tee -a "$LOG_FILE"
     
+    # We use eval to handle markers correctly in the variable
+    eval "uv run pytest $pytest_args 2>&1" | tee "$output_tmp" | tee -a "$LOG_FILE"
+    
+    echo "----------------------------------------" | tee -a "$LOG_FILE"
+    echo "Backend unit tests completed." | tee -a "$LOG_FILE"
+
+    local output
+    output=$(cat "$output_tmp")
+    rm -f "$output_tmp"
+    
+    # Check if run succeeded
+    if [[ "$INITIALIZING" == "true" && ! -s "$output_tmp" ]]; then
+         echo -e "${RED}Initialization failed.${NC}" | tee -a "$LOG_FILE"
+    fi
+
     # Parse results - handle empty grep results
     BACKEND_PASSED=$(echo "$output" | grep -oP '\d+(?= passed)' | tail -1 || echo 0)
     BACKEND_PASSED=${BACKEND_PASSED:-0}
@@ -308,10 +338,16 @@ run_frontend_tests() {
             ;;
     esac
     
-    # Run tests
+    # Run tests with real-time feedback
+    local output_tmp="../../logs/frontend_output.tmp"
+    echo "Executing: npm run test:run -- $vitest_args" | tee -a "../../$LOG_FILE"
+    
+    # Use script to maintain TTY for vitest colors/progress if possible, or just tee
+    eval "npm run test:run -- $vitest_args 2>&1" | tee "$output_tmp" | tee -a "../../$LOG_FILE"
+    
     local output
-    output=$(npm run test:run -- $vitest_args 2>&1) || true
-    echo "$output" | tee -a "../../$LOG_FILE"
+    output=$(cat "$output_tmp")
+    rm -f "$output_tmp"
     
     # Parse results
     FRONTEND_PASSED=$(echo "$output" | grep -oP '\d+(?= passed)' | tail -1 || echo 0)
@@ -336,15 +372,20 @@ run_e2e_tests() {
     
     echo "" | tee -a "$LOG_FILE"
     echo -e "${BLUE}=== E2E Tests (Playwright) ===${NC}" | tee -a "$LOG_FILE"
+    echo -e "${BLUE}Starting servers and running browser tests (this may take 1-2 minutes)...${NC}" | tee -a "$LOG_FILE"
     local start=$(date +%s)
     
     local output
-    output=$(uv run pytest -s tests/validation/test_e2e_wrapper.py 2>&1) || true
+    output=$(uv run pytest -s --timeout=300 tests/validation/test_e2e_wrapper.py 2>&1) || true
     echo "$output" | tee -a "$LOG_FILE"
     
+    if [[ "$output" == *"Timed out"* ]]; then
+        echo -e "${RED}E2E wrapper timed out. Check logs/backend_e2e.log and logs/frontend_e2e.log for server errors.${NC}" | tee -a "$LOG_FILE"
+    fi
+    
     # Parse results
-    E2E_PASSED=$(echo "$output" | grep -oP '\d+ passed' | grep -oP '\d+' | head -1 || echo 0)
-    E2E_FAILED=$(echo "$output" | grep -oP '\d+ failed' | grep -oP '\d+' | head -1 || echo 0)
+    E2E_PASSED=$(echo "$output" | grep -oP '\d+ passed' | grep -oP '\d+' | tail -1 || echo 0)
+    E2E_FAILED=$(echo "$output" | grep -oP '\d+ failed' | grep -oP '\d+' | tail -1 || echo 0)
     
     local end=$(date +%s)
     E2E_DURATION=$((end - start))
@@ -436,7 +477,6 @@ print_summary() {
 # Main Execution
 # ============================================
 run_auto_fix
-refresh_testmon_if_needed
 run_backend_tests
 run_frontend_tests
 run_e2e_tests

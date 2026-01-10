@@ -22,6 +22,10 @@ class SpriteCompiler:
         self.prompt_dir = Path(prompt_dir)
         self.max_fixup_attempts = 2
 
+        # Ensure directories exist for resilience (especially on clean pull)
+        self.sprite_dir.mkdir(parents=True, exist_ok=True)
+        self.prompt_dir.mkdir(parents=True, exist_ok=True)
+
     def _get_prompt_template(self, template_name: str) -> str:
         """Helper to fetch prompt templates."""
         return (self.prompt_dir / f"{template_name}.prompt").read_text()

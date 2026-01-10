@@ -16,8 +16,8 @@ def setup_test_assets():
     # Create test scenes
     scene_a = SCENES_DIR / "test_scene_A"
     scene_b = SCENES_DIR / "test_scene_B"
-    scene_a.mkdir(exist_ok=True)
-    scene_b.mkdir(exist_ok=True)
+    scene_a.mkdir(parents=True, exist_ok=True)
+    scene_b.mkdir(parents=True, exist_ok=True)
 
     (scene_a / "test_scene_A.original.png").touch()
     (scene_b / "test_scene_B.original.png").touch()
@@ -25,8 +25,8 @@ def setup_test_assets():
     # Create test sprites
     sprite_shared = SPRITES_DIR / "sprite_shared"
     sprite_unique = SPRITES_DIR / "sprite_unique"
-    sprite_shared.mkdir(exist_ok=True)
-    sprite_unique.mkdir(exist_ok=True)
+    sprite_shared.mkdir(parents=True, exist_ok=True)
+    sprite_unique.mkdir(parents=True, exist_ok=True)
 
     # Configs
     config_a = {
@@ -122,7 +122,7 @@ def test_reset_scene(setup_test_assets):
 def test_delete_sprite_reset():
     name = "test_sprite_reset"
     d = SPRITES_DIR / name
-    d.mkdir(exist_ok=True)
+    d.mkdir(parents=True, exist_ok=True)
     (d / f"{name}.original.png").touch()
     (d / f"{name}.png").touch()  # Generated
 
@@ -185,7 +185,7 @@ def test_update_sprite_config():
     """Test PUT /api/sprites/{name}/config endpoint."""
     name = "test_sprite_config"
     sprite_dir = SPRITES_DIR / name
-    sprite_dir.mkdir(exist_ok=True)
+    sprite_dir.mkdir(parents=True, exist_ok=True)
     (sprite_dir / f"{name}.png").touch()
 
     new_metadata = {

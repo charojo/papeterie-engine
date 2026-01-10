@@ -14,31 +14,34 @@ def test_frontend_coverage():
     os.makedirs(logs_dir, exist_ok=True)
     log_file = os.path.join(logs_dir, "frontend_unit.log")
 
-    # Use tee to stream to stdout AND file
-    # We use explicit pipe to avoid shell=True complexity with pipe if possible,
-    # but shell=True is easiest for piping.
-    # Note: 'npm run test:coverage' might output colors, which we want in console
-    # but maybe not in log, but having colors in log is usually fine for analyze.sh.
+    print("Executing: npm run test:coverage")
+    print(f"Working Directory: {frontend_dir}")
 
-    print(f"Executing: npm run test:coverage > {log_file}")
-
-    with open(log_file, "w") as f:
-        process = subprocess.Popen(
+    # Use subprocess.run for simpler execution if we don't need to parse line-by-line
+    # Inheriting stdout/stderr ensures we see output in 'pytest -s' and avoids pipe deadlocks.
+    try:
+        # Note: We run with CI=true to ensure no interactive prompts
+        result = subprocess.run(
             ["npm", "run", "test:coverage"],
             cwd=frontend_dir,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
+            env={**os.environ, "CI": "true"},
+            capture_output=True,
             text=True,
-            bufsize=1,  # Line buffered
+            timeout=300,  # 5 minute timeout
         )
 
-        for line in process.stdout:
-            print(line, end="")
-            f.write(line)
+        # Write to log file for analyze.sh
+        with open(log_file, "w") as f:
+            f.write(result.stdout)
+            f.write(result.stderr)
 
-        process.wait()
+        print(f"Frontend coverage execution completed with exit code: {result.returncode}")
 
-    if process.returncode != 0:
-        pytest.fail(
-            f"Frontend tests failed (Exit Code: {process.returncode}). See {log_file} for details."
-        )
+        if result.returncode != 0:
+            msg = f"Frontend tests failed (Exit Code: {result.returncode}). See {log_file}."
+            pytest.fail(msg)
+
+    except subprocess.TimeoutExpired:
+        pytest.fail("Frontend coverage test timed out after 5 minutes.")
+    except Exception as e:
+        pytest.fail(f"Frontend coverage test encountered an error: {e}")

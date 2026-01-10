@@ -26,7 +26,9 @@ dependencies = [
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
+cache_dir = "logs/.pytest_cache"
 asyncio_default_fixture_loop_scope = "function"
+timeout = 300
 markers = [
     "live: marks tests as live integration tests (deselect with '-m \"not live\"')",
     "e2e: marks tests as end-to-end tests",
@@ -45,11 +47,13 @@ dev = [
     "pytest-testmon>=2.1.0",
     "ruff>=0.1.0",
     "sqlite-web>=0.4.0",
+    "pytest-timeout>=2.4.0",
 ]
 
 [tool.ruff]
 line-length = 100
 target-version = "py310"
+cache-dir = "logs/.ruff_cache"
 
 [tool.ruff.lint]
 select = ["E", "F", "I"]  # E=pycodestyle errors, F=pyflakes, I=isort
@@ -57,4 +61,5 @@ ignore = []
 
 [tool.coverage.run]
 source = ["src"]
+data_file = "logs/.coverage"
 
