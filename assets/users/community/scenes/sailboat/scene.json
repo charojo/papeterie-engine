@@ -1,0 +1,199 @@
+{
+  "scene_name": "Opening Scene",
+  "duration_sec": 10,
+  "layers": [
+    {
+      "sprite_name": "stars",
+      "behaviors": [
+        {
+          "type": "background",
+          "enabled": true,
+          "scroll_speed": 0.0,
+          "coordinate": "y"
+        }
+      ]
+    },
+    {
+      "sprite_name": "clouds",
+      "behaviors": [
+        {
+          "type": "drift",
+          "enabled": true,
+          "velocity": 0.01,
+          "coordinate": "x",
+          "acceleration": 0.0,
+          "drift_cap": null,
+          "cap_behavior": "stop"
+        }
+      ]
+    },
+    {
+      "sprite_name": "wave6",
+      "behaviors": [
+        {
+          "type": "location",
+          "time_offset": 0,
+          "enabled": true,
+          "interpolate": false,
+          "x": 0,
+          "y": 0,
+          "vertical_percent": 0.64
+        },
+        {
+          "type": "drift",
+          "enabled": true,
+          "velocity": 0.05,
+          "coordinate": "x",
+          "acceleration": 0.0,
+          "drift_cap": null,
+          "cap_behavior": "stop"
+        }
+      ]
+    },
+    {
+      "sprite_name": "wave5",
+      "behaviors": [
+        {
+          "type": "location",
+          "time_offset": 0,
+          "enabled": true,
+          "interpolate": false,
+          "x": 0,
+          "y": 0,
+          "vertical_percent": 0.68
+        },
+        {
+          "type": "drift",
+          "enabled": true,
+          "velocity": 0.1,
+          "coordinate": "x",
+          "acceleration": 0.0,
+          "drift_cap": null,
+          "cap_behavior": "stop"
+        }
+      ]
+    },
+    {
+      "sprite_name": "wave4",
+      "behaviors": [
+        {
+          "type": "location",
+          "time_offset": 0,
+          "enabled": true,
+          "interpolate": false,
+          "x": 0,
+          "y": 0,
+          "vertical_percent": 0.7
+        },
+        {
+          "type": "drift",
+          "enabled": true,
+          "velocity": 0.2,
+          "coordinate": "x",
+          "acceleration": 0.0,
+          "drift_cap": null,
+          "cap_behavior": "stop"
+        }
+      ]
+    },
+    {
+      "sprite_name": "boat",
+      "environmental_reaction": {
+        "reaction_type": "pivot_on_crest",
+        "target_sprite_name": "wave1",
+        "max_tilt_angle": 10.0,
+        "vertical_follow_factor": 0.15,
+        "tilt_lift_factor": 0.5
+      },
+      "behaviors": [
+        {
+          "type": "location",
+          "time_offset": 0,
+          "enabled": true,
+          "interpolate": false,
+          "x": 0,
+          "y": 0,
+          "vertical_percent": 0.69
+        },
+        {
+          "type": "drift",
+          "enabled": true,
+          "velocity": 0.3,
+          "coordinate": "x",
+          "acceleration": 0.0,
+          "drift_cap": null,
+          "cap_behavior": "stop"
+        }
+      ]
+    },
+    {
+      "sprite_name": "wave1",
+      "behaviors": [
+        {
+          "type": "location",
+          "time_offset": 0,
+          "enabled": true,
+          "interpolate": false,
+          "x": 0,
+          "y": 0,
+          "vertical_percent": 0.72
+        },
+        {
+          "type": "drift",
+          "enabled": true,
+          "velocity": -0.45,
+          "coordinate": "x",
+          "acceleration": 0.0,
+          "drift_cap": null,
+          "cap_behavior": "stop"
+        }
+      ]
+    },
+    {
+      "sprite_name": "wave2",
+      "behaviors": [
+        {
+          "type": "location",
+          "time_offset": 0,
+          "enabled": true,
+          "interpolate": false,
+          "x": 0,
+          "y": 0,
+          "vertical_percent": 0.75
+        },
+        {
+          "type": "drift",
+          "enabled": true,
+          "velocity": -0.4,
+          "coordinate": "x",
+          "acceleration": 0.0,
+          "drift_cap": null,
+          "cap_behavior": "stop"
+        }
+      ]
+    },
+    {
+      "sprite_name": "wave3",
+      "behaviors": [
+        {
+          "type": "location",
+          "time_offset": 0,
+          "enabled": true,
+          "interpolate": false,
+          "x": 0,
+          "y": 0,
+          "vertical_percent": 0.8
+        },
+        {
+          "type": "drift",
+          "enabled": true,
+          "velocity": -0.35,
+          "coordinate": "x",
+          "acceleration": 0.0,
+          "drift_cap": null,
+          "cap_behavior": "stop"
+        }
+      ]
+    }
+  ]
+}

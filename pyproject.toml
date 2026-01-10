@@ -1,0 +1,71 @@
+[project]
+name = "papeterie-engine"
+version = "0.1.0"
+description = "Toy Theatre animation engine"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "a2wsgi>=1.10.0",
+    "email-validator>=2.3.0",
+    "fastapi[standard]>=0.128.0",
+    "google-genai>=1.56.0",
+    "pydantic>=2.0.0",
+    "python-dotenv>=1.0.0",
+    "python-multipart>=0.0.21",
+    "uvicorn>=0.40.0",
+    "pillow>=11.3.0",
+]
+
+[project.optional-dependencies]
+processing = [
+    "numpy>=1.26.0",
+    "opencv-python>=4.8.0",
+    "rembg[cpu]>=2.0.50",
+    "numba>=0.60.0",
+    "llvmlite>=0.43.0",
+]
+renderer = [
+    "moviepy>=2.0.0",
+    "pygame-ce>=2.5.6",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+cache_dir = "logs/.pytest_cache"
+asyncio_default_fixture_loop_scope = "function"
+timeout = 300
+markers = [
+    "live: marks tests as live integration tests (deselect with '-m \"not live\"')",
+    "e2e: marks tests as end-to-end tests",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning:rembg.*",
+    "ignore::DeprecationWarning:Pillow.*",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+    "pytest-mock>=3.10.0",
+    "pytest-xdist>=3.5.0",
+    "pytest-cov>=4.1.0",
+    "pytest-testmon>=2.1.0",
+    "ruff>=0.1.0",
+    "sqlite-web>=0.4.0",
+    "pytest-timeout>=2.4.0",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+cache-dir = "logs/.ruff_cache"
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]  # E=pycodestyle errors, F=pyflakes, I=isort
+ignore = []
+
+[tool.coverage.run]
+source = ["src"]
+data_file = "logs/.coverage"
+

@@ -1,0 +1,79 @@
+
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info/
+
+# Virtual environments
+.venv/
+logs/.pytest_cache/
+.pytest_cache/
+logs/.ruff_cache/
+.ruff_cache/
+
+# SECRETS (Critical)
+.env
+.env.local
+
+# IDE and OS
+.vscode/*
+!.vscode/settings.json
+.DS_Store
+.aider*
+*.orig
+
+# Dependencies
+node_modules/
+
+# Testing and Coverage
+.coverage*
+logs/.coverage*
+htmlcov/
+coverage.xml
+coverage/
+.coverage/
+.testmondata*
+logs/.testmondata*
+.vitest-loc-map.json*
+test-results/
+playwright-report/
+.nyc_output/
+.vite/
+
+# Database
+*.db
+papeterie.db
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Assets (Example: Sailboat scene)
+!assets/prompts/
+!assets/story/
+assets/story/*
+!assets/behaviors/
+assets/behaviors/*
+
+# User Assets
+assets/users/*
+!assets/users/.gitkeep
+
+# Community Assets (Sailboat)
+!assets/users/community/
+!assets/users/community/scenes/sailboat/
+!assets/users/community/sprites/boat/
+!assets/users/community/sprites/clouds/
+!assets/users/community/sprites/stars/
+!assets/users/community/sprites/wave*/
+!docs/assets/
+
+# Playwright snapshots (allow tracking for visual regression)
+!*-snapshots/
+# *-snapshots/

@@ -1,0 +1,38 @@
+digraph Deployment {
+    rankdir=LR;
+    node [shape=box, style=filled, fillcolor=white];
+    bgcolor="transparent";
+
+    subgraph cluster_client {
+        label = "Client";
+        style=dashed;
+        Browser [fillcolor="#E3F2FD"];
+    }
+
+    subgraph cluster_pythonanywhere {
+        label = "PythonAnywhere";
+        style=filled;
+        fillcolor="#F5F5F5";
+
+        node [shape=component];
+        Nginx [label="Load Balancer\n(Nginx)"];
+        
+        subgraph cluster_worker {
+            label = "Worker";
+            style=filled;
+            fillcolor="#FFFFFF";
+            WSGI [label="WSGI Adapter"];
+            FastAPI [label="FastAPI App", fillcolor="#C8E6C9"];
+            StaticFiles [label="Static Files"];
+        }
+
+        Database [label="Storage\n(SQLite/MySQL)", shape=cylinder, fillcolor="#FFF9C4"];
+    }
+
+    Browser -> Nginx [label="HTTP/HTTPS"];
+    Nginx -> StaticFiles [label="/ (Frontend)"];
+    Nginx -> WSGI [label="/api (Backend)"];
+    WSGI -> FastAPI;
+    FastAPI -> StaticFiles [label="Serves (fallback)"];
+    FastAPI -> Database [label="Reads/Writes"];
+}

@@ -1,0 +1,18 @@
+Act as a JSON Validator.
+
+Input: Malformed or invalid JSON for a 2D Paper Theatre sprite.
+Task: Fix the JSON to match the strict schema.
+
+Legacy Conversion Rules:
+- If you see "angle_range" or "rotation_range", convert it to an "oscillate" behavior on "coordinate": "rotation".
+- If you see "bob_height" or "hover_amplitude", convert it to an "oscillate" behavior on "coordinate": "y".
+- If you see "pulse_speed", convert to "pulse" behavior.
+
+Validation Rules:
+1. "behaviors" MUST be a list.
+2. Each behavior must have a valid "type" ("oscillate", "drift", "pulse") and "coordinate".
+3. "frequency" for oscillate must be <= 5.0.
+4. "amplitude" for oscillate must be reasonable (e.g., <= 200).
+5. Ensure "environmental_reaction" (if present) is a top-level object, NOT inside behaviors.
+
+Output: The corrected JSON.

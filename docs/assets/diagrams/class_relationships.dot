@@ -1,0 +1,34 @@
+digraph ClassRelationships {
+    rankdir=BT;
+    node [shape=record, style=filled, fillcolor=white, fontname="Verdana", fontsize=10];
+    edge [fontname="Verdana", fontsize=9];
+
+    subgraph cluster_Compiler {
+        label = "Compiler Pipeline";
+        style = dashed;
+        color = blue;
+        SpriteCompiler [label="{SpriteCompiler|- client: GeminiClient|- attempts: int|+ compile_sprite()\l+ save_metadata()\l}"];
+        GeminiCompilerClient [label="{GeminiCompilerClient|- model: str|+ generate_metadata()\l}"];
+    }
+
+    subgraph cluster_Models {
+        label = "Data Models (Pydantic)";
+        style = dashed;
+        color = orange;
+        SpriteMetadata [label="{SpriteMetadata|+ name: str\l+ frequency: float\l+ amplitude_y: int\l+ rotation_range: Tuple\l+ z_depth: int\l}"];
+        EnvironmentalReaction [label="{EnvironmentalReaction|+ type: Enum\l+ target: str\l+ max_tilt: float\l+ follow_factor: float\l}"];
+    }
+
+    subgraph cluster_Theatre {
+        label = "Theatre Runtime";
+        style = dashed;
+        color = green;
+        ParallaxLayer [label="{ParallaxLayer|+ z_depth: int\l+ image: Surface\l+ draw()\l+ get_y_at_x()\l}"];
+    }
+
+    SpriteCompiler -> GeminiCompilerClient [label="uses", arrowhead=open];
+    SpriteCompiler -> SpriteMetadata [label="creates", style=dotted, arrowhead=open];
+    SpriteMetadata -> EnvironmentalReaction [label="contains", arrowhead=diamond];
+    ParallaxLayer -> SpriteMetadata [label="consumes", style=dotted, arrowhead=open];
+    ParallaxLayer -> EnvironmentalReaction [label="applies", style=dotted, arrowhead=open];
+}

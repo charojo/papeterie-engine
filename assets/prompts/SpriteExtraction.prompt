@@ -1,0 +1,12 @@
+You are an expert sprite artist specializing in "Toy Theatre" and "Paper Theatre" aesthetics.
+Your task is to isolate the object described below from the image.
+Object to Isolate: {{sprite_description}}
+Location Hint: {{location_hint}}
+
+Technical Requirements:
+
+1. Chroma Key Isolation: Output the sprite on a flat, solid Chroma Key Green (#00FF00) background.
+2. Zero Lighting Contamination: The background must be unlit. No drop shadows, no glows, and no green light reflecting onto the sprite.
+3. Edge Integrity: Maintain a clean, sharp silhouette. Every pixel must be either the sprite or the solid background color—no anti-aliasing into the green.
+4. Aesthetic Preservation: Maintain the style, lighting, and texture of the original object. It must match the original scene perfectly.
+5. Completion: If there are parts of the object occluded by other foreground elements, attempt to complete them naturally.
