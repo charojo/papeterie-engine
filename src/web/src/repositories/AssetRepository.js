@@ -118,15 +118,37 @@ export class LocalAssetRepository extends AssetRepository {
 
     async getScenes() {
         const db = await this.dbPromise;
-        const items = await db.getAll(STORE_SCENES);
-        return items.map(item => ({
+        const localItems = await db.getAll(STORE_SCENES);
+        const localScenes = localItems.map(item => ({
             name: item.name,
             type: 'scene',
             config: item.config,
             has_config: true,
             has_original: !!item.originalBlob,
-            original_url: item.originalBlob ? URL.createObjectURL(item.originalBlob) : null
+            original_url: item.originalBlob ? URL.createObjectURL(item.originalBlob) : null,
+            is_local: true
         }));
+
+        try {
+            // Attempt to fetch standard scenes from server as well
+            const res = await fetch(`${API_BASE}/scenes`);
+            if (res.ok) {
+                const serverScenes = await res.json();
+                // Merge, preferring local if names conflict
+                const localNames = new Set(localScenes.map(s => s.name));
+                const merged = [...localScenes];
+                for (const s of serverScenes) {
+                    if (!localNames.has(s.name)) {
+                        merged.push({ ...s, is_local: false });
+                    }
+                }
+                return merged;
+            }
+        } catch {
+            // Fallback to local only if server is down
+        }
+
+        return localScenes;
     }
 
     async getSpriteImage(name) {

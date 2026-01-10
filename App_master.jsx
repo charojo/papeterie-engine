@@ -12,8 +12,6 @@ import { API_BASE, fetchWithTimeout } from './config';
 
 window.API_BASE = API_BASE;
 
-import { createAssetRepository } from './repositories/AssetRepository';
-
 function App() {
   const [sprites, setSprites] = useState([]);
   const [scenes, setScenes] = useState([]);
@@ -22,9 +20,6 @@ function App() {
   const [isExpanded, setIsExpanded] = usePersistentState('papeterie-is-expanded', false);
 
   const [user, setUser] = usePersistentState('papeterie-user', null);
-
-  // Repository Instance
-  const [repo, setRepo] = useState(null);
 
   // Per-theme contrast defaults
   const THEME_CONTRAST_DEFAULTS = {
@@ -58,7 +53,7 @@ function App() {
   const [fontSize, setFontSize] = usePersistentState('papeterie-font-size', 'medium'); // small, medium, large, xl
   const [storageMode, setStorageMode] = useState('LOCAL');
   const [isInitializing, setIsInitializing] = useState(true);
-  const [_backendAvailable, setBackendAvailable] = useState(true);
+  const [backendAvailable, setBackendAvailable] = useState(true);
 
   const [contextualActions, setContextualActions] = useState(null);
 
@@ -74,15 +69,20 @@ function App() {
     document.documentElement.setAttribute('data-font-size', fontSize);
   }, [fontSize]);
 
-
   const fetchData = useCallback(async () => {
-    if (!repo) return;
+    // Skip fetching if backend is unavailable
+    if (!backendAvailable) return;
+    if (!user && storageMode !== 'LOCAL') return;
 
     try {
-      const [spriteData, sceneData] = await Promise.all([
-        repo.getSprites(),
-        repo.getScenes()
+      const headers = user ? { 'Authorization': `Bearer ${user.access_token}` } : {};
+      const [spriteRes, sceneRes] = await Promise.all([
+        fetch(`${API_BASE}/sprites`, { headers }),
+        fetch(`${API_BASE}/scenes`, { headers })
       ]);
+
+      const spriteData = await spriteRes.json();
+      const sceneData = await sceneRes.json();
 
       // Alphabetize
       spriteData.sort((a, b) => a.name.localeCompare(b.name));
@@ -102,54 +102,38 @@ function App() {
       console.error("Failed to fetch data", e);
       toast.error("Failed to fetch data", { description: e.message });
     }
-  }, [repo, selectedItem, view, setSelectedItem]);
+  }, [user, storageMode, selectedItem, view, setSelectedItem, backendAvailable]);
 
-  // Initial Config & Repository Load
   useEffect(() => {
     const init = async () => {
-      let mode = 'LOCAL';
       try {
         const res = await fetchWithTimeout(`${API_BASE}/config`, {}, 5000);
         const config = await res.json();
-        mode = config.storage_mode;
+        setStorageMode(config.storage_mode);
         setBackendAvailable(true);
-      } catch {
+      } catch (e) {
+        // Gracefully fall back to LOCAL mode when backend is unavailable
+        // This prevents console spam when running frontend-only or during backend startup
+        if (e.message === 'Request timed out' || e.message?.includes('Failed to fetch')) {
+          console.warn('Backend unavailable, running in offline mode with LOCAL storage');
+        } else {
+          console.error('Failed to load config', e);
+        }
         setBackendAvailable(false);
-        mode = 'LOCAL';
+        setStorageMode('LOCAL');
+      } finally {
+        setIsInitializing(false);
       }
-
-      setStorageMode(mode);
-      const token = user ? user.access_token : null;
-      const newRepo = createAssetRepository(mode, token);
-      setRepo(newRepo);
-
-      // Perform initial fetch before revealing the UI to avoid race conditions in E2E
-      try {
-        const [spriteData, sceneData] = await Promise.all([
-          newRepo.getSprites(),
-          newRepo.getScenes()
-        ]);
-        spriteData.sort((a, b) => a.name.localeCompare(b.name));
-        sceneData.sort((a, b) => a.name.localeCompare(b.name));
-        setSprites(spriteData);
-        setScenes(sceneData);
-        console.log("[App] Scenes in state:", JSON.stringify(sceneData.map(s => s.name)));
-      } catch (err) {
-        console.error("[App] Initial fetch failed", err);
-      }
-
-      setIsInitializing(false);
     };
     init();
-  }, [user]);
+  }, []);
 
-  // Fetch data whenever repo changes (subsequent manual refreshes)
   useEffect(() => {
-    if (repo && !isInitializing) {
+    if (!isInitializing) {
       fetchData();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [repo]);
+  }, [isInitializing, user]);
 
   if (isInitializing) {
     return (
@@ -224,20 +208,16 @@ function App() {
       <main className="main-content" style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
         {view === 'create' && (
           <CreateView
-            repo={repo}
             onCreated={async (type, name) => {
               await fetchData();
-              // Simplified refresh logic
-              if (type === 'sprite') {
-                const items = await repo.getSprites();
-                const newItem = items.find(s => s.name === name);
-                if (newItem) setSelectedItem(newItem);
-                setView('sprite-detail');
-              } else {
-                const items = await repo.getScenes();
-                const newItem = items.find(s => s.name === name);
-                if (newItem) setSelectedItem(newItem);
-                setView('scene-detail');
+              const endpoint = type === 'sprite' ? 'sprites' : 'scenes';
+              const res = await fetch(`${API_BASE}/${endpoint}`);
+              const data = await res.json();
+              const newItem = data.find(s => s.name === name);
+
+              if (newItem) {
+                setSelectedItem(newItem);
+                setView(type === 'sprite' ? 'sprite-detail' : 'scene-detail');
               }
             }}
           />
@@ -293,7 +273,6 @@ function App() {
             isExpanded={isExpanded}
             toggleExpand={() => setIsExpanded(!isExpanded)}
             setContextualActions={setContextualActions}
-            repo={repo}
           />
         )}
 
@@ -316,7 +295,7 @@ function App() {
   )
 }
 
-function CreateView({ onCreated, repo }) {
+function CreateView({ onCreated }) {
   const [selectedType, setSelectedType] = useState('scene-gen'); // 'sprite' | 'scene-upload' | 'scene-gen'
 
   return (
@@ -350,8 +329,8 @@ function CreateView({ onCreated, repo }) {
       {/* Description & Form Area */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', maxWidth: '800px' }}>
         <div className="card glass" style={{ padding: '24px' }}>
-          {selectedType === 'sprite' && <NewSpriteForm onSuccess={(name) => onCreated('sprite', name)} repo={repo} />}
-          {selectedType === 'scene-upload' && <NewSceneForm onSuccess={(name) => onCreated('scene', name)} repo={repo} />}
+          {selectedType === 'sprite' && <NewSpriteForm onSuccess={(name) => onCreated('sprite', name)} />}
+          {selectedType === 'scene-upload' && <NewSceneForm onSuccess={(name) => onCreated('scene', name)} />}
           {selectedType === 'scene-gen' && <GenerateSceneForm onSuccess={(name) => onCreated('scene', name)} />}
         </div>
       </div>
@@ -387,7 +366,7 @@ function SelectionTile({ icon, title, selected, onClick, 'data-testid': testId }
 
 /* --- Forms with Toast Integration --- */
 
-function NewSpriteForm({ onSuccess, repo }) {
+function NewSpriteForm({ onSuccess }) {
   const [name, setName] = useState('');
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -398,15 +377,17 @@ function NewSpriteForm({ onSuccess, repo }) {
       toast.error("Missing Information", { description: "Please provide both a name and an image." });
       return;
     }
-    if (!repo) {
-      toast.error("Repository not initialized");
-      return;
-    }
 
     setLoading(true);
+    const formData = new FormData();
+    formData.append('name', name);
+    formData.append('file', file);
 
-    // Use the repository
-    const promise = repo.saveSprite(name, file)
+    const promise = fetch(`${API_BASE}/sprites/upload`, { method: 'POST', body: formData })
+      .then(async res => {
+        if (!res.ok) throw new Error(await res.text());
+        return res.json();
+      })
       .then(async data => {
         await new Promise(r => setTimeout(r, 500));
         onSuccess(data.name);
@@ -444,9 +425,7 @@ function NewSpriteForm({ onSuccess, repo }) {
       </button>
     </form>
   )
-}
-
-function NewSceneForm({ onSuccess, repo }) {
+} function NewSceneForm({ onSuccess }) {
   const [name, setName] = useState('');
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -457,18 +436,20 @@ function NewSceneForm({ onSuccess, repo }) {
       toast.error("Missing Information", { description: "Please provide both a name and an image." });
       return;
     }
-    if (!repo) {
-      toast.error("Repository not initialized");
-      return;
-    }
 
     setLoading(true);
+    const formData = new FormData();
+    formData.append('name', name);
+    formData.append('file', file);
 
-    const promise = repo.saveScene(name, file)
+    const promise = fetch(`${API_BASE}/scenes/upload`, { method: 'POST', body: formData })
+      .then(async res => {
+        if (!res.ok) throw new Error(await res.text());
+        return res.json();
+      })
       .then(async data => {
         await new Promise(r => setTimeout(r, 500));
         onSuccess(data.name);
-        return data.name;
       });
 
     toast.promise(promise, {

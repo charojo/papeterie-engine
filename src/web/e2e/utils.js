@@ -74,20 +74,29 @@ export async function ensureSceneExists(page) {
     const submitBtn = page.locator('[data-testid="upload-scene-submit"]');
     await submitBtn.click();
 
+    // Give some time for DB write and state updates
+    await page.waitForTimeout(1000);
+
     // 8. Wait for redirection or success
     // We expect to land on scene-detail view which has a canvas or some indicator
     await page.waitForSelector('canvas, [data-testid="scene-detail-view"]', { timeout: 15000 }).catch(() => {
         console.log('Redirection to scene-detail might be slow, clicking "Open Scene" manually if needed');
     });
 
-    // Go back to main if we are stuck
-    if (page.url().includes('create')) {
-        await page.goto('/');
-        // Handle login again if it kicks us out (unlikely but safe)
-        const loginButton = page.getByRole('button', { name: 'Enter Local Theater' });
-        if (await loginButton.isVisible({ timeout: 2000 }).catch(() => false)) {
-            await loginButton.click();
-        }
+    // CRITICAL: Navigate back to home so the tests start from a consistent list view
+    console.log('Navigating back to home to ensure list view is active...');
+    await page.goto('/');
+
+    // Handle login again if it kicks us out
+    const loginButton = page.getByRole('button', { name: 'Enter Local Theater' });
+    if (await loginButton.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await loginButton.click();
+    }
+
+    // click Open Scene to get to the selection dialog where the tests expect to find the scene item
+    const openSceneBtnFinal = page.locator('[data-testid="welcome-open-scene"]');
+    if (await openSceneBtnFinal.isVisible({ timeout: 5000 }).catch(() => false)) {
+        await openSceneBtnFinal.click();
     }
 
     // Clean up dummy file

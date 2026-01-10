@@ -136,6 +136,7 @@ async def list_scenes(
 
     # Community scenes
     community_list = scan_dir(community_scenes, is_comm=True)
+
     user_scene_names = {s.name for s in scenes}
     for s in community_list:
         if s.name not in user_scene_names:

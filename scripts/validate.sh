@@ -8,7 +8,7 @@ ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
 
 # Ensure Environment
-./scripts/ensure_env.sh
+. ./scripts/ensure_env.sh
 
 # ============================================
 # Configuration
@@ -25,11 +25,11 @@ REFRESHING=false     # Internal flag for outdated coverage
 PYTEST_SELECTION=""  # Centralized selection args
 
 # Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m'
+RED=$'\033[0;31m'
+GREEN=$'\033[0;32m'
+YELLOW=$'\033[1;33m'
+BLUE=$'\033[0;34m'
+NC=$'\033[0m'
 
 # ============================================
 # Help
