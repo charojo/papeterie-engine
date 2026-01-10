@@ -160,7 +160,7 @@ echo ""
 echo "========================================================"
 echo "Codebase Summary"
 echo "========================================================"
-python3 scripts/analyze_project.py | sed '1,3d' # Remove header lines from python script since we have our own
+python3 .agent/bin/analyze_project.py | sed '1,3d' # Remove header lines from python script since we have our own
 echo ""
 
 echo ""

@@ -13,7 +13,7 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
 # Ensure Environment
-"$SCRIPT_DIR/ensure_env.sh"
+"$SCRIPT_DIR/../.agent/bin/ensure_env.sh"
 
 echo "Checking for existing processes on ports 8000 (backend) and 5173 (frontend)..."
 

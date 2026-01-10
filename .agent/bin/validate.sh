@@ -4,11 +4,11 @@
 set -eo pipefail
 
 # Store the project root directory
-ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT_DIR"
 
 # Ensure Environment
-./scripts/ensure_env.sh
+./.agent/bin/ensure_env.sh
 
 # ============================================
 # Configuration
@@ -462,7 +462,7 @@ print_summary() {
     
     echo "" | tee -a "$LOG_FILE"
     echo "Running Validation Analysis..." | tee -a "$LOG_FILE"
-    ./scripts/analyze.sh "$LOG_FILE" | tee -a "$LOG_FILE" || true
+    ./.agent/bin/analyze.sh "$LOG_FILE" | tee -a "$LOG_FILE" || true
 
     # Overall status (Original print_summary does return 0/1, we should preserve that)
     local overall_failed=$((${BACKEND_FAILED:-0} + ${FRONTEND_FAILED:-0} + ${E2E_FAILED:-0}))

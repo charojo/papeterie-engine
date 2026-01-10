@@ -181,9 +181,9 @@ All dependencies with their versions, purposes, and usage locations. The engine 
 | **pytest** | ≥9.0.2 | Python test framework | `tests/*.py` |
 | **pytest-asyncio** | ≥1.3.0 | Async test support for FastAPI | `tests/test_routers*.py` |
 | **pytest-mock** | ≥3.10.0 | Mocking utilities for unit tests | `tests/*.py` |
-| **pytest-cov** | ≥4.1.0 | Test coverage reporting | `scripts/validate.sh` |
-| **pytest-testmon** | ≥2.1.0 | Smart test selection based on changes | `scripts/validate.sh --fast` |
-| **ruff** | ≥0.1.0 | Fast Python linter and formatter | `scripts/validate.sh` |
+| **pytest-cov** | ≥4.1.0 | Test coverage reporting | `.agent/bin/validate.sh` |
+| **pytest-testmon** | ≥2.1.0 | Smart test selection based on changes | `.agent/bin/validate.sh --fast` |
+| **ruff** | ≥0.1.0 | Fast Python linter and formatter | `.agent/bin/validate.sh` |
 
 #### Frontend (Node.js)
 
@@ -212,7 +212,7 @@ The `AssetLogger` tracks the progression of an asset through its lifecycle, prov
 
 *   **Asset Integrity**: All image processing must maintain **RGBA alpha transparency**.
 *   **Environment**: Built for **Python 3.10+** using `uv` and **Node.js 20+**.
-*   **Governance**: All changes must pass `scripts/validate.sh` and occur on feature branches.
+*   **Governance**: All changes must pass `.agent/bin/validate.sh` and occur on feature branches.
 
 ### 9. Methodology: The AI Partnership
 

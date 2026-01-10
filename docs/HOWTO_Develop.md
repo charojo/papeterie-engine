@@ -19,7 +19,7 @@ The most reliable way to initialize or refresh your environment is to run the au
 
 ```bash
 # Automated environment check and setup
-./scripts/ensure_env.sh
+./.agent/bin/ensure_env.sh
 ```
 
 #### Manual Setup (Fallback)
@@ -56,7 +56,7 @@ cp ../papeterie.env .env
 
 # 4. Bootstrap
 ```bash
-./scripts/ensure_env.sh
+./.agent/bin/ensure_env.sh
 ```
 
 ### Repository Footprint
@@ -109,10 +109,10 @@ The `scripts/` directory contains essential tools for maintenance and validation
 
 | Task / Script | Command | Description |
 | :--- | :--- | :--- |
-| **Fast Validation** | `./scripts/validate.sh --fast` | LOC-only tests for uncommitted changes (~5s). |
-| **Medium Validation** | `./scripts/validate.sh --medium` | File-level coverage with auto-fix (~30s). |
-| **Full Validation** | `./scripts/validate.sh --full` | All tests + E2E, recommended for pre-commit (~90s). |
-| **Exhaustive Validation** | `./scripts/validate.sh --exhaustive` | Maximum coverage + parallel execution (~5m). |
+| **Fast Validation** | `./.agent/bin/validate.sh --fast` | LOC-only tests for uncommitted changes (~5s). |
+| **Medium Validation** | `./.agent/bin/validate.sh --medium` | File-level coverage with auto-fix (~30s). |
+| **Full Validation** | `./.agent/bin/validate.sh --full` | All tests + E2E, recommended for pre-commit (~90s). |
+| **Exhaustive Validation** | `./.agent/bin/validate.sh --exhaustive` | Maximum coverage + parallel execution (~5m). |
 | **Check AI Models** | `uv run python scripts/check_models.py` | Verifies Google AI Studio API access. |
 | **Process Assets** | `uv run python scripts/process_assets.py` | Utilities for green screen removal, etc. |
 | **Diagrams** | `uv run python scripts/generate_diagrams.py` | Converts `.dot` files to PNGs. |
@@ -201,7 +201,7 @@ The typical development cycle involves an iterative loop between asset creation,
 2.  **Compilation**: Run `uv run python main.py` to generate `.prompt.json` via Gemini.
 3.  **Visual Feedback**: Use `theatre.py` or the Web Dashboard to see the animation in action.
 4.  **Refinement**: Adjust prompts or art based on visual results and re-compile.
-5.  **Validation**: Run `./scripts/validate.sh` to ensure no regressions before committing.
+5.  **Validation**: Run `./.agent/bin/validate.sh` to ensure no regressions before committing.
 
 ## 10. Working with Antigravity & AI
 
