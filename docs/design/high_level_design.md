@@ -182,7 +182,7 @@ All dependencies with their versions, purposes, and usage locations. The engine 
 | **pytest-asyncio** | ≥1.3.0 | Async test support for FastAPI | `tests/test_routers*.py` |
 | **pytest-mock** | ≥3.10.0 | Mocking utilities for unit tests | `tests/*.py` |
 | **pytest-cov** | ≥4.1.0 | Test coverage reporting | `scripts/validate.sh` |
-| **pytest-testmon** | ≥2.1.0 | Smart test selection based on changes | `scripts/smart_validate.sh` |
+| **pytest-testmon** | ≥2.1.0 | Smart test selection based on changes | `scripts/validate.sh --fast` |
 | **ruff** | ≥0.1.0 | Fast Python linter and formatter | `scripts/validate.sh` |
 
 #### Frontend (Node.js)

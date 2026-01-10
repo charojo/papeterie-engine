@@ -29,15 +29,15 @@ When ready to fully integrate with TheatreStage:
 
 ---
 
-## Phase 2: Dual Runtime Parity 🔄
+## Phase 2: Dual Runtime Parity ✅
 
 ### Problem
 `Layer.js` (JS) and `theatre.py` (Python) implement identical behavior systems independently. Any behavior change requires updating both, with risk of drift.
 
-### Action Items
-- [ ] Add `BEHAVIOR_RUNTIME_VERSION` constant to both files
-- [ ] Document expected behavior for each runtime class
-- [ ] Create parity test that runs same inputs through both
+### Completed Work
+- [x] Add `BEHAVIOR_RUNTIME_VERSION` constant to both files
+- [x] Document expected behavior for each runtime class
+- [x] Create parity test that runs same inputs through both
 
 ---
 

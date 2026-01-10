@@ -25,10 +25,14 @@ Workflows are pre-defined sets of instructions that agents can access to perform
 | Command | Description |
 | :--- | :--- |
 | `/add-scene` | How to add a new scene to the Papeterie Engine |
+| `/architecture` | Architectural Changes and Big Feature Implementations |
 | `/cleanup` | Cleanup system files, caches, and logs |
+| `/css-review` | Review CSS compliance and design system usage before merging |
+| `/design-planning` | Design and Planning tasks (UI/UX, System Design) |
+| `/docs-path-integrity` | How to maintain path integrity and avoid absolute paths in documentation |
 | `/security-review` | Perform a basic security review of the project |
 | `/ux-review` | Perform a UX and Accessibility Review of the application |
-| `/validate` | Run full project validation (linting, testing, coverage) |
+| `/validate` | Run exhaustive QA and full project validation |
 <!-- WORKFLOWS_END -->
 
 ## Automatic Updates

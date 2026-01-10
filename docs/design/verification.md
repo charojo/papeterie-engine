@@ -72,25 +72,23 @@ We leverage Vitest's built-in related/changed logic plus custom LOC tracking.
     - `--changeset_only` mode uses the LOC map for tighter selection.
 
 ### Automation
-We have a unified script with multiple modes:
+Smart testing is integrated into the unified `validate.sh` tiered system:
 ```bash
-./scripts/smart_validate.sh                   # Default: file-level coverage
-./scripts/smart_validate.sh --changeset_only  # LOC-only (fastest)
-./scripts/smart_validate.sh --full            # All tests
-./scripts/smart_validate.sh --e2e             # Include E2E tests
-./scripts/smart_validate.sh --help            # Show all options
+./scripts/validate.sh --fast       # LOC-only via testmon (~5s)
+./scripts/validate.sh --medium     # File-level coverage (~30s)
+./scripts/validate.sh --full       # All tests + E2E (~90s)
+./scripts/validate.sh --exhaustive # Max coverage, parallel (~5m)
 ```
 
 ### Summary Output
 The script produces a structured summary:
 ```
-=== SMART VALIDATION SUMMARY ===
-Mode:        default (file-level)
-Backend:     ✓ 143 passed, 0 skipped, 5 deselected (44s)
-Frontend:    ✓ 139 passed (3s)
-E2E:         skipped
-Total Time:  47s
-Status:      ✓ PASS
+=== VALIDATION SUMMARY ===
+Tier:        Full (all tests)
+Backend:     ✓ 140 passed, 2 skipped (51s)
+Frontend:    ✓ 227 passed (5s)
+E2E:         ✓ 9 passed (25s)
+Total Time:  84s
 ```
 
 ## QA Reasoning Loop
@@ -105,12 +103,7 @@ When validation fails, the agent follows a structured chain-of-thought to identi
 
 Improvements planned for the verification system:
 
-- [ ] **End-to-End (E2E) Testing**: Implement a basic Playwright test that verifies the full flow:
-    1. Start dev server
-    2. Navigate to dashboard
-    3. Open a scene (sailboat)
-    4. Play scene and verify canvas renders
-    5. Stop playback
+- [x] **End-to-End (E2E) Testing**: Implemented via Playwright with 10 tests covering smoke tests, timeline markers, UX consistency, and theme switching.
 - [ ] **Visual Regression Testing**: Automatically compare rendered output frames against "known good" baselines to detect rendering regressions.
 - [ ] **Snapshot Testing**: Use Vitest snapshots for React components to catch unexpected UI changes.
 - [ ] **CI Integration**: Set up GitHub Actions to run `validate.sh` on PRs.
@@ -119,9 +112,10 @@ Improvements planned for the verification system:
 
 | Area | Coverage |
 |------|----------|
-| **Backend (Python)** | 78% |
-| **Frontend (React)** | 72.52% |
-| **Total** | 75.26% |
+| **Backend (Python)** | 83% |
+| **Frontend (React)** | 59% |
+| **E2E (Playwright)** | 35% |
+| **Total** | 71% |
 
 ### Recent Improvements
 - Full ESLint cleanup: reduced 229 errors to 0

@@ -66,8 +66,10 @@ The `scripts/` directory contains essential tools for maintenance and validation
 
 | Task / Script | Command | Description |
 | :--- | :--- | :--- |
-| **Full Validation** | `./scripts/validate.sh` | Runs linting (Ruff, ESLint), formatting, and all tests. |
-| **Smart Tests** | `./scripts/smart_validate.sh` | Runs only tests affected by uncommitted changes. |
+| **Fast Validation** | `./scripts/validate.sh --fast` | LOC-only tests for uncommitted changes (~5s). |
+| **Medium Validation** | `./scripts/validate.sh --medium` | File-level coverage with auto-fix (~30s). |
+| **Full Validation** | `./scripts/validate.sh --full` | All tests + E2E, recommended for pre-commit (~90s). |
+| **Exhaustive Validation** | `./scripts/validate.sh --exhaustive` | Maximum coverage + parallel execution (~5m). |
 | **Check AI Models** | `uv run python scripts/check_models.py` | Verifies Google AI Studio API access. |
 | **Process Assets** | `uv run python scripts/process_assets.py` | Utilities for green screen removal, etc. |
 | **Diagrams** | `uv run python scripts/generate_diagrams.py` | Converts `.dot` files to PNGs. |
@@ -140,5 +142,7 @@ For deep dives into specific system architectures, refer to the following design
 *   **[High Level Design](design/high_level_design.md)**: Overall system architecture and goals.
 *   **[Scene Editing Architecture](design/scene_editing_architecture.md)**: Deep dive into the web-based scene editor and state management.
 *   **[Persistence & User Design](design/persistence_and_user_design.md)**: How assets and user data are stored and managed.
-*   **[Junior Dev Ecosystem](design/junior_dev_ecosystem.md)**: Guidance for junior developers and AI agents working on the project.
 *   **[Verification Strategy](design/verification.md)**: Detailed breakdown of the testing and validation layers.
+*   **[Undo/Redo System](design/undo_redo_system.md)**: Command pattern architecture for reversible actions.
+*   **[Refactoring Plan](design/refactoring_plan.md)**: Completed phases addressing code sprawl and stability.
+*   **[Junior Dev Ecosystem](design/junior_dev_ecosystem.md)**: Guidance for junior developers and AI agents working on the project.
