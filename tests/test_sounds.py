@@ -1,9 +1,9 @@
 """Tests for the sounds router."""
 
-from unittest.mock import patch
-
+import pytest
 from fastapi.testclient import TestClient
 
+from src.server.dependencies import get_user_sounds
 from src.server.main import app
 
 client = TestClient(app)
@@ -12,13 +12,21 @@ client = TestClient(app)
 class TestListSounds:
     """Tests for GET /api/sounds endpoint."""
 
-    def test_returns_empty_list_when_no_sounds_dir(self):
+    @pytest.fixture(autouse=True)
+    def clean_overrides(self):
+        """Reset dependency overrides after each test."""
+        yield
+        app.dependency_overrides = {}
+
+    def test_returns_empty_list_when_no_sounds_dir(self, tmp_path):
         """Should return empty list if sounds directory doesn't exist."""
-        with patch("src.server.routers.sounds.SOUNDS_DIR") as mock_dir:
-            mock_dir.exists.return_value = False
-            response = client.get("/api/sounds")
-            assert response.status_code == 200
-            assert response.json() == {"sounds": []}
+        sounds_dir = tmp_path / "non_existent"
+
+        app.dependency_overrides[get_user_sounds] = lambda: sounds_dir
+        response = client.get("/api/sounds")
+
+        assert response.status_code == 200
+        assert response.json() == {"sounds": []}
 
     def test_returns_sound_files(self, tmp_path):
         """Should return list of sound files."""
@@ -30,8 +38,8 @@ class TestListSounds:
         (sounds_dir / "ambient.ogg").touch()
         (sounds_dir / "not_sound.txt").touch()
 
-        with patch("src.server.routers.sounds.SOUNDS_DIR", sounds_dir):
-            response = client.get("/api/sounds")
+        app.dependency_overrides[get_user_sounds] = lambda: sounds_dir
+        response = client.get("/api/sounds")
 
         assert response.status_code == 200
         data = response.json()
@@ -52,8 +60,8 @@ class TestListSounds:
         (sounds_dir / "image.png").touch()
         (sounds_dir / "script.py").touch()
 
-        with patch("src.server.routers.sounds.SOUNDS_DIR", sounds_dir):
-            response = client.get("/api/sounds")
+        app.dependency_overrides[get_user_sounds] = lambda: sounds_dir
+        response = client.get("/api/sounds")
 
         assert response.status_code == 200
         assert response.json()["sounds"] == []
@@ -64,12 +72,15 @@ class TestListSounds:
         sounds_dir.mkdir()
         (sounds_dir / "test.mp3").touch()
 
-        with patch("src.server.routers.sounds.SOUNDS_DIR", sounds_dir):
-            response = client.get("/api/sounds")
+        app.dependency_overrides[get_user_sounds] = lambda: sounds_dir
+        response = client.get("/api/sounds")
 
         sound = response.json()["sounds"][0]
         assert sound["name"] == "test"
         assert sound["filename"] == "test.mp3"
+        # Due to tmp_path not being in ASSETS_DIR, the router falls back to relative
+        # "sounds/test.mp3"
+
         assert sound["path"] == "sounds/test.mp3"
 
     def test_sounds_are_sorted_by_name(self, tmp_path):
@@ -80,8 +91,8 @@ class TestListSounds:
         (sounds_dir / "alpha.wav").touch()
         (sounds_dir / "beta.ogg").touch()
 
-        with patch("src.server.routers.sounds.SOUNDS_DIR", sounds_dir):
-            response = client.get("/api/sounds")
+        app.dependency_overrides[get_user_sounds] = lambda: sounds_dir
+        response = client.get("/api/sounds")
 
         names = [s["name"] for s in response.json()["sounds"]]
         assert names == ["alpha", "beta", "zebra"]
@@ -92,8 +103,8 @@ class TestListSounds:
         sounds_dir.mkdir()
         (sounds_dir / "music.m4a").touch()
 
-        with patch("src.server.routers.sounds.SOUNDS_DIR", sounds_dir):
-            response = client.get("/api/sounds")
+        app.dependency_overrides[get_user_sounds] = lambda: sounds_dir
+        response = client.get("/api/sounds")
 
         assert len(response.json()["sounds"]) == 1
         assert response.json()["sounds"][0]["name"] == "music"
@@ -108,8 +119,8 @@ class TestListSounds:
         subdir.mkdir()
         (subdir / "nested.mp3").touch()
 
-        with patch("src.server.routers.sounds.SOUNDS_DIR", sounds_dir):
-            response = client.get("/api/sounds")
+        app.dependency_overrides[get_user_sounds] = lambda: sounds_dir
+        response = client.get("/api/sounds")
 
         # Should only include top level
         names = [s["name"] for s in response.json()["sounds"]]

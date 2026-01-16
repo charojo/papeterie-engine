@@ -15,7 +15,7 @@ def mock_pygame(mocker):
     mocker.patch("pygame.display.set_mode")
     mocker.patch("pygame.display.get_surface")
 
-    mock_surface = MagicMock(spec=pygame.Surface)
+    mock_surface = MagicMock()
     mock_surface.get_width.return_value = 100
     mock_surface.get_height.return_value = 100
     mock_surface.get_size.return_value = (100, 100)

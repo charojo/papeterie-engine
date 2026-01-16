@@ -1,0 +1,16 @@
+# 🎭 Papeterie Engine
+
+> A metadata-driven 2D "Paper Theatre" animation engine leveraging Google Gemini for physics-based animation generation.
+
+## Essential Documentation
+- [Main Readme](README.md)
+- [How to Develop](docs/HOWTO_Develop.md)
+- [Multi-Repo Architecture](docs/design/multi_repo_architecture.md)
+- [Agent Protocol](docs/AGENTS.md)
+- [Gemini Context](docs/GEMINI.md)
+
+## Navigation
+- [Source Code](/src)
+- [Tests](/tests)
+- [Agent Environment](/agent_env)
+- [Design Docs](/docs/design)

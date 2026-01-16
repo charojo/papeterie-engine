@@ -128,7 +128,7 @@ class LocationBehavior(BaseBehavior):
     )
 
     # Layering & Scale
-    z_depth: Optional[int] = Field(None, ge=1, le=100, description="Layer stacking order")
+    z_depth: Optional[int] = Field(None, description="Layer stacking order")
     scale: Optional[float] = Field(None, ge=0.0, description="Size multiplier")
 
     horizontal_percent: Optional[float] = Field(
@@ -178,7 +178,7 @@ class SpriteMetadata(BaseModel):
     """Schema for individual paper-cut assets."""
 
     name: Optional[str] = None
-    z_depth: Optional[int] = Field(None, ge=1, le=100, description="Layer depth: 1-100")
+    z_depth: Optional[int] = Field(None, description="Layer depth")
 
     # Behavior System
     behaviors: List[BehaviorConfig] = Field(default_factory=list, description="List of behaviors")
@@ -220,6 +220,7 @@ class SceneLayer(BaseModel):
     # Optional overrides from SpriteMetadata
     vertical_percent: Optional[float] = None
     visible: bool = Field(True, description="Whether the layer is visible in the scene")
+    environmental_reaction: Optional[EnvironmentalReaction] = None
 
 
 class SpriteDecompositionInfo(BaseModel):
@@ -235,10 +236,12 @@ class SceneDecomposition(BaseModel):
 class SceneConfig(BaseModel):
     """Top-level scene definition."""
 
-    name: str
+    name: str = Field(..., validation_alias="scene_name")
     layers: List[SceneLayer]
     duration_sec: float = Field(30.0, description="Scene duration in seconds")
     sounds: List[SoundBehavior] = Field(default_factory=list)
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 # --- User Models ---

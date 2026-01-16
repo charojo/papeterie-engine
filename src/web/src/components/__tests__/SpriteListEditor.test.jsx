@@ -32,16 +32,17 @@ describe('SpriteListEditor', () => {
         onToggleVisibility: vi.fn(),
         onDeleteSprite: vi.fn(),
         onBehaviorsChange: vi.fn(),
-        onAddSprite: vi.fn()
+        onAddSprite: vi.fn(),
+        selectedSprites: ['boat']
     };
 
     it('renders all sprites in z-depth order', () => {
-        const { getAllByText } = render(<SpriteListEditor {...mockProps} />);
+        const { getAllByTitle } = render(<SpriteListEditor {...mockProps} />);
 
-        const names = getAllByText(/boat|bird/);
+        const names = getAllByTitle(/boat|bird/);
         // Sorted by z_depth desc: bird (20), boat (10)
-        expect(names[0].textContent).toBe('20bird');
-        expect(names[1].textContent).toBe('10boat');
+        expect(names[0].getAttribute('title')).toBe('bird');
+        expect(names[1].getAttribute('title')).toBe('boat');
     });
 
     it('expands selected sprite by default', () => {
@@ -53,9 +54,10 @@ describe('SpriteListEditor', () => {
     });
 
     it('toggles expansion on click', () => {
-        const { getByText, getAllByTestId } = render(<SpriteListEditor {...mockProps} />);
+        const { getByTitle, getAllByTestId } = render(<SpriteListEditor {...mockProps} />);
 
-        const birdName = getByText('bird');
+        // Text is split, so we find by title
+        const birdName = getByTitle('bird');
         fireEvent.click(birdName);
 
         // Now bird should be expanded
@@ -66,7 +68,7 @@ describe('SpriteListEditor', () => {
     it('calls onToggleVisibility when eye icon is clicked', () => {
         const { getByTestId } = render(<SpriteListEditor {...mockProps} />);
 
-        const birdVisibilityBtn = getByTestId('icon-eyeOff').closest('button');
+        const birdVisibilityBtn = getByTestId('icon-hidden').closest('button');
         fireEvent.click(birdVisibilityBtn);
 
         expect(mockProps.onToggleVisibility).toHaveBeenCalledWith('bird');
@@ -76,7 +78,8 @@ describe('SpriteListEditor', () => {
         const { getAllByTitle } = render(<SpriteListEditor {...mockProps} />);
         const deleteBtns = getAllByTitle('Delete Sprite');
         // boat is at index 1 (sorted by z-depth desc, boat is 10, bird is 20)
-        fireEvent.click(deleteBtns[1]);
+        // Header adds one 'Delete Sprite' icon, so bird is index 1, boat is index 2
+        fireEvent.click(deleteBtns[2]);
         expect(mockProps.onDeleteSprite).toHaveBeenCalledWith('boat');
     });
 
@@ -85,17 +88,18 @@ describe('SpriteListEditor', () => {
             name: 'solo_bird',
             metadata: { behaviors: [{}, {}, {}] }
         };
-        const { getByText, getByTestId } = render(
+        const { getByTitle, getByTestId } = render(
             <SpriteListEditor
                 {...mockProps}
                 type="sprite"
                 asset={spriteAsset}
                 selectedSprite="solo_bird"
+                selectedSprites={['solo_bird']}
                 layerVisibility={{ 'solo_bird': true }}
             />
         );
 
-        expect(getByText('solo_bird')).toBeInTheDocument();
+        expect(getByTitle('solo_bird')).toBeInTheDocument();
         expect(getByTestId('behavior-editor').textContent).toBe('3 behaviors');
     });
 });

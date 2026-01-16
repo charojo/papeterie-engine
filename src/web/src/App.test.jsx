@@ -3,9 +3,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import App from './App';
 
 // Mock child components
-vi.mock('./components/GenericDetailView', () => ({
-    GenericDetailView: ({ type, asset }) => (
-        <div data-testid={`detail-view-${type}`}>{asset.name}</div>
+vi.mock('./components/SceneDetailView', () => ({
+    SceneDetailView: ({ asset }) => (
+        <div data-testid="detail-view-scene">{asset.name}</div>
     )
 }));
 

@@ -20,7 +20,7 @@ export default defineConfig({
     setupFiles: './src/setupTests.js',
     exclude: ['**/node_modules/**', '**/dist/**', 'e2e/**'],
     coverage: {
-      include: ['src/**/*.jsx', 'src/**/*.js'],
+      include: ['src/**/*.{js,jsx,ts,tsx}'],
       exclude: ['src/setupTests.js', 'src/**/__tests__/**'],
       reporter: ['text', 'json', 'html'],
     },

@@ -1,0 +1,49 @@
+.status-stepper-container {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    font-size: 0.7rem;
+    opacity: 0.9;
+}
+
+.status-step {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.status-step-circle {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    border: 1px solid currentColor;
+}
+
+.status-step-divider {
+    width: 8px;
+    height: 1px;
+}
+
+.status-step.active {
+    color: var(--color-primary);
+}
+
+.status-step.inactive {
+    color: var(--color-text-muted);
+}
+
+.status-step-circle.active {
+    background: var(--color-primary);
+}
+
+.status-step span.current {
+    font-weight: 600;
+}
+
+.status-step-divider.active {
+    background: var(--color-primary);
+}
+
+.status-step-divider.inactive {
+    background: var(--color-divider);
+}

@@ -22,10 +22,10 @@ class GeminiCompilerClient:
         self.model_name = model_name
 
     def generate_metadata(self, system_instruction: str, user_prompt: str) -> str:
-        # Use the config parameter correctly for system instructions
+        """Generates structured metadata using JSON mode."""
         response = self.client.models.generate_content(
             model=self.model_name,
-            contents=user_prompt,
+            contents=[user_prompt],
             config={
                 "system_instruction": system_instruction,
                 "response_mime_type": "application/json",
@@ -52,7 +52,7 @@ class GeminiCompilerClient:
         """Generates free-form text response (without JSON enforcement)."""
         response = self.client.models.generate_content(
             model=self.model_name,
-            contents=user_prompt,
+            contents=[user_prompt],
             config={
                 "system_instruction": system_instruction,
             },

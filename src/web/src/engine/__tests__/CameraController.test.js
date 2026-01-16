@@ -5,13 +5,23 @@ describe('CameraController', () => {
     let controller;
     let mockTheatre;
 
+    // Suppress expected validation errors and warnings
+    const originalError = console.error;
+    const originalWarn = console.warn;
     beforeEach(() => {
+        console.error = vi.fn();
+        console.warn = vi.fn();
         mockTheatre = {
             cameraZoom: 1.0,
             cameraPanX: 0,
             cameraPanY: 0
         };
         controller = new CameraController(mockTheatre);
+    });
+
+    afterEach(() => {
+        console.error = originalError;
+        console.warn = originalWarn;
     });
 
     describe('initialization', () => {

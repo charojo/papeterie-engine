@@ -46,7 +46,7 @@ def test_optimize_scene_calls_remove_green_screen(mock_user_assets_setup, valid_
     (scene_dir / f"{scene_name}.original.png").write_bytes(b"fake_original")
 
     # Mock Gemini
-    mock_gemini = mocker.patch("src.server.routers.scenes.GeminiCompilerClient")
+    mock_gemini = mocker.patch("src.server.routers.scenes.optimize.GeminiCompilerClient")
     mock_instance = mock_gemini.return_value
 
     # Stage 1

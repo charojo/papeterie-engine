@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { Theatre } from '../engine/Theatre';
 import { Icon } from './Icon';
+import './TheatreStage.css';
+import { KeymapHelpDialog } from './KeymapHelpDialog';
 import { createLogger } from '../utils/logger';
 import { useCameraController } from '../hooks/useCameraController';
 import { useDraggable } from '../hooks/useDraggable';
-import { ASSET_BASE } from '../config';
+import { ASSET_BASE, API_BASE } from '../config';
+import { ExportDialog } from './ExportDialog';
 
 const log = createLogger('TheatreStage');
 
@@ -28,7 +31,6 @@ export function TheatreStage({
     isPlaying = false,
     isExpanded,
     toggleExpand,
-    isCommunity = false, // New prop
     // New Props for Unified Toolbar
     isSpriteVisible,
     onToggleSpriteVisibility,
@@ -36,7 +38,9 @@ export function TheatreStage({
     onAddBehavior,
     onSave,
     hasChanges,
-    onPlayPause
+    onPlayPause,
+    inputContext = 'vis', // 'vis' | 'timeline'
+    onTimelineArrow
 }) {
     const canvasRef = useRef(null);
     const theatreRef = useRef(null);
@@ -44,14 +48,46 @@ export function TheatreStage({
     const [isDragging, setIsDragging] = useState(false);
     const [isPaused, setIsPaused] = useState(true);
     const [isCropMode, setIsCropMode] = useState(false);
-    const [soloSprite, setSoloSprite] = useState(null);
     const [cursorStyle, setCursorStyle] = useState('pointer');
     const [showLayersPanel, setShowLayersPanel] = useState(false);
+    const [showKeymap, setShowKeymap] = useState(false);
     const [localRotation, setLocalRotation] = useState(0);
     const isPausedRef = useRef(isPaused);
 
     // Dynamic Asset Base URL resolution
     const resolvedAssetBaseUrl = assetBaseUrl || (ASSET_BASE + '/assets');
+
+    const [showExportDialog, setShowExportDialog] = useState(false);
+
+    const handleExportVideo = async ({ duration }) => {
+        log.info(`Requesting export for scene ${sceneName} duration ${duration}s`);
+        try {
+            const response = await fetch(`${API_BASE}/api/export`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    user_id: 'default', // TODO: Use actual user ID if auth implemented
+                    scene_name: sceneName,
+                    duration: duration,
+                    width: 1280,
+                    height: 720,
+                    fps: 30
+                })
+            });
+
+            if (!response.ok) {
+                const err = await response.json();
+                throw new Error(err.detail || 'Export failed');
+            }
+
+            return await response.json();
+        } catch (error) {
+            log.error('Export error:', error);
+            throw error;
+        }
+    };
 
     // Camera Controller - single source of truth
     const {
@@ -140,7 +176,7 @@ export function TheatreStage({
             theatreRef.current.stop();
         }
 
-        const userType = isCommunity ? 'community' : 'default';
+        const userType = 'default';
         const theatre = new Theatre(canvasRef.current, scene, sceneName, resolvedAssetBaseUrl, userType);
         theatre.onTelemetry = onTelemetry;
         // Initial debugMode: Convert mode string to boolean (same logic as sync effect)
@@ -213,7 +249,7 @@ export function TheatreStage({
         };
         // Dependency list reduced to structural changes only
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [sceneName, assetBaseUrl, isCommunity]);
+    }, [sceneName, assetBaseUrl]);
 
     // Handle Scene Data Updates (Prop changes) without reloading
     useEffect(() => {
@@ -308,7 +344,19 @@ export function TheatreStage({
                 setCursorStyle('grabbing');
             }
         } else {
-            theatreRef.current.handleCanvasClick(x, y);
+            const clicked = theatreRef.current.handleCanvasClick(x, y, e.shiftKey);
+            if (clicked || e.shiftKey) { // Always update if shift used (toggle)
+                const selected = theatreRef.current.getSelectedSprite();
+                // Get all selected sprites from manager
+                const allSelected = Array.from(theatreRef.current.selectionManager.selectedSprites);
+
+                if (onSpriteSelected) {
+                    onSpriteSelected(selected, allSelected);
+                }
+            } else if (!clicked) {
+                // Clicked empty space without shift -> deselect
+                if (onSpriteSelected) onSpriteSelected(null, []);
+            }
         }
     };
 
@@ -355,11 +403,118 @@ export function TheatreStage({
 
     // handleWheel moved to native listener effect
 
+    // Keyboard Controls
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            // Ignore if input/textarea is focused
+            if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) return;
+
+            // Space Bar: Play/Pause
+            if (e.code === 'Space') {
+                const activeEl = document.activeElement;
+                const isStringInput = (activeEl?.tagName === 'INPUT' && (['text', 'password', 'email', 'search', 'url'].includes(activeEl.type) || !activeEl.type)) || activeEl?.tagName === 'TEXTAREA';
+
+                if (!isStringInput) {
+                    e.preventDefault(); // Prevent scrolling
+                    if (onPlayPause) {
+                        onPlayPause();
+                    } else if (theatreRef.current) {
+                        theatreRef.current.togglePause();
+                        setIsPaused(theatreRef.current.isPaused);
+                    }
+                    return;
+                }
+            }
+
+            // Sprite Manipulation Controls
+            if (!theatreRef.current || !selectedSprite) return;
+
+            const layer = theatreRef.current.layersByName.get(selectedSprite);
+            if (!layer) return;
+
+            const isShift = e.shiftKey;
+            const isCtrl = e.ctrlKey || e.metaKey; // Support Meta for Mac
+
+            // Priority: Shift (Fast: 50) > Ctrl (Micro: 1) > Default (10)
+            let moveDelta = 10;
+            if (isShift) moveDelta = 50;
+            else if (isCtrl) moveDelta = 1;
+
+            const scaleDelta = isShift ? 0.5 : 0.1;
+
+            let handled = false;
+
+            // Movement (Arrow Keys)
+            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) {
+
+                // Context-Aware Override: Timeline Mode
+                if (inputContext === 'timeline' && onTimelineArrow) {
+                    e.preventDefault();
+                    onTimelineArrow(e.code);
+                    return;
+                }
+
+                e.preventDefault(); // Prevent scrolling immediately
+
+                // We need to update the sprite position.
+                // We use layer.x_offset for base edits if no keyframe at this time, 
+                // but we let the onSpritePositionChanged callback handle that logic.
+                // We just calculate the NEW target value relative to visual state.
+
+                // Use the RAW offsets for relative compounding to avoid fighting animations
+                // Logic: newOffset = currentOffset + delta
+                let newXOffset = layer.x_offset;
+                let newYOffset = layer.y_offset;
+
+                if (e.code === 'ArrowUp') newYOffset -= moveDelta;
+                if (e.code === 'ArrowDown') newYOffset += moveDelta;
+                if (e.code === 'ArrowLeft') newXOffset -= moveDelta;
+                if (e.code === 'ArrowRight') newXOffset += moveDelta;
+
+                if (onSpritePositionChanged) {
+                    onSpritePositionChanged(selectedSprite, newXOffset, newYOffset, theatreRef.current.elapsedTime);
+                }
+                handled = true;
+            }
+
+            // Scaling (+/- Keys) or Zooming
+            if (e.key === '+' || e.key === '=' || e.key === '-' || e.key === '_') {
+                const isPlus = (e.key === '+' || e.key === '='); // Handle unshifted = as +
+
+                if (selectedSprite) {
+                    const tf = layer.getTransform(theatreRef.current.canvas.height, theatreRef.current.canvas.width, 0, theatreRef.current.elapsedTime);
+                    const visualScale = tf.scale;
+
+                    let newScale = isPlus ? (visualScale + scaleDelta) : (visualScale - scaleDelta);
+                    if (newScale < 0.001) newScale = 0.001; // Safety clamp
+
+                    if (onSpriteScaleChanged) {
+                        onSpriteScaleChanged(selectedSprite, newScale, theatreRef.current.elapsedTime);
+                    }
+                } else {
+                    // Global Zoom if NO sprite selected
+                    const zoomFactor = isPlus ? 1.2 : (1 / 1.2);
+                    setZoom(zoom * zoomFactor);
+                }
+                handled = true;
+            }
+
+            if (handled) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [selectedSprite, onPlayPause, onSpritePositionChanged, onSpriteScaleChanged, inputContext, onTimelineArrow, zoom, setZoom]);
+
     return (
-        <div ref={containerRef} style={{ width: '100%', height: '100%', position: 'relative', zIndex: 250, overflow: 'visible', background: 'var(--color-bg-base)', ...style }}>
+        <div ref={containerRef} className="theatre-stage-container" style={{ ...style }}>
             <canvas
                 ref={canvasRef}
-                style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', cursor: cursorStyle }}
+                className="theatre-canvas"
+                style={{ cursor: cursorStyle }}
                 onMouseDown={handleMouseDown}
                 onMouseMove={handleMouseMove}
                 onMouseUp={handleMouseUp}
@@ -372,14 +527,12 @@ export function TheatreStage({
             {/* Top Right Controls: Zen Mode & Camera */}
             <div
                 ref={cameraToolbarRef}
-                className="theatre-toolbar theatre-toolbar-vertical"
+                className="theatre-toolbar theatre-toolbar-vertical theatre-toolbar-container"
                 style={{
-                    position: 'absolute',
                     // Use custom position if set, otherwise default to top-right
                     top: cameraToolbarPos ? cameraToolbarPos.y : 12,
                     left: cameraToolbarPos ? cameraToolbarPos.x : undefined,
-                    right: cameraToolbarPos ? undefined : 12,
-                    zIndex: 10
+                    right: cameraToolbarPos ? undefined : 12
                 }}
             >
                 {/* Drag Handle */}
@@ -392,18 +545,7 @@ export function TheatreStage({
                 {showLayersPanel && scene && (() => {
                     const zLevels = [...new Set((scene.layers || []).map(l => l.z_depth || 0))].sort((a, b) => b - a);
                     return (
-                        <div
-                            className="theatre-layers-panel"
-                            style={{
-                                position: 'absolute',
-                                top: 42,
-                                left: '100%',
-                                zIndex: 20,
-                                display: 'flex',
-                                flexDirection: 'column',
-                                alignItems: 'flex-end'
-                            }}
-                        >
+                        <div className="theatre-layers-panel">
                             {zLevels.map(z => {
                                 const layersAtZ = (scene.layers || []).filter(l => (l.z_depth || 0) === z);
                                 const allVisible = layersAtZ.every(l =>
@@ -412,15 +554,7 @@ export function TheatreStage({
                                 return (
                                     <div
                                         key={z}
-                                        style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '6px',
-                                            padding: '4px 8px 4px 4px',
-                                            cursor: 'pointer',
-                                            justifyContent: 'flex-end',
-                                            whiteSpace: 'nowrap'
-                                        }}
+                                        className="layer-z-item"
                                         onClick={() => {
                                             if (onToggleVisibility) {
                                                 const targetState = !allVisible;
@@ -434,19 +568,18 @@ export function TheatreStage({
                                         }}
                                         title={`Z-Level ${z}: ${layersAtZ.map(l => l.sprite_name).join(', ')}`}
                                     >
-                                        <span style={{
-                                            color: allVisible ? 'white' : 'var(--color-text-muted)',
-                                            fontSize: '11px',
-                                            fontFamily: 'monospace',
-                                            fontWeight: 'bold',
-                                        }}>
+                                        <span
+                                            className="layer-z-label"
+                                            style={{ color: allVisible ? 'white' : 'var(--color-text-muted)' }}
+                                        >
                                             {z}
                                         </span>
                                         <input
                                             type="checkbox"
                                             checked={allVisible}
                                             onChange={() => { }}
-                                            style={{ margin: 0, cursor: 'pointer', width: '12px', height: '12px', opacity: allVisible ? 1 : 0.5 }}
+                                            className="layer-z-checkbox"
+                                            style={{ opacity: allVisible ? 1 : 0.5 }}
                                         />
                                     </div>
                                 );
@@ -474,28 +607,8 @@ export function TheatreStage({
 
                 <div className="theatre-toolbar-divider theatre-toolbar-divider-v"></div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <button
-                        className={`btn-icon ${(!isPaused && !soloSprite) ? 'active' : ''}`}
-                        onClick={() => {
-                            if (onPlayPause) {
-                                onPlayPause();
-                            } else if (theatreRef.current) {
-                                if (theatreRef.current.soloSprite) {
-                                    theatreRef.current.soloSprite = null;
-                                    setSoloSprite(null);
-                                    theatreRef.current.resume();
-                                    setIsPaused(false);
-                                } else {
-                                    theatreRef.current.togglePause();
-                                    setIsPaused(theatreRef.current.isPaused);
-                                }
-                            }
-                        }}
-                        title="Play All Sprites"
-                    >
-                        <Icon name={(!isPaused && !soloSprite) ? "pause" : "play"} size={16} />
-                    </button>
+                <div className="theatre-button-group">
+
 
                     <button
                         className="btn-icon"
@@ -529,23 +642,53 @@ export function TheatreStage({
                     >
                         <Icon name="revert" size={16} />
                     </button>
+
+                    <div className="theatre-toolbar-divider theatre-toolbar-divider-h my-1 bg-transparent border-t border-white/10" style={{ height: '0', width: '100%' }}></div>
+
+                    <button
+                        className="btn-icon"
+                        onClick={() => {
+                            // Pause playback before opening export
+                            if (!isPaused) {
+                                if (onPlayPause) onPlayPause();
+                                else theatreRef.current?.pause();
+                            }
+                            setShowExportDialog(true);
+                        }}
+                        title="Export Video"
+                    >
+                        <Icon name="share" size={16} />
+                    </button>
+
+                    <button
+                        className={`btn-icon ${showKeymap ? 'active' : ''}`}
+                        onClick={() => setShowKeymap(true)}
+                        title="Keyboard Shortcuts"
+                    >
+                        <Icon name="keyboard" size={16} />
+                    </button>
                 </div>
             </div>
+
+            <KeymapHelpDialog isOpen={showKeymap} onClose={() => setShowKeymap(false)} />
+
+            <ExportDialog
+                isOpen={showExportDialog}
+                onClose={() => setShowExportDialog(false)}
+                sceneName={sceneName}
+                onExport={handleExportVideo}
+            />
 
             {/* Bottom Right Unified Toolbar */}
             <div
                 ref={spriteToolbarRef}
+                className="sprite-toolbar-container"
                 style={{
-                    position: 'absolute',
                     // Use custom position if set, otherwise default to bottom-right
                     bottom: spriteToolbarPos ? undefined : 20,
                     top: spriteToolbarPos ? spriteToolbarPos.y : undefined,
                     left: spriteToolbarPos ? spriteToolbarPos.x : undefined,
-                    right: spriteToolbarPos ? undefined : 20,
-                    zIndex: 10,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '12px'
+                    right: spriteToolbarPos ? undefined : 20
                 }}
             >
                 {selectedSprite && (
@@ -557,25 +700,7 @@ export function TheatreStage({
                             title="Drag to move toolbar"
                         />
                         {/* Play/Pause Sprite */}
-                        <button
-                            onClick={() => {
-                                if (theatreRef.current) {
-                                    if (theatreRef.current.soloSprite === selectedSprite) {
-                                        theatreRef.current.togglePause();
-                                        setIsPaused(theatreRef.current.isPaused);
-                                    } else {
-                                        theatreRef.current.soloSprite = selectedSprite;
-                                        setSoloSprite(selectedSprite);
-                                        theatreRef.current.resume();
-                                        setIsPaused(false);
-                                    }
-                                }
-                            }}
-                            className={`btn-icon ${(soloSprite === selectedSprite && !isPaused) ? 'active' : ''}`}
-                            title={(soloSprite === selectedSprite && !isPaused) ? "Pause Sprite" : "Play Sprite"}
-                        >
-                            <Icon name={(soloSprite === selectedSprite && !isPaused) ? "pause" : "play"} size={16} />
-                        </button>
+
 
                         {/* Add Behavior - Moved Next to Play */}
                         {onAddBehavior && (
@@ -592,7 +717,7 @@ export function TheatreStage({
 
                         {/* Rotation */}
                         {onSpriteRotationChanged && (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <div className="rotation-control">
                                 <Icon
                                     name="rotate"
                                     size={16}
@@ -638,7 +763,7 @@ export function TheatreStage({
                                         log.debug(`Rotation slider keyboard interaction end: ${selectedSprite} at ${localRotation}°`);
                                         onSpriteRotationChanged(selectedSprite, localRotation, currentTime || 0);
                                     }}
-                                    style={{ width: '80px', cursor: 'pointer', height: '4px' }}
+                                    className="rotation-slider"
                                     title="Rotate Sprite"
                                 />
                             </div>

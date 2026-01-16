@@ -27,6 +27,8 @@ export const ImageViewer = ({
     activeSprite,
     onSpriteSelected,
     assetBaseUrl, // New prop passed down
+    inputContext,
+    onTimelineArrow,
     currentTime, // Prop for timeline sync
     onTelemetry,
     debugMode,
@@ -35,7 +37,6 @@ export const ImageViewer = ({
     onPlayPause,
     onTimeUpdate,
     isPlaying,
-    isCommunity = false, // New prop
     style // Style prop for flex sizing
 }) => {
     return (
@@ -67,7 +68,6 @@ export const ImageViewer = ({
                     isExpanded={isExpanded}
                     toggleExpand={toggleExpand}
                     assetBaseUrl={assetBaseUrl} // Pass through
-                    isCommunity={isCommunity} // Pass through
                     // Pass-through props
                     isSpriteVisible={isSpriteVisible}
                     onToggleSpriteVisibility={onToggleSpriteVisibility}
@@ -75,6 +75,8 @@ export const ImageViewer = ({
                     onAddBehavior={onAddBehavior}
                     onSave={onSave}
                     hasChanges={hasChanges}
+                    inputContext={inputContext}
+                    onTimelineArrow={onTimelineArrow}
                 />
 
                 {isOptimizing && (

@@ -70,7 +70,7 @@ The engine uses a collaborative debugging partner model where the agent handles 
 
 When validation detects a failing test, the agent follows a structured **chain-of-thought**:
 
-![QA Reasoning Loop](../assets/diagrams/qa_reasoning_loop.png)
+![QA Reasoning Loop](../assets/diagrams/qa_reasoning_loop.svg)
 *[Source: qa_reasoning_loop.dot](../assets/diagrams/qa_reasoning_loop.dot)*
 
 ### Case Study: Drift Behavior Bug
@@ -157,7 +157,7 @@ useEffect(() => {
 
 To keep the feedback loop fast, we implemented a 4-tier validation system:
 
-![Tiered Validation System](../assets/diagrams/tiered_validation.png)
+![Tiered Validation System](../assets/diagrams/tiered_validation.svg)
 *[Source: tiered_validation.dot](../assets/diagrams/tiered_validation.dot)*
 
 ### Usage
@@ -177,7 +177,7 @@ To keep the feedback loop fast, we implemented a 4-tier validation system:
 
 ## Part 4: Registered Agentic Workflows
 
-The engine maintains a catalog of "Workflows" in `.agent/workflows/` that the agent can execute autonomously:
+The engine maintains a catalog of "Workflows" in `agent_env/workflows/` that the agent can execute autonomously:
 
 | Slash Command | Purpose |
 |---------------|---------|

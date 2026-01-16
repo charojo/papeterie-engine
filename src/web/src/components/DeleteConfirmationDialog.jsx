@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import './DeleteConfirmationDialog.css';
 
 const DELETE_MODES = {
     scene: [
@@ -59,75 +60,64 @@ export function DeleteConfirmationDialog({ isOpen, onClose, onConfirm, type, ass
     };
 
     return (
-        <div style={{
-            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-            backgroundColor: 'var(--color-overlay)', zIndex: 1000,
-            display: 'flex', alignItems: 'center', justifyContent: 'center'
-        }}>
-            <div style={{
-                backgroundColor: 'var(--color-bg-base)', padding: '24px', borderRadius: '8px',
-                width: '400px', maxWidth: '90%', border: '1px solid var(--color-border)',
-                boxShadow: 'var(--shadow-lg)'
-            }}>
-                <h3 style={{ marginTop: 0, color: 'var(--color-text-muted)' }}>Delete {type === 'scene' ? 'Scene' : 'Sprite'}?</h3>
-                <p style={{ color: 'var(--color-text-muted)' }}>Choose how to handle <strong style={{ color: 'var(--color-text-main)' }}>{assetName}</strong>:</p>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', margin: '20px 0' }}>
-                    {modes.map(mode => {
-                        const intensity = mode.dangerLevel * 0.33;
-                        const isSelected = selectedMode === mode.id;
-
-                        return (
-                            <label key={mode.id} style={{
-                                display: 'flex', gap: '12px', padding: '12px',
-                                border: isSelected ? '1px solid var(--color-primary)' : '1px solid var(--color-border-muted)',
-                                borderRadius: '8px', cursor: 'pointer',
-                                backgroundColor: isSelected
-                                    ? 'var(--color-bg-elevated)'
-                                    : 'transparent',
-                                transition: 'all 0.2s ease'
-                            }}>
-                                <input
-                                    type="radio"
-                                    name="deleteMode"
-                                    value={mode.id}
-                                    checked={isSelected}
-                                    onChange={() => setSelectedMode(mode.id)}
-                                    style={{ display: 'none' }}
-                                />
-                                <span style={{
-                                    fontSize: '1.3rem',
-                                    display: 'flex', alignItems: 'center',
-                                    opacity: isSelected ? 1 : (0.4 + (intensity * 0.3))
-                                }}>{mode.icon}</span>
-                                <div style={{ flex: 1 }}>
-                                    <div style={{
-                                        fontWeight: 500,
-                                        color: 'var(--color-text-main)'
-                                    }}>{mode.label}</div>
-                                    <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginTop: '2px' }}>
-                                        {mode.description}
-                                    </div>
-                                </div>
-                                {isSelected && (
-                                    <span style={{ color: 'var(--color-text-subtle)', fontSize: '1rem' }}></span>
-                                )}
-                            </label>
-                        );
-                    })}
+        <div className="modal-overlay">
+            <div className="modal-container">
+                <div className="modal-header">
+                    <h3>Delete {type === 'scene' ? 'Scene' : 'Sprite'}?</h3>
                 </div>
 
-                {type === 'scene' && selectedMode === 'delete_all' && (
-                    <div style={{
-                        padding: '10px', backgroundColor: 'var(--color-bg-elevated)',
-                        border: '1px solid var(--color-border)', borderRadius: '6px',
-                        marginBottom: '20px', fontSize: '0.85rem', color: 'var(--color-text-muted)'
-                    }}>
-                        Note: Sprites shared with other scenes will be preserved.
-                    </div>
-                )}
+                <div className="modal-content">
+                    <p className="text-muted" style={{ margin: 0 }}>
+                        Choose how to handle <strong style={{ color: 'var(--color-text-main)' }}>{assetName}</strong>:
+                    </p>
 
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                    <div className="delete-modes-container">
+                        {modes.map(mode => {
+                            const intensity = mode.dangerLevel * 0.33;
+                            const isSelected = selectedMode === mode.id;
+
+                            return (
+                                <label
+                                    key={mode.id}
+                                    className={`delete-mode-item ${isSelected ? 'selected' : ''}`}
+                                >
+                                    <input
+                                        type="radio"
+                                        name="deleteMode"
+                                        value={mode.id}
+                                        checked={isSelected}
+                                        onChange={() => setSelectedMode(mode.id)}
+                                        className="hidden-radio"
+                                        style={{ display: 'none' }}
+                                    />
+                                    <span
+                                        className="delete-mode-icon"
+                                        style={{ opacity: isSelected ? 1 : (0.4 + (intensity * 0.3)) }}
+                                    >
+                                        {mode.icon}
+                                    </span>
+                                    <div className="delete-mode-details">
+                                        <div className="delete-mode-label">{mode.label}</div>
+                                        <div className="delete-mode-description">
+                                            {mode.description}
+                                        </div>
+                                    </div>
+                                    {isSelected && (
+                                        <span style={{ color: 'var(--color-text-subtle)', fontSize: '1rem' }}></span>
+                                    )}
+                                </label>
+                            );
+                        })}
+                    </div>
+
+                    {type === 'scene' && selectedMode === 'delete_all' && (
+                        <div className="delete-dialog-note">
+                            Note: Sprites shared with other scenes will be preserved.
+                        </div>
+                    )}
+                </div>
+
+                <div className="modal-footer">
                     <button className="btn" onClick={onClose}>Cancel</button>
                     <button className="btn btn-primary" onClick={handleConfirm}>
                         Confirm

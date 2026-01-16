@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { toast } from 'sonner';
 import { API_BASE } from '../config';
+import { UpdateConfigCommand } from '../utils/Commands';
 
 /**
  * Hook for handling sprite transform changes (position, scale, rotation).
@@ -11,7 +12,7 @@ import { API_BASE } from '../config';
  * @param {Function} refresh - Callback to refresh asset data
  * @returns {object} Transform handlers
  */
-export function useTransformEditor(asset, refresh) {
+export function useTransformEditor(asset, refresh, executeCommand) {
 
     const handleSpritePositionChanged = useCallback(async (spriteName, x, y, time) => {
         try {
@@ -52,21 +53,34 @@ export function useTransformEditor(asset, refresh) {
                 layer.behaviors.sort((a, b) => (a.time_offset || 0) - (b.time_offset || 0));
             }
 
-            const res = await fetch(`${API_BASE}/scenes/${asset.name}/config`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(updatedConfig)
-            });
+            if (executeCommand) {
+                const command = new UpdateConfigCommand(
+                    'scene',
+                    asset.name,
+                    asset.config,
+                    updatedConfig,
+                    refresh,
+                    `Updated position for ${spriteName} at ${time.toFixed(1)}s`
+                );
+                await executeCommand(command);
+            } else {
+                // Fallback for direct save if no command manager
+                const res = await fetch(`${API_BASE}/scenes/${encodeURIComponent(asset.name)}/config`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updatedConfig)
+                });
 
-            if (!res.ok) throw new Error(await res.text());
+                if (!res.ok) throw new Error(await res.text());
 
-            toast.success(`Updated position for ${spriteName} at ${time.toFixed(1)}s`);
-            await refresh();
+                toast.success(`Updated position for ${spriteName} at ${time.toFixed(1)}s`);
+                await refresh();
+            }
         } catch (e) {
             console.error('Failed to update position:', e);
             toast.error(`Failed to save position: ${e.message}`);
         }
-    }, [asset.config, asset.name, refresh]);
+    }, [asset.config, asset.name, refresh, executeCommand]);
 
     const handleSpriteRotationChanged = useCallback(async (spriteName, degrees, time = 0) => {
         try {
@@ -104,17 +118,29 @@ export function useTransformEditor(asset, refresh) {
                 }
             }
 
-            const res = await fetch(`${API_BASE}/scenes/${asset.name}/config`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(updatedConfig)
-            });
-            if (!res.ok) throw new Error(await res.text());
-            await refresh();
+            if (executeCommand) {
+                const command = new UpdateConfigCommand(
+                    'scene',
+                    asset.name,
+                    asset.config,
+                    updatedConfig,
+                    refresh,
+                    `Updated rotation for ${spriteName}`
+                );
+                await executeCommand(command);
+            } else {
+                const res = await fetch(`${API_BASE}/scenes/${encodeURIComponent(asset.name)}/config`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updatedConfig)
+                });
+                if (!res.ok) throw new Error(await res.text());
+                await refresh();
+            }
         } catch (e) {
             console.error("Failed to update rotation:", e);
         }
-    }, [asset.config, asset.name, refresh]);
+    }, [asset.config, asset.name, refresh, executeCommand]);
 
     const handleSpriteScaleChanged = useCallback(async (spriteName, newScale, time = 0) => {
         try {
@@ -155,18 +181,31 @@ export function useTransformEditor(asset, refresh) {
                 toast.success(`Updated base scale for ${spriteName}`);
             }
 
-            const res = await fetch(`${API_BASE}/scenes/${asset.name}/config`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(updatedConfig)
-            });
-            if (!res.ok) throw new Error(await res.text());
+            if (executeCommand) {
+                const command = new UpdateConfigCommand(
+                    'scene',
+                    asset.name,
+                    asset.config,
+                    updatedConfig,
+                    refresh,
+                    time > 0.1 ? `Keyframed scale for ${spriteName} at ${time.toFixed(1)}s` : `Updated base scale for ${spriteName}`
+                );
+                await executeCommand(command);
+            } else {
+                const res = await fetch(`${API_BASE}/scenes/${encodeURIComponent(asset.name)}/config`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updatedConfig)
+                });
+                if (!res.ok) throw new Error(await res.text());
 
-            await refresh();
+                await refresh();
+                toast.success(time > 0.1 ? `Keyframed scale for ${spriteName} at ${time.toFixed(1)}s` : `Updated base scale for ${spriteName}`);
+            }
         } catch (e) {
             toast.error(`Failed to save scale: ${e.message}`);
         }
-    }, [asset.config, asset.name, refresh]);
+    }, [asset.config, asset.name, refresh, executeCommand]);
 
     const handleKeyframeMove = useCallback(async (layerName, behaviorIndex, newTime, commit) => {
         if (!commit) return; // Only commit=true saves
@@ -184,7 +223,7 @@ export function useTransformEditor(asset, refresh) {
             layer.behaviors[behaviorIndex].time_offset = parseFloat(newTime.toFixed(2));
             layer.behaviors.sort((a, b) => (a.time_offset || 0) - (b.time_offset || 0));
 
-            const res = await fetch(`${API_BASE}/scenes/${asset.name}/config`, {
+            const res = await fetch(`${API_BASE}/scenes/${encodeURIComponent(asset.name)}/config`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(updatedConfig)
@@ -216,7 +255,7 @@ export function useTransformEditor(asset, refresh) {
             // Remove behavior
             layer.behaviors.splice(behaviorIndex, 1);
 
-            const res = await fetch(`${API_BASE}/scenes/${asset.name}/config`, {
+            const res = await fetch(`${API_BASE}/scenes/${encodeURIComponent(asset.name)}/config`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(updatedConfig)

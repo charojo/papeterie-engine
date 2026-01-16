@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { toast } from 'sonner';
 import { API_BASE } from '../config';
+import { UpdateConfigCommand } from '../utils/Commands';
 
 /**
  * Hook for managing layer operations in scenes.
@@ -12,7 +13,7 @@ import { API_BASE } from '../config';
  * @param {Function} refresh - Callback to refresh asset data
  * @returns {object} Layer operations state and handlers
  */
-export function useLayerOperations(asset, refresh) {
+export function useLayerOperations(asset, refresh, executeCommand) {
     const [layerVisibility, setLayerVisibility] = useState({});
     const [showSpriteLibrary, setShowSpriteLibrary] = useState(false);
 
@@ -25,13 +26,24 @@ export function useLayerOperations(asset, refresh) {
             [name]: newVisibility
         }));
 
-        if (asset.config) {
-            try {
-                const updatedConfig = JSON.parse(JSON.stringify(asset.config));
-                const layer = updatedConfig.layers?.find(l => l.sprite_name === name);
-                if (layer) {
-                    layer.visible = newVisibility;
-                    const res = await fetch(`${API_BASE}/scenes/${asset.name}/config`, {
+        try {
+            const updatedConfig = JSON.parse(JSON.stringify(asset.config));
+            const layer = updatedConfig.layers?.find(l => l.sprite_name === name);
+            if (layer) {
+                layer.visible = newVisibility;
+
+                if (executeCommand) {
+                    const command = new UpdateConfigCommand(
+                        'scene',
+                        asset.name,
+                        asset.config,
+                        updatedConfig,
+                        refresh,
+                        `${newVisibility ? 'Showed' : 'Hid'} layer ${name}`
+                    );
+                    await executeCommand(command);
+                } else {
+                    const res = await fetch(`${API_BASE}/scenes/${encodeURIComponent(asset.name)}/config`, {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(updatedConfig)
@@ -39,17 +51,17 @@ export function useLayerOperations(asset, refresh) {
                     if (!res.ok) throw new Error(await res.text());
                     await refresh();
                 }
-            } catch (e) {
-                console.error("Failed to persist visibility:", e);
-                toast.error(`Failed to save visibility state: ${e.message}`);
-                // Revert
-                setLayerVisibility(prev => ({
-                    ...prev,
-                    [name]: !newVisibility
-                }));
             }
+        } catch (e) {
+            console.error("Failed to persist visibility:", e);
+            toast.error(`Failed to save visibility state: ${e.message}`);
+            // Revert
+            setLayerVisibility(prev => ({
+                ...prev,
+                [name]: !newVisibility
+            }));
         }
-    }, [asset.config, asset.name, layerVisibility, refresh]);
+    }, [asset.config, asset.name, layerVisibility, refresh, executeCommand]);
 
     const handleAddSprite = useCallback(async (sprite, onSuccess) => {
         if (!asset.config) return;
@@ -86,20 +98,34 @@ export function useLayerOperations(asset, refresh) {
         updatedConfig.layers = [...(updatedConfig.layers || []), newLayer];
 
         try {
-            const res = await fetch(`${API_BASE}/scenes/${asset.name}/config`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(updatedConfig)
-            });
-            if (!res.ok) throw new Error(await res.text());
-            toast.success(`Added sprite '${sprite.name}' at Z=${zDepth}`);
-            setShowSpriteLibrary(false);
-            if (onSuccess) onSuccess(sprite.name);
-            await refresh();
+            if (executeCommand) {
+                const command = new UpdateConfigCommand(
+                    'scene',
+                    asset.name,
+                    asset.config,
+                    updatedConfig,
+                    refresh,
+                    `Added sprite '${sprite.name}' at Z=${zDepth}`
+                );
+                await executeCommand(command);
+                setShowSpriteLibrary(false);
+                if (onSuccess) onSuccess(sprite.name);
+            } else {
+                const res = await fetch(`${API_BASE}/scenes/${encodeURIComponent(asset.name)}/config`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updatedConfig)
+                });
+                if (!res.ok) throw new Error(await res.text());
+                toast.success(`Added sprite '${sprite.name}' at Z=${zDepth}`);
+                setShowSpriteLibrary(false);
+                if (onSuccess) onSuccess(sprite.name);
+                await refresh();
+            }
         } catch (e) {
             toast.error(`Failed to add sprite: ${e.message}`);
         }
-    }, [asset.config, asset.name, refresh]);
+    }, [asset.config, asset.name, refresh, executeCommand]);
 
     const handleRemoveLayer = useCallback(async (spriteName, onSuccess) => {
         if (!asset.config) return;
@@ -107,19 +133,32 @@ export function useLayerOperations(asset, refresh) {
         updatedConfig.layers = (updatedConfig.layers || []).filter(l => l.sprite_name !== spriteName);
 
         try {
-            const res = await fetch(`${API_BASE}/scenes/${asset.name}/config`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(updatedConfig)
-            });
-            if (!res.ok) throw new Error(await res.text());
-            toast.success(`Removed layer ${spriteName}`);
-            if (onSuccess) onSuccess();
-            await refresh();
+            if (executeCommand) {
+                const command = new UpdateConfigCommand(
+                    'scene',
+                    asset.name,
+                    asset.config,
+                    updatedConfig,
+                    refresh,
+                    `Removed layer ${spriteName}`
+                );
+                await executeCommand(command);
+                if (onSuccess) onSuccess();
+            } else {
+                const res = await fetch(`${API_BASE}/scenes/${encodeURIComponent(asset.name)}/config`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updatedConfig)
+                });
+                if (!res.ok) throw new Error(await res.text());
+                toast.success(`Removed layer ${spriteName}`);
+                if (onSuccess) onSuccess();
+                await refresh();
+            }
         } catch (e) {
             toast.error(`Failed to remove layer: ${e.message}`);
         }
-    }, [asset.config, asset.name, refresh]);
+    }, [asset.config, asset.name, refresh, executeCommand]);
 
     const handleDeleteSprite = useCallback(async (spriteName, onSuccess) => {
         try {
@@ -128,7 +167,7 @@ export function useLayerOperations(asset, refresh) {
                 const updatedConfig = JSON.parse(JSON.stringify(asset.config));
                 updatedConfig.layers = (updatedConfig.layers || []).filter(l => l.sprite_name !== spriteName);
 
-                await fetch(`${API_BASE}/scenes/${asset.name}/config`, {
+                await fetch(`${API_BASE}/scenes/${encodeURIComponent(asset.name)}/config`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(updatedConfig)
@@ -146,6 +185,58 @@ export function useLayerOperations(asset, refresh) {
             toast.error(`Failed to delete sprite: ${e.message}`);
         }
     }, [asset.config, asset.name, refresh]);
+
+    const handleUpdateLayerOrder = useCallback(async (zDepthMap) => {
+        if (!asset.config) {
+            return;
+        }
+
+        const currentLayers = asset.config.layers || [];
+        let needsUpdate = false;
+
+        const updatedLayers = currentLayers.map(l => {
+            if (zDepthMap[l.sprite_name] !== undefined) {
+                if (l.z_depth !== zDepthMap[l.sprite_name]) {
+                    needsUpdate = true;
+                    return { ...l, z_depth: zDepthMap[l.sprite_name] };
+                }
+            }
+            return l;
+        });
+
+        if (!needsUpdate) {
+            return;
+        }
+
+        const updatedConfig = JSON.parse(JSON.stringify(asset.config));
+        updatedConfig.layers = updatedLayers;
+
+        try {
+            if (executeCommand) {
+                const command = new UpdateConfigCommand(
+                    'scene',
+                    asset.name,
+                    asset.config,
+                    updatedConfig,
+                    refresh,
+                    `Updated layer order`
+                );
+                await executeCommand(command);
+            } else {
+                // Background update - no toast unless error, to keep it smooth
+                const res = await fetch(`${API_BASE}/scenes/${encodeURIComponent(asset.name)}/config`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updatedConfig)
+                });
+                if (!res.ok) throw new Error(await res.text());
+                await refresh();
+            }
+        } catch (e) {
+            console.error("Failed to update layer order:", e);
+            toast.error(`Failed to update layer order: ${e.message}`);
+        }
+    }, [asset.config, asset.name, refresh, executeCommand]);
 
     // Initialize visibility from config
     const initializeVisibility = useCallback((config) => {
@@ -166,6 +257,7 @@ export function useLayerOperations(asset, refresh) {
         handleAddSprite,
         handleRemoveLayer,
         handleDeleteSprite,
+        handleUpdateLayerOrder,
         initializeVisibility
     };
 }

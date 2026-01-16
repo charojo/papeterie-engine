@@ -196,9 +196,9 @@ def test_process_sprite_ai(mock_remove_bg, mock_img_from_bytes, mock_edit_image,
 # --- Scene Optimization Tests ---
 
 
-@patch("src.server.routers.scenes.img_proc.image_from_bytes")
-@patch("src.server.routers.scenes.img_proc.remove_green_screen")
-@patch("src.server.routers.scenes.GeminiCompilerClient")
+@patch("src.server.routers.scenes.optimize.img_proc.image_from_bytes")
+@patch("src.server.routers.scenes.optimize.img_proc.remove_green_screen")
+@patch("src.server.routers.scenes.optimize.GeminiCompilerClient")
 def test_optimize_scene_mocked(MockGemini, mock_remove, mock_img_from_bytes, clean_assets):
     """Mock full scene optimization flow."""
     # Setup mocks

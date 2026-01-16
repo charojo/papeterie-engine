@@ -2,8 +2,8 @@ This design document outlines the architecture for the **Papeterie Engine**, a 2
 
 > **📖 Technical Deep-Dives**
 > 
-> For detailed architectural walkthroughs, see the [blog posts](../blogs/):
-> - [Consolidated Blogs](../blogs/) — Technical deep-dives and development history
+> For detailed architectural walkthroughs, see the [Project Overview](../AGENTS.md) and [Latest Blog Post](../blogs/2026-01-09-architecture-and-ai-partnership.md).
+<br>
 
 ---
 
@@ -58,7 +58,7 @@ The runtime engine translates static metadata into dynamic movement.
 
 The frontend uses a bidirectional communication pattern to synchronize the React UI with the imperative Pygame-based `Theatre.js` engine.
 
-![React-Theatre State Sync](../assets/diagrams/react_theatre_sync.png)
+![React-Theatre State Sync](../assets/diagrams/react_theatre_sync.svg)
 *[Source: react_theatre_sync.dot](../assets/diagrams/react_theatre_sync.dot)*
 
 ---
@@ -67,7 +67,7 @@ The frontend uses a bidirectional communication pattern to synchronize the React
 
 The metadata pipeline ensures a reliable transition from creative intent to structured animation.
 
-![Detailed Pipeline Flow](../assets/diagrams/detailed_pipeline_flow.png)
+![Detailed Pipeline Flow](../assets/diagrams/detailed_pipeline_flow.svg)
 *[Source: detailed_pipeline_flow.dot](../assets/diagrams/detailed_pipeline_flow.dot)*
 
 ---
@@ -181,9 +181,9 @@ All dependencies with their versions, purposes, and usage locations. The engine 
 | **pytest** | ≥9.0.2 | Python test framework | `tests/*.py` |
 | **pytest-asyncio** | ≥1.3.0 | Async test support for FastAPI | `tests/test_routers*.py` |
 | **pytest-mock** | ≥3.10.0 | Mocking utilities for unit tests | `tests/*.py` |
-| **pytest-cov** | ≥4.1.0 | Test coverage reporting | `scripts/validate.sh` |
-| **pytest-testmon** | ≥2.1.0 | Smart test selection based on changes | `scripts/validate.sh --fast` |
-| **ruff** | ≥0.1.0 | Fast Python linter and formatter | `scripts/validate.sh` |
+| **pytest-cov** | ≥4.1.0 | Test coverage reporting | `agent_env/bin/validate.sh` |
+| **pytest-testmon** | ≥2.1.0 | Smart test selection based on changes | `agent_env/bin/validate.sh --fast` |
+| **ruff** | ≥0.1.0 | Fast Python linter and formatter | `agent_env/bin/validate.sh` |
 
 #### Frontend (Node.js)
 
@@ -212,7 +212,7 @@ The `AssetLogger` tracks the progression of an asset through its lifecycle, prov
 
 *   **Asset Integrity**: All image processing must maintain **RGBA alpha transparency**.
 *   **Environment**: Built for **Python 3.10+** using `uv` and **Node.js 20+**.
-*   **Governance**: All changes must pass `scripts/validate.sh` and occur on feature branches.
+*   **Governance**: All changes must pass `agent_env/bin/validate.sh` and occur on feature branches.
 
 ### 9. Methodology: The AI Partnership
 
@@ -239,13 +239,13 @@ The agent employs structured chain-of-thought processing when debugging or imple
 
 ---
 
-### **9. Class Relationships (PlantUML)**
+### 9. Class Relationships (PlantUML)
 
-![Class Relationships](../assets/diagrams/class_relationships.png)
+![Class Relationships](../assets/diagrams/class_relationships.svg)
 
 ---
 
-### **10. System Architecture (Dual-Backlog)**
+### 10. System Architecture (Dual-Backlog)
 
-![System Architecture](../assets/diagrams/system_architecture.png)
+![System Architecture](../assets/diagrams/system_architecture.svg)
 *(Source: [system_architecture.dot](../assets/diagrams/system_architecture.dot))*

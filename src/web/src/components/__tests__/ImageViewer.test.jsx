@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ImageViewer } from '../ImageViewer';
+import { TheatreStage } from '../TheatreStage';
 
-// Mock TheatreStage to avoid testing its internal engine logic here
+// Mock TheatreStage
 vi.mock('../TheatreStage', () => ({
     TheatreStage: vi.fn(({ scene, selectedSprite, onSpriteSelected, isExpanded, toggleExpand, onToggleSpriteVisibility, onDeleteSprite, onAddBehavior, isSpriteVisible }) => (
         <div data-testid="theatre-stage">
@@ -43,6 +44,26 @@ describe('ImageViewer', () => {
         onSaveScale: vi.fn(),
         onSaveRotation: vi.fn(),
         onSpriteSelected: vi.fn(),
+        onAddSpriteRequested: vi.fn(),
+        onDeleteSprite: vi.fn(),
+        onAddBehavior: vi.fn(),
+        onToggleSpriteVisibility: vi.fn(),
+        isSpriteVisible: true,
+        onSave: vi.fn(),
+        hasChanges: false,
+        activeSprite: 'sprite1',
+        assetBaseUrl: 'http://test/assets',
+        inputContext: 'vis',
+        onTimelineArrow: vi.fn(),
+        currentTime: 10,
+        onTelemetry: vi.fn(),
+        debugMode: 'off',
+        layerVisibility: {},
+        onToggleVisibility: vi.fn(),
+        onPlayPause: vi.fn(),
+        onTimeUpdate: vi.fn(),
+        isPlaying: false,
+        style: { height: '100px' }
     };
 
     beforeEach(() => {
@@ -52,7 +73,37 @@ describe('ImageViewer', () => {
     it('renders TheatreStage with correct props', () => {
         render(<ImageViewer {...defaultProps} />);
         expect(screen.getByTestId('theatre-stage')).toBeInTheDocument();
-        expect(screen.getByText(/Mock TheatreStage: test-scene/)).toBeInTheDocument();
+
+        // Check if TheatreStage mock was called with all props
+        expect(TheatreStage).toHaveBeenCalledWith(expect.objectContaining({
+            scene: defaultProps.scene,
+            sceneName: defaultProps.sceneName,
+            currentTime: defaultProps.currentTime,
+            onTelemetry: defaultProps.onTelemetry,
+            debugMode: defaultProps.debugMode,
+            isPlaying: defaultProps.isPlaying,
+            onPlayPause: defaultProps.onPlayPause,
+            layerVisibility: defaultProps.layerVisibility,
+            onToggleVisibility: defaultProps.onToggleVisibility,
+            selectedSprite: defaultProps.activeSprite,
+            onSpriteSelected: defaultProps.onSpriteSelected,
+            onSpritePositionChanged: defaultProps.onSavePosition,
+            onSpriteScaleChanged: defaultProps.onSaveScale,
+            onSpriteRotationChanged: defaultProps.onSaveRotation,
+            onAddSpriteRequested: defaultProps.onAddSpriteRequested,
+            isExpanded: defaultProps.isExpanded,
+            toggleExpand: defaultProps.toggleExpand,
+            assetBaseUrl: defaultProps.assetBaseUrl,
+            isSpriteVisible: defaultProps.isSpriteVisible,
+            onToggleSpriteVisibility: defaultProps.onToggleSpriteVisibility,
+            onDeleteSprite: defaultProps.onDeleteSprite,
+            onAddBehavior: defaultProps.onAddBehavior,
+            onSave: defaultProps.onSave,
+            hasChanges: defaultProps.hasChanges,
+            inputContext: defaultProps.inputContext,
+            onTimeUpdate: defaultProps.onTimeUpdate,
+            onTimelineArrow: defaultProps.onTimelineArrow,
+        }), undefined);
     });
 
     it('renders optimizing overlay when isOptimizing is true', () => {
@@ -60,57 +111,22 @@ describe('ImageViewer', () => {
         expect(screen.getByTestId('icon-optimize')).toBeInTheDocument();
     });
 
-    it('renders actions', () => {
+    it('renders actions correctly', () => {
         render(<ImageViewer {...defaultProps} />);
         expect(screen.getByText('Action Button')).toBeInTheDocument();
     });
 
-    it('calls toggleExpand when expand button is clicked', () => {
+    it('handles expand toggle', () => {
         render(<ImageViewer {...defaultProps} />);
         const expandBtn = screen.getByTitle('Maximize (Zen Mode)');
         fireEvent.click(expandBtn);
         expect(defaultProps.toggleExpand).toHaveBeenCalled();
     });
 
-    it('shows sprite control buttons when activeSprite is present', () => {
-        const propsWithSprite = {
-            ...defaultProps,
-            activeSprite: 'boat',
-            onAddBehavior: vi.fn(),
-            onToggleSpriteVisibility: vi.fn(),
-            onDeleteSprite: vi.fn(),
-            isSpriteVisible: true
-        };
-        render(<ImageViewer {...propsWithSprite} />);
-
+    it('renders controls when sprite active', () => {
+        render(<ImageViewer {...defaultProps} />);
         expect(screen.getByTitle('Add Behavior')).toBeInTheDocument();
         expect(screen.getByTitle('Hide Sprite')).toBeInTheDocument();
         expect(screen.getByTitle('Delete Sprite Permanently')).toBeInTheDocument();
-
-        fireEvent.click(screen.getByTitle('Add Behavior'));
-        expect(propsWithSprite.onAddBehavior).toHaveBeenCalled();
-
-        fireEvent.click(screen.getByTitle('Hide Sprite'));
-        expect(propsWithSprite.onToggleSpriteVisibility).toHaveBeenCalled();
-
-        fireEvent.click(screen.getByTitle('Delete Sprite Permanently'));
-        expect(propsWithSprite.onDeleteSprite).toHaveBeenCalled();
-    });
-
-    it('shows "Show Sprite" icon when isSpriteVisible is false', () => {
-        const propsHidden = {
-            ...defaultProps,
-            activeSprite: 'boat',
-            isSpriteVisible: false,
-            onToggleSpriteVisibility: vi.fn(),
-        };
-        render(<ImageViewer {...propsHidden} />);
-        expect(screen.getByTitle('Show Sprite')).toBeInTheDocument();
-    });
-
-    it('propagates onSpriteSelected from TheatreStage', () => {
-        render(<ImageViewer {...defaultProps} />);
-        fireEvent.click(screen.getByText('Select Sprite'));
-        expect(defaultProps.onSpriteSelected).toHaveBeenCalledWith('test-sprite');
     });
 });

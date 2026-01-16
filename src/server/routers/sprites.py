@@ -1,9 +1,9 @@
 import logging
 import shutil
-from pathlib import Path
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi.responses import FileResponse
 from PIL import Image
 from pydantic import BaseModel, constr
 
@@ -11,14 +11,15 @@ from src.compiler.engine import SpriteCompiler
 from src.config import PROJECT_ROOT
 from src.server import image_processing as img_proc
 from src.server.dependencies import (
+    ASSETS_DIR,
     asset_logger,
-    get_community_assets,
     get_current_user,
     get_user_assets,
 )
 
 logger = logging.getLogger("papeterie")
 router = APIRouter(tags=["sprites"])
+asset_router = APIRouter(tags=["assets"])
 
 # --- Models ---
 
@@ -49,115 +50,89 @@ class CompileRequest(BaseModel):
 # --- Endpoints ---
 
 
+@asset_router.get("/assets/users/{user_id}/sprites/{sprite_name}/{filename}")
+async def get_sprite_asset(user_id: str, sprite_name: str, filename: str, request: Request):
+    """
+    Direct access to sprite assets with special handling for prompt metadata.
+    The path is relative to the router prefix (/api), but main.py mounts it differently
+    if it's intended to be compatible with legacy /assets/... URLs.
+    However, the goal is to centralize this logic here.
+    """
+    # Note: ASSETS_DIR is defined in config and imported via dependencies or directly
+    file_path = ASSETS_DIR / "users" / user_id / "sprites" / sprite_name / filename
+
+    if filename.endswith(".prompt.json") and not file_path.exists():
+        return {}  # Return empty JSON instead of 404
+
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="Asset not found")
+
+    return FileResponse(file_path)
+
+
 @router.get("/sprites", response_model=List[SpriteInfo])
 async def list_sprites(
     user_id: str = Depends(get_current_user),
     user_assets=Depends(get_user_assets),
-    community_assets=Depends(get_community_assets),
 ):
     _, sprites_dir = user_assets
-    _, community_sprites = community_assets
 
     sprites = []
 
-    def scan_dir(directory: Path, is_comm: bool = False, owner_id: str = "default"):
-        logger.info(f"Scanning sprites in {directory} (community={is_comm})")
-        found = []
-        if not directory.exists():
-            return found
+    logger.info(f"Scanning sprites in {sprites_dir}")
+    if not sprites_dir.exists():
+        return sprites
 
-        for item in directory.iterdir():
-            if item.is_dir():
-                name = item.name
-                image_path = item / f"{name}.png"
-                metadata_path = item / f"{name}.prompt.json"
-                prompt_text_path = item / f"{name}.prompt.txt"
-                original_path = item / f"{name}.original.png"
+    for item in sprites_dir.iterdir():
+        if item.is_dir():
+            name = item.name
+            image_path = item / f"{name}.png"
+            metadata_path = item / f"{name}.prompt.json"
+            prompt_text_path = item / f"{name}.prompt.txt"
+            original_path = item / f"{name}.original.png"
 
-                metadata = None
-                if metadata_path.exists():
-                    try:
-                        import json
+            metadata = None
+            if metadata_path.exists():
+                try:
+                    import json
 
-                        with open(metadata_path, "r") as f:
-                            metadata = json.load(f)
-                    except Exception as e:
-                        logger.error(f"Failed to load metadata for {name}: {e}")
+                    with open(metadata_path, "r") as f:
+                        metadata = json.load(f)
+                except Exception as e:
+                    logger.error(f"Failed to load metadata for {name}: {e}")
 
-                prompt_text = None
-                if prompt_text_path.exists():
-                    try:
-                        prompt_text = prompt_text_path.read_text(encoding="utf-8")
-                    except Exception as e:
-                        logger.error(f"Failed to load prompt text for {name}: {e}")
+            prompt_text = None
+            if prompt_text_path.exists():
+                try:
+                    prompt_text = prompt_text_path.read_text(encoding="utf-8")
+                except Exception as e:
+                    logger.error(f"Failed to load prompt text for {name}: {e}")
 
-                base_uid = "community" if is_comm else owner_id
-                image_url = None
-                if image_path.exists():
-                    image_url = f"/assets/users/{base_uid}/sprites/{name}/{name}.png"
+            image_url = None
+            if image_path.exists():
+                image_url = f"/assets/users/{user_id}/sprites/{name}/{name}.png"
 
-                original_url = None
-                if original_path.exists():
-                    original_url = f"/assets/users/{base_uid}/sprites/{name}/{name}.original.png"
+            original_url = None
+            if original_path.exists():
+                original_url = f"/assets/users/{user_id}/sprites/{name}/{name}.original.png"
 
-                found.append(
-                    SpriteInfo(
-                        name=name,
-                        has_image=image_path.exists(),
-                        has_metadata=metadata_path.exists(),
-                        has_original=original_path.exists(),
-                        metadata=metadata,
-                        prompt_text=prompt_text,
-                        image_url=image_url,
-                        original_url=original_url,
-                        is_community=is_comm,
-                        creator=None if is_comm else owner_id,
-                    )
+            sprites.append(
+                SpriteInfo(
+                    name=name,
+                    has_image=image_path.exists(),
+                    has_metadata=metadata_path.exists(),
+                    has_original=original_path.exists(),
+                    metadata=metadata,
+                    prompt_text=prompt_text,
+                    image_url=image_url,
+                    original_url=original_url,
+                    is_community=False,
+                    creator=user_id,
                 )
-        return found
-
-    # User sprites first
-    sprites.extend(scan_dir(sprites_dir, is_comm=False, owner_id=user_id))
-
-    # Community sprites
-    community_list = scan_dir(community_sprites, is_comm=True)
-    # Avoid duplicates if user has a sprite with the same name (user version takes precedence)
-    user_sprite_names = {s.name for s in sprites}
-    for s in community_list:
-        if s.name not in user_sprite_names:
-            sprites.append(s)
+            )
 
     logger.info(f"Found {len(sprites)} sprites")
     return sprites
-
-
-@router.post("/sprites/{name}/share")
-async def share_sprite(
-    name: str,
-    user_id: str = Depends(get_current_user),
-    user_assets=Depends(get_user_assets),
-    community_assets=Depends(get_community_assets),
-):
-    _, sprites_dir = user_assets
-    _, community_sprites = community_assets
-
-    src_dir = sprites_dir / name
-    if not src_dir.exists():
-        raise HTTPException(status_code=404, detail="Sprite not found in your library")
-
-    dest_dir = community_sprites / name
-    dest_dir.mkdir(parents=True, exist_ok=True)
-
-    # Copy files
-    for item in src_dir.iterdir():
-        if item.is_file():
-            shutil.copy2(item, dest_dir / item.name)
-
-    asset_logger.log_action(
-        "sprites", name, "share", f"Sprite shared to community by {user_id}", user_id=user_id
-    )
-
-    return {"status": "success", "message": f"Sprite '{name}' shared to community"}
 
 
 @router.post("/sprites/upload")
@@ -360,6 +335,38 @@ async def revert_sprite(name: str, user_assets=Depends(get_user_assets)):
         raise HTTPException(status_code=500, detail="Revert failed. Check server logs.")
 
 
+@router.post("/sprites/{name}/share")
+async def share_sprite(
+    name: str,
+    user_id: str = Depends(get_current_user),
+    user_assets=Depends(get_user_assets),
+):
+    _, sprites_dir = user_assets
+    sprite_dir = sprites_dir / name
+
+    if not sprite_dir.exists():
+        raise HTTPException(status_code=404, detail="Sprite not found")
+
+    # Community directory
+    community_dir = ASSETS_DIR / "users" / "community" / "sprites"
+    community_dir.mkdir(parents=True, exist_ok=True)
+    target_dir = community_dir / name
+
+    try:
+        if target_dir.exists():
+            shutil.rmtree(target_dir)  # Overwrite
+
+        shutil.copytree(sprite_dir, target_dir)
+
+        asset_logger.log_action(
+            "sprites", name, "SHARE", "Sprite shared to community", "", user_id=user_id
+        )
+        return {"name": name, "message": "Sprite shared to community successfully"}
+    except Exception as e:
+        logger.error(f"Share failed for {name}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Share failed: {e}")
+
+
 @router.put("/sprites/{name}/config")
 async def update_sprite_config(
     name: str,
@@ -397,7 +404,7 @@ def compile_sprite(request: CompileRequest, user_assets=Depends(get_user_assets)
     try:
         _, sprites_dir = user_assets
         compiler = SpriteCompiler(sprite_dir=sprites_dir)  # Scoped to user
-        # TODO: Update compiler to support user-scoped directories!
+        # Support for user-scoped directories is tracked in BACKLOG [TECH-002]
 
         sprite_dir = sprites_dir / request.name
         sprite_dir.mkdir(parents=True, exist_ok=True)

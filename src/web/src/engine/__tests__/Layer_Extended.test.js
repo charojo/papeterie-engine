@@ -89,10 +89,11 @@ describe('Layer Extended', () => {
                     min_value: 0.1,
                     coordinate: CoordinateType.OPACITY,
                     activation_threshold_scale: 0.5
-                }]
+                }],
+                scale: 1.0
             };
             // Base scale 1.0 > 0.5, pulse should not apply
-            const layer = new Layer({ behaviors: [config], scale: 1.0 }, mockImage);
+            const layer = new Layer(config, mockImage);
             const tf = layer.getTransform(1000, 1000, 0.5, 0.5);
             expect(tf.opacity).toBe(1.0);
         });
@@ -175,6 +176,53 @@ describe('Layer Extended', () => {
             expect(ctx.fillRect).toHaveBeenCalled();
         });
 
+        it('applies transparency when selected (Rule 1b)', () => {
+            const layer = new Layer({
+                fill_down: true
+            }, mockImage);
+            layer.isSelected = true; // Selected sprite
+            layer.processedImage = { width: 100, height: 100 };
+            layer.fillColor = 'rgba(0,0,0,1)';
+
+            const ctx = {
+                drawImage: vi.fn(),
+                fillRect: vi.fn(),
+                save: vi.fn(),
+                restore: vi.fn(),
+                translate: vi.fn(),
+                rotate: vi.fn(),
+                stroke: vi.fn(),
+                _globalAlpha: 1.0,
+                set globalAlpha(v) { this._globalAlpha = v; },
+                get globalAlpha() { return this._globalAlpha; },
+                set fillStyle(v) { },
+                set strokeStyle(v) { },
+                set lineWidth(v) { },
+                set filter(v) { },
+                setLineDash: vi.fn(),
+                strokeRect: vi.fn(),
+                beginPath: vi.fn(),
+                arc: vi.fn(),
+                fill: vi.fn(),
+                moveTo: vi.fn(),
+                lineTo: vi.fn()
+            };
+
+            const alphaSpy = vi.spyOn(ctx, 'globalAlpha', 'set');
+
+            layer.draw(ctx, 1000, 1000, 0, 0, 0);
+
+            // Rule 1b:
+            // 1. fillRect SHOULD be called (fill_down remains active)
+            expect(ctx.fillRect).toHaveBeenCalled();
+
+            // 2. Global alpha should have been set to 0.2 at some point
+            expect(alphaSpy).toHaveBeenCalledWith(0.2);
+
+            // 3. Global alpha should be reset to 1.0 at the end
+            expect(ctx.globalAlpha).toBe(1.0);
+        });
+
         it('draws with selection highlight', () => {
             const layer = new Layer({ tile_horizontal: true }, mockImage);
             layer.isSelected = true;
@@ -187,15 +235,17 @@ describe('Layer Extended', () => {
                 rotate: vi.fn(),
                 beginPath: vi.fn(),
                 arc: vi.fn(),
-                fill: vi.fn(),
-                moveTo: vi.fn(),
-                lineTo: vi.fn(),
                 stroke: vi.fn(),
                 set strokeStyle(v) { },
                 set lineWidth(v) { },
                 set globalAlpha(v) { },
                 set fillStyle(v) { },
-                setLineDash: vi.fn()
+                set filter(v) { },
+                setLineDash: vi.fn(),
+
+                fill: vi.fn(),
+                moveTo: vi.fn(),
+                lineTo: vi.fn()
             };
             layer.draw(ctx, 1000, 1000, 0, 0, 0, null, true);
             expect(ctx.strokeRect).toHaveBeenCalled();

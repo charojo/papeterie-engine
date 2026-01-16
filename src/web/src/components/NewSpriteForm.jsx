@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { toast } from 'sonner';
 import { Icon } from './Icon';
 import { API_BASE } from '../config';
+import './Forms.css';
 
 export function NewSpriteForm({ onSuccess, onCancel }) {
     const [name, setName] = useState('');
@@ -27,7 +28,7 @@ export function NewSpriteForm({ onSuccess, onCancel }) {
             })
             .then(async data => {
                 await new Promise(r => setTimeout(r, 500));
-                onSuccess(data); // Pass full data object so we can use it immediately
+                onSuccess(data.name);
                 return data.name;
             });
 
@@ -37,22 +38,17 @@ export function NewSpriteForm({ onSuccess, onCancel }) {
             error: (err) => `Failed to create sprite: ${err.message}`
         });
 
-        try {
-            await promise;
-        } catch { /* handled by promise */ }
-        finally {
-            setLoading(false);
-        }
+        promise.finally(() => setLoading(false));
     };
 
     return (
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div>
-                <label htmlFor="sprite-name" style={{ display: 'block', marginBottom: '8px', color: 'var(--color-text-muted)' }}>Sprite Name</label>
+        <form onSubmit={handleSubmit} className="standard-form">
+            <div className="form-group">
+                <label htmlFor="sprite-name" className="form-label">Sprite Name</label>
                 <input id="sprite-name" className="input" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. mythical_dragon" autoFocus />
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <label htmlFor="sprite-file" style={{ display: 'block', color: 'var(--color-text-muted)' }}>Source Image (PNG)</label>
+            <div className="form-group">
+                <label htmlFor="sprite-file" className="form-label">Source Image (PNG)</label>
                 <input id="sprite-file" type="file" onChange={e => {
                     const file = e.target.files[0];
                     setFile(file);
@@ -62,11 +58,15 @@ export function NewSpriteForm({ onSuccess, onCancel }) {
                     }
                 }} accept="image/png" className="input" />
             </div>
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                {onCancel && <button type="button" className="btn" onClick={onCancel} disabled={loading}>Cancel</button>}
+            <div className="form-actions">
                 <button type="submit" className="btn btn-primary" disabled={loading}>
                     {loading ? <Icon name="image" className="animate-spin" /> : 'Create Sprite'}
                 </button>
+                {onCancel && (
+                    <button type="button" className="btn" onClick={onCancel} disabled={loading}>
+                        Cancel
+                    </button>
+                )}
             </div>
         </form>
     )

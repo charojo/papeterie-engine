@@ -1,4 +1,12 @@
 import io
+
+## @DOC
+# ### Image Processing Pipeline
+# Provides utilities for manipulating sprite and scene assets:
+# 1. **Green Screen Removal**: Naive color-keying to extract subjects from backgrounds.
+# 2. **Size Optimization**: Resizing large assets to maintain performance while
+#    preserving aspect ratio.
+# 3. **Format Conversion**: Marshaling between raw bytes and PIL Image objects.
 import logging
 
 from PIL import Image

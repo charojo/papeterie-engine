@@ -286,4 +286,147 @@ describe('Layer', () => {
             expect(boatLayer._currentYPhys).toBeLessThan(500);
         });
     });
+
+    describe('Interaction Methods', () => {
+        it('identifies handles at point', () => {
+            const layer = new Layer({ x_offset: 100, y_offset: 100 }, mockImage);
+            layer.isSelected = true;
+            layer.is_background = false;
+
+            // BaseY = 450 + 100 = 550. BaseX = 0 + 100 = 100.
+            // Img w=100. Center = 100 + 50 = 150, 550 + 50 = 600.
+
+            // Top Left Handle: x=-50, y=-50 relative to center (150, 600) -> (100, 550)?
+            // getHandleAtPoint checks lx, ly relative to center rotated.
+            // lx = x - cx.
+            // TL handle is at -w/2, -h/2 = -50, -50.
+            // So x should be cx - 50 = 100, y should be cy - 50 = 550.
+
+            const handle = layer.getHandleAtPoint(100, 550, 1000, 1000, 0);
+            expect(handle).toEqual({ type: 'scale', id: 'tl' });
+
+            // Rotate Handle: Top Center - 25px.
+            // Top Center is 0, -50.
+            // Rotate is 0, -75.
+            // x = 150, y = 600 - 75 = 525.
+            const rotHandle = layer.getHandleAtPoint(150, 525, 1000, 1000, 0);
+            expect(rotHandle).toEqual({ type: 'rotate' });
+        });
+
+        it('does not show handles if not selected or background', () => {
+            const layer = new Layer({}, mockImage);
+            layer.isSelected = false;
+            expect(layer.getHandleAtPoint(0, 0, 1000, 1000, 0)).toBeNull();
+
+            layer.isSelected = true;
+            layer.is_background = true;
+            expect(layer.getHandleAtPoint(0, 0, 1000, 1000, 0)).toBeNull();
+        });
+
+        it('sets rotation correctly', () => {
+            const layer = new Layer({}, mockImage);
+            layer.setRotation(45);
+            expect(layer.config.rotation).toBe(45);
+
+            // With keyframes
+            layer.config.behaviors = [{ type: 'location', time_offset: 2, rotation: 0 }];
+            layer.setRotation(90, 2.05); // near 2
+            expect(layer.config.behaviors[0].rotation).toBe(90);
+        });
+
+        it('sets scale correctly', () => {
+            const layer = new Layer({}, mockImage);
+            layer.setScale(2.0);
+            expect(layer._baseScale).toBe(2.0);
+            expect(layer.config.scale).toBe(2.0);
+
+            // With keyframes
+            layer.config.behaviors = [{ type: 'location', time_offset: 1, scale: 1 }];
+            layer.setScale(3.0, 1.05);
+            expect(layer.config.behaviors[0].scale).toBe(3.0);
+        });
+
+        it('draws handles when selected', () => {
+            const layer = new Layer({ x_offset: 100, y_offset: 100 }, mockImage);
+            layer.isSelected = true;
+            layer.is_background = false;
+
+            const ctx = {
+                drawImage: vi.fn(),
+                save: vi.fn(),
+                restore: vi.fn(),
+                translate: vi.fn(),
+                rotate: vi.fn(),
+                fillRect: vi.fn(),
+                strokeRect: vi.fn(),
+                setLineDash: vi.fn(),
+                beginPath: vi.fn(),
+                arc: vi.fn(),
+                fill: vi.fn(),
+                stroke: vi.fn(),
+                moveTo: vi.fn(),
+                lineTo: vi.fn()
+            };
+
+            // Draw
+            layer.draw(ctx, 1000, 1000, 0, 0, 0.016, null);
+
+            // Expect handles to be drawn
+            // strokeRect is used for bounding box
+            expect(ctx.strokeRect).toHaveBeenCalled();
+            // arc is used for handles
+            expect(ctx.arc).toHaveBeenCalled();
+
+            // Test Horizontal Tiling Draw Logic
+            const tileLayer = new Layer({ tile_horizontal: true, x_offset: 0 }, mockImage);
+            tileLayer.isSelected = true;
+            // Mock ctx again to clear
+            const ctx2 = { ...ctx, drawImage: vi.fn(), strokeRect: vi.fn() };
+
+            tileLayer.draw(ctx2, 1000, 1000, 0, 0, 0.016, null);
+            // Should draw multiple times
+            expect(ctx2.drawImage.mock.calls.length).toBeGreaterThan(1);
+            // Should draw handles multiple times
+            expect(ctx2.strokeRect.mock.calls.length).toBeGreaterThan(1);
+        });
+
+        it('handles setPosition', () => {
+            const layer = new Layer({}, mockImage);
+            layer.setPosition(123, 456);
+            expect(layer.x_offset).toBe(123);
+            expect(layer.y_offset).toBe(456);
+        });
+
+        it('handles fill_down in _processImage', () => {
+            // Need to spy on document.createElement or verify canvas creation
+            // _processImage is called in constructor.
+
+            // Mock context to return pixel data for fill color
+            // We already mocked global.document.createElement above with getImageData
+            // returning valid data.
+
+            const layer = new Layer({ fill_down: true }, mockImage);
+            expect(layer.fill_down).toBe(true);
+            expect(layer.fillColor).toBeDefined();
+            // Default mock data has alpha 0 or 255.
+            // Our mock getImageData sets alpha 255 for row >= 10.
+            // h=100. row 99 >= 10 -> alpha 255.
+
+            // Check if fillRect called during draw
+            const ctx = {
+                drawImage: vi.fn(),
+                fillRect: vi.fn(),
+                getImageData: vi.fn(() => ({ data: [0, 0, 0, 255] }))
+            };
+            // We can't easily inject ctx into _processImage without full DOM mock
+            // But we can check if fillRect is called during draw calls for fill_down layer.
+
+            // Inject processed image simply
+            layer.processedImage = { width: 100, height: 100 };
+            layer.fillColor = 'rgba(0,0,0,1)';
+
+            layer.draw(ctx, 1000, 1000, 0, 0, 0.016);
+            expect(ctx.fillRect).toHaveBeenCalled();
+        });
+    });
 });

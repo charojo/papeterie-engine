@@ -48,7 +48,8 @@ playwright-report/
 papeterie.db
 
 # Logs
-logs/
+logs/*
+!logs/.gitkeep
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -73,7 +74,19 @@ assets/users/*
 !assets/users/community/sprites/stars/
 !assets/users/community/sprites/wave*/
 !docs/assets/
+docs/assets/diagrams/*.png
 
 # Playwright snapshots (allow tracking for visual regression)
 !*-snapshots/
 # *-snapshots/
+# Automated Doc Generation
+docs/gen/
+
+# Agent Metadata
+.agent/*
+!.agent/workflows/
+
+# Temporary Test Output
+*_output.txt
+test_output*.txt
+validation_log.txt

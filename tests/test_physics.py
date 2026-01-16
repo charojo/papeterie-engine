@@ -13,7 +13,7 @@ def setup_pygame(mocker):
     pygame.display.set_mode((1280, 720))
 
     # Mock image loading
-    mock_surface = MagicMock(spec=pygame.Surface)
+    mock_surface = MagicMock()
     mock_surface.get_width.return_value = 100
     mock_surface.get_height.return_value = 100
     mock_surface.get_size.return_value = (100, 100)
@@ -21,7 +21,7 @@ def setup_pygame(mocker):
     mocker.patch("pygame.image.load", return_value=mock_surface)
 
     # Mock smoothscale
-    mock_smooth = MagicMock(spec=pygame.Surface)
+    mock_smooth = MagicMock()
     mock_smooth.get_width.return_value = 100
     mock_smooth.get_height.return_value = 100
     mock_smooth.get_size.return_value = (100, 100)

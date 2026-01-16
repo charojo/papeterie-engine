@@ -12,7 +12,7 @@ Kevin Surace’s framing of modern tool-building—treating automation as a firs
 
 This post explores how those pressures turned into concrete architecture: a schema-first compiler pipeline, dual-runtime parity safeguards, React ↔ Theatre synchronization patterns, and a QA reasoning loop that made iteration dependable.
 
-<img src="../assets/diagrams/high_level_architecture.png" width="85%">
+<img src="../assets/diagrams/high_level_architecture.svg" width="85%">
 <br>
 Source: <a href="https://github.com/charojo/papeterie-engine/blob/master/docs/assets/diagrams/high_level_architecture.dot">high_level_architecture.dot</a>
 
@@ -25,11 +25,11 @@ The engine is built on a strict **Compiler-Renderer** separation. This allows us
 
 ### 1.1 The High-Level Pipeline
 
-<img src="../assets/diagrams/detailed_pipeline_flow.png" width="33%">
+<img src="../assets/diagrams/detailed_pipeline_flow.svg" width="33%">
 <br>
 Source: <a href="https://github.com/charojo/papeterie-engine/blob/master/docs/assets/diagrams/detailed_pipeline_flow.dot">detailed_pipeline_flow.dot</a>
 
-### 1.2 The Two-Stage Gemini Pipeline
+### 1.2 The Two-Stage Gemini Pipeline {#12-the-two-stage-gemini-pipeline}
 
 LLM outputs are notoriously creative but often unreliable with strict schemas. We solved this by splitting metadata generation into two distinct stages:
 
@@ -52,7 +52,7 @@ async def generate_metadata(self, prompt, sprite_path, attempts=3):
         raise
 ```
 
-### 1.3 Component Map Architecture (React ↔ Pygame)
+### 1.3 Component Map Architecture (React ↔ Pygame) {#13-component-map-architecture-react--pygame}
 
 The frontend uses a **Component Map Architecture**, allowing a modern React UI to control a legacy-style imperative engine (`Theatre.js`) through a shared state model.
 
@@ -60,7 +60,7 @@ The frontend uses a **Component Map Architecture**, allowing a modern React UI t
 
 We avoid "two sources of truth" by using `useEffect` hooks to push React state updates into the imperative engine.
 
-<img src="../assets/diagrams/react_theatre_sync.png" width="50%">
+<img src="../assets/diagrams/react_theatre_sync.svg" width="50%">
 <br>
 Source: <a href="https://github.com/charojo/papeterie-engine/blob/master/docs/assets/diagrams/react_theatre_sync.dot">react_theatre_sync.dot</a>
 
@@ -88,7 +88,7 @@ We solved this with **Schema-First Parity**:
 
 The rigorous backend architecture ultimately serves the user experience. The flow was designed to mimic the "Creator's Loop": Prepare -> Assemble -> Refine.
 
-<img src="../assets/diagrams/user_journey_2026_01_09.png" width="100%">
+<img src="../assets/diagrams/user_journey_2026_01_09.svg" width="100%">
 <br>
 Source: <a href="https://github.com/charojo/papeterie-engine/blob/master/docs/assets/diagrams/user_journey_2026_01_09.dot">user_journey_2026_01_09.dot</a>
 
@@ -101,7 +101,7 @@ This separation prevents the "cockpit problem" where every tool is visible at on
 
 ---
 
-## Part 2: The AI Partnership & Methodology
+## Part 2: The AI Partnership & Methodology {#part-2-the-ai-partnership--methodology}
 
 Our collaboration evolved through three distinct phases as the project's complexity grew:
 
@@ -113,7 +113,7 @@ Our collaboration evolved through three distinct phases as the project's complex
 
 The engine uses a collaborative debugging partner model where the agent handles research and implementation while the human provides vision and judgment.
 
-<img src="../assets/diagrams/agent_in_the_loop.png" width="66%">
+<img src="../assets/diagrams/agent_in_the_loop.svg" width="66%">
 <br>
 Source: <a href="https://github.com/charojo/papeterie-engine/blob/master/docs/assets/diagrams/agent_in_the_loop.dot">agent_in_the_loop.dot</a>
 
@@ -135,13 +135,13 @@ One of the most powerful aspects of this partnership is the **Prompt History**. 
 
 ---
 
-## Part 3: Quality Assurance & Tooling
+## Part 3: Quality Assurance & Tooling {#part-3-quality-assurance--tooling}
 
 To keep the feedback loop fast, we implemented a **Tiered Validation System** and a catalog of **Agentic Workflows**.
 
 ### 3.1 Tiered Validation
 
-<img src="../assets/diagrams/tiered_validation.png" width="75%">
+<img src="../assets/diagrams/tiered_validation.svg" width="75%">
 <br>
 Source: <a href="https://github.com/charojo/papeterie-engine/blob/master/docs/assets/diagrams/tiered_validation.dot">tiered_validation.dot</a>
 
@@ -198,15 +198,15 @@ The agent references these workflows to ensure consistency, effectively "trainin
 
 | Workflow | Description | Source |
 | :--- | :--- | :--- |
-| **Add Scene** | SOP for adding new scenes, ensuring all metadata and assets are correctly placed. | [`/add-scene`](https://github.com/charojo/papeterie-engine/blob/master/.agent/workflows/add-scene.md) |
-| **Architecture** | Guidelines for implementing architectural changes and big features. | [`/architecture`](https://github.com/charojo/papeterie-engine/blob/master/.agent/workflows/architecture.md) |
-| **Cleanup** | Routine for cleaning up system files, caches, and logs. | [`/cleanup`](https://github.com/charojo/papeterie-engine/blob/master/.agent/workflows/cleanup.md) |
-| **CSS Review** | Checklist for reviewing CSS compliance against the design system. | [`/css-review`](https://github.com/charojo/papeterie-engine/blob/master/.agent/workflows/css-review.md) |
-| **Design Planning** | Process for planning UI/UX and system design tasks. | [`/design-planning`](https://github.com/charojo/papeterie-engine/blob/master/.agent/workflows/design-planning.md) |
-| **Docs Path Integrity** | Standards for maintaining relative paths in documentation. | [`/docs-path-integrity`](https://github.com/charojo/papeterie-engine/blob/master/.agent/workflows/docs-path-integrity.md) |
-| **Security Review** | Basic security review checklist. | [`/security-review`](https://github.com/charojo/papeterie-engine/blob/master/.agent/workflows/security-review.md) |
-| **UX Review** | Accessibility and UX consistency review protocols. | [`/ux-review`](https://github.com/charojo/papeterie-engine/blob/master/.agent/workflows/ux-review.md) |
-| **Validate** | The comprehensive QA validation strategy. | [`/validate`](https://github.com/charojo/papeterie-engine/blob/master/.agent/workflows/validate.md) |
+| **Add Scene** | SOP for adding new scenes, ensuring all metadata and assets are correctly placed. | [`/add-scene`](https://github.com/charojo/papeterie-engine/blob/master/agent_env/workflows/project/add-scene.md) |
+| **Architecture** | Guidelines for implementing architectural changes and big features. | [`/architecture`](https://github.com/charojo/papeterie-engine/blob/master/agent_env/workflows/core/architecture.md) |
+| **Cleanup** | Routine for cleaning up system files, caches, and logs. | [`/cleanup`](https://github.com/charojo/papeterie-engine/blob/master/agent_env/workflows/core/cleanup.md) |
+| **CSS Review** | Checklist for reviewing CSS compliance against the design system. | [`/css-review`](https://github.com/charojo/papeterie-engine/blob/master/agent_env/workflows/project/css-review.md) |
+| **Design Planning** | Process for planning UI/UX and system design tasks. | [`/design-planning`](https://github.com/charojo/papeterie-engine/blob/master/agent_env/workflows/core/design-planning.md) |
+| **Docs Path Integrity** | Standards for maintaining relative paths in documentation. | [`/docs-path-integrity`](https://github.com/charojo/papeterie-engine/blob/master/agent_env/workflows/core/docs-path-integrity.md) |
+| **Security Review** | Basic security review checklist. | [`/security-review`](https://github.com/charojo/papeterie-engine/blob/master/agent_env/workflows/core/security-review.md) |
+| **UX Review** | Accessibility and UX consistency review protocols. | [`/ux-review`](https://github.com/charojo/papeterie-engine/blob/master/agent_env/workflows/project/ux-review.md) |
+| **Validate** | The comprehensive QA validation strategy. | [`/validate`](https://github.com/charojo/papeterie-engine/blob/master/agent_env/workflows/core/validate.md) |
 
 ---
 

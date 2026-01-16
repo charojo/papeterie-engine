@@ -20,26 +20,28 @@ test.describe('Smoke Test', () => {
         await ensureSceneExists(page);
 
         // Check that the title is correct or some element exists
-        await expect(page).toHaveTitle(/Papeterie Engine/);
+        await expect(page, 'Page title should contain "Papeterie Engine" after loading').toHaveTitle(/Papeterie Engine/);
 
         // 2. Open first scene found (e.g. sailboat)
         // const sceneCard = page.getByTestId('scene-item-sailboat').first();
         // If not found, fall back to any scene item
-        const anyScene = page.locator('[data-testid^="scene-item-"]').first();
+        const anyScene = page.locator('[data-testid^="item-"]').first();
 
-        await expect(anyScene).toBeVisible();
+        await expect(anyScene, 'At least one scene should be visible in the scene selection view').toBeVisible();
         await anyScene.click();
 
         // 3. Play the scene to show canvas
-        const playButton = page.getByRole('button', { name: 'Play Scene' });
-        if (await playButton.isVisible()) {
-            await playButton.click();
-            // 4. Verify canvas element is present
-            await expect(page.locator('canvas')).toBeVisible();
-        } else {
-            // If no play button (maybe sprite view?), just check for image
-            await expect(page.locator('img').first()).toBeVisible();
-        }
+        await test.step('Verify scene content renders', async () => {
+            const playButton = page.getByRole('button', { name: 'Play Scene' });
+            if (await playButton.isVisible()) {
+                await playButton.click();
+                // 4. Verify canvas element is present
+                await expect(page.locator('canvas'), 'Canvas element should be visible after clicking Play').toBeVisible();
+            } else {
+                // If no play button (maybe sprite view?), just check for image
+                await expect(page.locator('img').first(), 'An image should be visible if no Play button is present').toBeVisible();
+            }
+        });
 
         // Wait a bit to ensure potential animations start (optional)
         await page.waitForTimeout(1000);

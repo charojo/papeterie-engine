@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { toast } from 'sonner';
 import { API_BASE } from '../config';
+import { UpdateConfigCommand } from '../utils/Commands';
 
 /**
  * Hook for managing behavior CRUD operations.
@@ -14,51 +15,52 @@ import { API_BASE } from '../config';
  * @param {Function} refresh - Callback to refresh asset data
  * @returns {object} Behavior editor handlers
  */
-export function useBehaviorEditor(type, asset, selectedSprite, refresh) {
+export function useBehaviorEditor(type, asset, selectedSprite, refresh, executeCommand) {
 
     const handleBehaviorsChange = useCallback(async (newBehaviors) => {
         try {
-            if (type === 'sprite') {
-                const updatedMetadata = {
-                    ...asset.metadata,
-                    behaviors: newBehaviors
-                };
-                const res = await fetch(`${API_BASE}/sprites/${asset.name}/config`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(updatedMetadata)
-                });
-                if (!res.ok) throw new Error(await res.text());
-                toast.success("Sprite behaviors updated");
-            } else {
-                // Scene mode
-                if (selectedSprite === 'original') {
-                    toast.error("Cannot add behaviors to original scene background directly. Select a sprite layer.");
-                    return;
-                }
+            let targetUpdate = null;
+            let currentConfig = null;
 
-                if (!asset.config) return;
+            if (type === 'sprite') {
+                currentConfig = asset.metadata;
+                targetUpdate = { ...asset.metadata, behaviors: newBehaviors };
+            } else {
+                currentConfig = asset.config;
                 const updatedConfig = JSON.parse(JSON.stringify(asset.config));
-                const layer = updatedConfig.layers?.find(l => l.sprite_name === selectedSprite);
+                const layer = (updatedConfig.layers || []).find(l => l.sprite_name === selectedSprite);
                 if (layer) {
                     layer.behaviors = newBehaviors;
-                    const res = await fetch(`${API_BASE}/scenes/${asset.name}/config`, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(updatedConfig)
-                    });
-                    if (!res.ok) throw new Error(await res.text());
-                    toast.success(`Updated behaviors for ${selectedSprite}`);
-                } else {
-                    toast.error(`Layer ${selectedSprite} not found in scene config`);
                 }
+                targetUpdate = updatedConfig;
             }
-            await refresh();
+
+            if (executeCommand) {
+                const command = new UpdateConfigCommand(
+                    type,
+                    asset.name,
+                    currentConfig,
+                    targetUpdate,
+                    refresh,
+                    type === 'sprite' ? "Sprite behaviors updated" : `Updated behaviors for ${selectedSprite}`
+                );
+                await executeCommand(command);
+            } else {
+                const endpoint = type === 'sprite' ? 'sprites' : 'scenes';
+                const res = await fetch(`${API_BASE}/${endpoint}/${asset.name}/config`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(targetUpdate)
+                });
+                if (!res.ok) throw new Error(await res.text());
+                toast.success(type === 'sprite' ? "Sprite behaviors updated" : `Updated behaviors for ${selectedSprite}`);
+                await refresh();
+            }
         } catch (e) {
             console.error("Failed to update behaviors:", e);
             toast.error(`Failed to save changes: ${e.message}`);
         }
-    }, [type, asset.metadata, asset.config, asset.name, selectedSprite, refresh]);
+    }, [type, asset.metadata, asset.config, asset.name, selectedSprite, refresh, executeCommand]);
 
     return {
         handleBehaviorsChange

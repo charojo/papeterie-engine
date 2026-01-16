@@ -27,11 +27,14 @@ This file lists features, improvements, and bugs to be addressed in the Papeteri
 ## Technical Debt
 
 *   **[TECH-001] Refactor `main.py`**: The entry point is currently too large and logic should be distributed.
+*   **[TECH-004] TypeScript Migration**: Prepare the project for TypeScript conversion by updating configuration and dependencies to support a hybrid JS/TS environment. Design: [`docs/design/2026-01-11_typescript_migration_plan.md`](design/2026-01-11_typescript_migration_plan.md).
 
 ## Unprioritized / Ideas
 
+*   **[TECH-002] Compiler User-Scope Support**: Update compiler to support user-scoped directories (migrated from code TODO).
+*   **[TECH-003] Audio Fade-In**: Implement fade_in functionality for audio playback (migrated from code TODO).
 *   **[IDEA-001] Twinkling Stars Effect:** Implement a visual effect for star sprites that makes them appear to twinkle.
-*   **[IDEA-015] Git Hooks for Validation:** Implement pre-commit/push hooks to automatically run `./scripts/validate.sh --full` to prevent broken code from entering the repo.
+*   **[IDEA-015] Git Hooks for Validation:** Implement pre-commit/push hooks to automatically run `./bin/validate.sh --full` to prevent broken code from entering the repo.
 *   **[IDEA-002] Export Scene to Movie File:** Add functionality to export a specified number of seconds of the current animation scene as a movie file (e.g., MP4, GIF) for easy sharing. Design: [`docs/design/export_scene_design.md`](design/export_scene_design.md).
     > [!NOTE] 
     > **Workaround Available**: Users can use xbox capture (Win+G) or similar OS-level screen recording tools to capture playback.
@@ -62,7 +65,7 @@ This file lists features, improvements, and bugs to be addressed in the Papeteri
 *   **[DONE-014] UI Overhaul & Workflow Refinement**: Complete refactor of the web dashboard to remove the sidebar, centralize the Scene View, and improve sprite manipulation tools (Scale Widget, Overlay).
 *   **[DONE-015] Improve Verification Coverage**: Implemented E2E tests, visual regression infrastructure, and linting.
 *   **[DONE-016] Sound File Picker**: Implement a UI to browse and select audio files in the Behavior Editor. Implemented in `BehaviorEditor.jsx`.
-*   **[DONE-019] Token Optimization Analyzer**: Created `scripts/analyze_tokens.py` to analyze ledger cost and usage.
+*   **[DONE-019] Token Optimization Analyzer**: Created `bin/analyze_tokens.py` to analyze ledger cost and usage.
 *   **[DONE-020] Two-Stage LLM Scene Composition**: Refactored `SpriteCompiler` to support a creative elaboration stage before technical JSON generation.
 *   **[FIX-004] CSS Cleanup**: Reduced inline styles in `TimelineEditor.jsx` by introducing `timeline-scrubber`, `timeline-tick-line`, etc. (DEF-005 improved).
 
@@ -79,6 +82,7 @@ This file lists features, improvements, and bugs to be addressed in the Papeteri
 *   **[FIX-007] E2E Visual Snapshots Missing from Git**: Fixed `.gitignore` which was excluding Playwright snapshots. These are now allowed in the repository to ensure visual regression tests pass on fresh clones.
 *   **[FIX-006] Missing Asset Directories on Clean Pull**: `SpriteCompiler` and other components now ensure their required directories exist during initialization, preventing failures on clean environments where empty untracked directories are missing.
 *   **[DONE-021] Clean Git Pull Validation**: Successfully validated the environment cleanup and rebuild process (`git clean -fdx`, `uv sync`, `npm install`). The validation suite now includes hints for initial/clean runs.
+*   **[FIX-008] Fix Validation Script Counting**: Fixed a bug in `ADE_analyze_project.py` where it was incorrectly identifying the project root, leading to massively undercounted files and LOC in validation reports.
 
 ### 2026-01-10T03:10:06Z - master (c0febb4)
 - ISSUE: Unit Test Failure: tests/test_backend.py fails in clean env due to missing mkdir(parents=True)

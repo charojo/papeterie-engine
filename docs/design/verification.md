@@ -21,7 +21,7 @@ The primary entry point for validation is a tier-based script:
 
 **Workflow Tiers**:
 
-![Tiered Validation System](../assets/diagrams/tiered_validation.png)
+![Tiered Validation System](../assets/diagrams/tiered_validation.svg)
 *[Source: tiered_validation.dot](../assets/diagrams/tiered_validation.dot)*
 
 - **Fast** (default): LOC-only tests via `pytest-testmon` and custom JS locator.
@@ -95,7 +95,7 @@ Total Time:  84s
 
 When validation fails, the agent follows a structured chain-of-thought to identify and fix the root cause.
 
-![QA Reasoning Loop](../assets/diagrams/qa_reasoning_loop.png)
+![QA Reasoning Loop](../assets/diagrams/qa_reasoning_loop.svg)
 *[Source: qa_reasoning_loop.dot](../assets/diagrams/qa_reasoning_loop.dot)*
 
 

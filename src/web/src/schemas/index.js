@@ -119,7 +119,8 @@ export const LayerConfigSchema = z.object({
     behaviors: z.array(BehaviorSchema).default([]),
     behavior_guidance: z.string().nullable().optional(),
     vertical_percent: z.number().min(0).max(1).nullable().optional(),
-    visible: z.boolean().default(true)
+    visible: z.boolean().default(true),
+    environmental_reaction: EnvironmentalReactionSchema.nullable().optional()
 });
 
 // --- Scene Config Schema ---

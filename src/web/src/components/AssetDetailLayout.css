@@ -1,0 +1,87 @@
+.asset-detail-layout {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 60px);
+    overflow: hidden;
+}
+
+.asset-detail-main {
+    display: flex;
+    flex-direction: row;
+    overflow: hidden;
+    min-height: 0;
+}
+
+.asset-detail-visuals {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    flex-shrink: 0;
+    background: var(--color-bg-base);
+}
+
+.asset-detail-config {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    flex: 1;
+    min-width: 0;
+    background: var(--color-bg-surface);
+}
+
+.asset-detail-logs {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--color-bg-surface);
+    border-top: 1px solid var(--color-border);
+}
+
+.logs-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.logs-minimized-line {
+    font-size: 0.75rem;
+    font-family: monospace;
+    color: var(--color-text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    margin-right: 8px;
+}
+
+.logs-label {
+    font-size: 0.75rem;
+    font-weight: bold;
+    opacity: 0.6;
+    display: flex;
+    gap: 4px;
+}
+
+.logs-actions {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+
+.logs-btn-tool {
+    padding: 2px 4px;
+    line-height: 1;
+    background: transparent;
+    border: none;
+    font-size: 0.7rem;
+}
+
+.logs-pre {
+    flex: 1;
+    margin: 0;
+    font-size: 0.75rem;
+    overflow-y: auto;
+    font-family: monospace;
+    color: var(--color-text-muted);
+    white-space: pre-wrap;
+}

@@ -1,0 +1,61 @@
+/* DeleteConfirmationDialog.css */
+/* Reduced to only component-specific list styles */
+
+.delete-modes-container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin: 20px 0;
+}
+
+.delete-mode-item {
+    display: flex;
+    gap: 12px;
+    padding: 12px;
+    border: 1px solid var(--color-border-muted);
+    border-radius: 8px;
+    cursor: pointer;
+    background-color: transparent;
+    transition: all 0.2s ease;
+}
+
+.delete-mode-item.selected {
+    border: 1px solid var(--color-primary);
+    background-color: var(--color-bg-elevated);
+}
+
+.delete-mode-icon {
+    font-size: 1.3rem;
+    display: flex;
+    align-items: center;
+    opacity: 0.5;
+}
+
+.delete-mode-item.selected .delete-mode-icon {
+    opacity: 1;
+}
+
+.delete-mode-details {
+    flex: 1;
+}
+
+.delete-mode-label {
+    font-weight: 500;
+    color: var(--color-text-main);
+}
+
+.delete-mode-description {
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+    margin-top: 2px;
+}
+
+.delete-dialog-note {
+    padding: 10px;
+    background-color: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    margin-bottom: 20px;
+    font-size: 0.85rem;
+    color: var(--color-text-muted);
+}

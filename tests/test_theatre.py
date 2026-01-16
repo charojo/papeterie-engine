@@ -17,25 +17,30 @@ from src.renderer.theatre import ParallaxLayer, Theatre
 
 @pytest.fixture
 def mock_pygame(mocker):
-    mocker.patch("pygame.init")
-    mocker.patch("pygame.display.set_mode")
-    mocker.patch("pygame.display.get_surface")
-    mock_clock = mocker.patch("pygame.time.Clock")
-    mock_clock.return_value.tick.return_value = 16
-    mocker.patch("pygame.font.SysFont")
-    mocker.patch("pygame.font.get_init", return_value=True)
-    mocker.patch("pygame.display.quit")
-    mocker.patch("pygame.mouse.get_pos", return_value=(10, 10))
-    mocker.patch("pygame.display.flip")
-    mocker.patch("pygame.display.update")
+    # Patch the pygame module as imported in src.renderer.theatre
+    mock_pg = mocker.patch("src.renderer.theatre.pygame")
 
-    # Mock drawing functions to avoid type errors with MagicMock
-    mocker.patch("pygame.draw.circle")
-    mocker.patch("pygame.draw.rect")
-    mocker.patch("pygame.draw.line")
+    # Configure mock behavior
+    mock_pg.init.return_value = None
+    mock_pg.display.set_mode.return_value = MagicMock()
+    mock_pg.time.Clock.return_value.tick.return_value = 16
+    mock_pg.font.get_init.return_value = True
+    mock_pg.mouse.get_pos.return_value = (10, 10)
 
-    # Use a real surface for blitting/drawing logic if needed, but mock the heavy parts
-    mock_surf = MagicMock(spec=pygame.Surface)
+    # Hardcoded constants to avoid any dependency on potentially mocked global pygame
+    mock_pg.QUIT = 256
+    mock_pg.KEYDOWN = 768
+    mock_pg.MOUSEBUTTONDOWN = 1025
+    mock_pg.MOUSEMOTION = 1024
+    mock_pg.K_TAB = 9
+    mock_pg.K_d = 100
+    mock_pg.SRCALPHA = 65536
+
+    # Ensure Rect is a real pygame.Rect or similar object with int properties
+    mock_pg.Rect = pygame.Rect
+
+    # Mock Surface and Image loading
+    mock_surf = MagicMock()
     mock_surf.get_size.return_value = (1280, 720)
     mock_surf.get_width.return_value = 1280
     mock_surf.get_height.return_value = 720
@@ -43,17 +48,32 @@ def mock_pygame(mocker):
     mock_surf.subsurface.return_value = mock_surf
     mock_surf.get_at.return_value = (255, 0, 0, 255)
 
-    # Mock font render
+    # Mock submodules
+    mock_pg.display = MagicMock()
+    mock_pg.display.get_surface.return_value = mock_surf
+    mock_pg.display.set_mode.return_value = mock_surf
+
+    mock_pg.font = MagicMock()
     mock_font = MagicMock()
     mock_font.render.return_value = mock_surf
-    pygame.font.SysFont.return_value = mock_font
+    mock_pg.font.SysFont.return_value = mock_font
+    mock_pg.font.get_init.return_value = True
 
-    mocker.patch("pygame.image.load", return_value=mock_surf)
-    mocker.patch("pygame.transform.smoothscale", return_value=mock_surf)
-    mocker.patch("pygame.transform.rotate", return_value=mock_surf)
-    mocker.patch("pygame.mask.from_surface")
+    mock_pg.image = MagicMock()
+    mock_pg.image.load.return_value = mock_surf
 
-    pygame.display.get_surface.return_value = mock_surf
+    mock_pg.transform = MagicMock()
+    mock_pg.transform.smoothscale.return_value = mock_surf
+    mock_pg.transform.rotate.return_value = mock_surf
+
+    mock_pg.time = MagicMock()
+    mock_pg.time.Clock.return_value.tick.return_value = 16
+
+    mock_pg.mouse = MagicMock()
+    mock_pg.mouse.get_pos.return_value = (10, 10)
+
+    # Ensure get_init and init work
+    mock_pg.get_init.return_value = True
 
     return mock_surf
 
@@ -95,7 +115,7 @@ def test_theatre_initialization(mock_pygame, dummy_scene_json):
 def test_theatre_run_max_frames(mock_pygame, dummy_scene_json):
     theatre = Theatre(scene_path=dummy_scene_json)
     theatre.screen = mock_pygame
-    with patch("pygame.event.get", return_value=[]):
+    with patch("src.renderer.theatre.pygame.event.get", return_value=[]):
         theatre.run(max_frames=1)
     assert theatre._frame_counter == 1
 
@@ -133,7 +153,7 @@ def test_theatre_debug_menu_toggle(mock_pygame, dummy_scene_json):
     mock_event.type = pygame.KEYDOWN
     mock_event.key = pygame.K_d
 
-    with patch("pygame.event.get", return_value=[mock_event]):
+    with patch("src.renderer.theatre.pygame.event.get", return_value=[mock_event]):
         theatre.run(max_frames=1)
 
     assert theatre.show_debug_menu is True
@@ -145,7 +165,7 @@ def test_theatre_handle_quit(mock_pygame, dummy_scene_json):
     mock_event = MagicMock()
     mock_event.type = pygame.QUIT
 
-    with patch("pygame.event.get", return_value=[mock_event]):
+    with patch("src.renderer.theatre.pygame.event.get", return_value=[mock_event]):
         with patch("os._exit") as mock_exit:
             theatre.run(max_frames=1)
             mock_exit.assert_called_once_with(0)
@@ -203,8 +223,8 @@ def test_theatre_debug_menu_interaction(mock_pygame, dummy_scene_json):
     mock_click = MagicMock()
     mock_click.type = pygame.MOUSEBUTTONDOWN
     mock_click.button = 1
-    with patch("pygame.mouse.get_pos", return_value=(150, 115)):
-        with patch("pygame.event.get", return_value=[mock_click]):
+    with patch("src.renderer.theatre.pygame.mouse.get_pos", return_value=(150, 115)):
+        with patch("src.renderer.theatre.pygame.event.get", return_value=[mock_click]):
             theatre.run(max_frames=1)
 
     assert theatre.debug_target_layer_index == 1
@@ -246,8 +266,8 @@ def test_theatre_visibility_toggle(mock_pygame, dummy_scene_json):
     mock_click = MagicMock()
     mock_click.type = pygame.MOUSEBUTTONDOWN
     mock_click.button = 1
-    with patch("pygame.mouse.get_pos", return_value=(310, 90)):
-        with patch("pygame.event.get", return_value=[mock_click]):
+    with patch("src.renderer.theatre.pygame.mouse.get_pos", return_value=(310, 90)):
+        with patch("src.renderer.theatre.pygame.event.get", return_value=[mock_click]):
             theatre.run(max_frames=1)
 
     assert theatre.layers[0].visible is False
@@ -258,7 +278,7 @@ def test_theatre_load_scene_reload(mock_pygame, dummy_scene_json):
     theatre.screen = mock_pygame
     theatre.last_modified_time = 0
 
-    with patch("pygame.event.get", return_value=[]):
+    with patch("src.renderer.theatre.pygame.event.get", return_value=[]):
         with patch("os.path.getmtime", return_value=12345):
             theatre.run(max_frames=61)
 

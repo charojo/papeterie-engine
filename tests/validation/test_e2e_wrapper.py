@@ -1,6 +1,7 @@
 import os
 import signal
 import subprocess
+import sys
 import time
 
 import pytest
@@ -106,40 +107,65 @@ def ensure_servers_running():
 
 @pytest.mark.e2e
 def test_e2e_playwright(ensure_servers_running):
-    """Run Playwright E2E tests."""
+    """Run Playwright E2E tests with process monitoring."""
     project_root = os.getcwd()
     frontend_dir = os.path.join(project_root, "src/web")
 
     # Determine scope from environment variable
     e2e_scope = os.environ.get("E2E_SCOPE", "full")
+    update_snapshots = os.environ.get("UPDATE_SNAPSHOTS", "false").lower() == "true"
 
     if e2e_scope == "skip":
         pytest.skip("E2E_SCOPE is set to skip")
         return
 
-    base_cmd = "npx playwright test"
+    base_cmd = ["npx", "playwright", "test"]
+    if update_snapshots:
+        base_cmd.append("--update-snapshots")
 
     if e2e_scope == "smoke":
-        # Run only smoke test
         print("Running E2E Smoke Tests...")
-        command = f"{base_cmd} smoke_test --reporter=line --workers=1"
+        base_cmd.extend(["smoke_test", "--reporter=list", "--workers=1"])
     else:
-        # Run full suite
         print("Running Full E2E Suite...")
-        command = f"{base_cmd} --reporter=line --workers=1"
+        base_cmd.extend(["--reporter=list", "--workers=1"])
 
-    print(f"Executing: {command}")
+    print(f"Executing: {' '.join(base_cmd)}")
 
-    # Run, streaming output to stdout (for -s) and also attempting to allow it to be seen.
-    # Note: capturing output hides it until done. We want to see it live.
-    # But we also want to fail if return code != 0.
-    # subprocess.run with stdout=None inherits stdout, which is what we want for -s.
+    # Start Playwright process (non-blocking)
+    # We use valid Popen args list instead of shell=True for better control
+    pw_process = subprocess.Popen(base_cmd, cwd=frontend_dir, stdout=sys.stdout, stderr=sys.stderr)
 
-    # To log to file, we can't easily tee from python without pipes, so we rely on
-    # Playwright to print to stdout. validate.sh already tees to logs/validate.log.
-    # We just need to stop capturing it.
+    # Monitor Loop
+    # We check:
+    # 1. Is Playwright done?
+    # 2. Are Backend/Frontend ports still listening?
+    #    (Note: Checking the actual PID from ensure_servers_running is harder due to fixture scope,
+    #     so checking ports or basic responsiveness is a good proxy.
+    #     Better yet, we can check basic connectivity.)
 
-    result = subprocess.run(command, shell=True, cwd=frontend_dir, text=True)
+    try:
+        while True:
+            # 1. Check Playwright
+            ret_code = pw_process.poll()
+            if ret_code is not None:
+                # Process finished
+                if ret_code != 0:
+                    pytest.fail(f"Playwright tests failed with exit code {ret_code}.")
+                return  # Success
 
-    if result.returncode != 0:
-        pytest.fail("Playwright tests failed. See console output for details.")
+            # 2. Check Backend (8000) and Frontend (5173) Health
+            # If they die, Playwright will likely timeout eventually, but we want to fail fast.
+            if not is_port_in_use(8000):
+                pw_process.terminate()
+                pytest.fail("Backend server (port 8000) CRASHED during E2E tests!")
+
+            if not is_port_in_use(5173):
+                pw_process.terminate()
+                pytest.fail("Frontend server (port 5173) CRASHED during E2E tests!")
+
+            time.sleep(1)
+
+    except KeyboardInterrupt:
+        pw_process.terminate()
+        raise

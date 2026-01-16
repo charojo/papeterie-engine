@@ -15,7 +15,7 @@ The Papeterie Engine is built on a strict **Compiler-Renderer** separation. This
 
 ### The Pipeline Overview
 
-![Detailed Pipeline Flow](../assets/diagrams/detailed_pipeline_flow.png)
+![Detailed Pipeline Flow](../assets/diagrams/detailed_pipeline_flow.svg)
 *[Source: detailed_pipeline_flow.dot](../assets/diagrams/detailed_pipeline_flow.dot)*
 
 ---
@@ -53,7 +53,7 @@ The frontend uses a **Component Map Architecture**, allowing a modern React UI t
 
 We avoid "two sources of truth" by using `useEffect` hooks to push React state updates into the imperative engine.
 
-![React-Theatre State Sync](../assets/diagrams/react_theatre_sync.png)
+![React-Theatre State Sync](../assets/diagrams/react_theatre_sync.svg)
 *[Source: react_theatre_sync.dot](../assets/diagrams/react_theatre_sync.dot)*
 
 ### The `useAssetController` Hook

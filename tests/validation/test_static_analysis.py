@@ -50,16 +50,16 @@ def run_script(script_path):
 def test_contrast_compliance():
     """Ensure contrast standards are met."""
     # We output to a log file but also capture stdout for failure reporting
-    run_script("scripts/check_contrast.py")
+    run_script("agent_env/bin/ADE_check_contrast.py")
 
 
 @pytest.mark.xdist_group("serial")
 def test_path_integrity():
     """Ensure no absolute paths are used in docs."""
-    run_script("scripts/enforce_relative_paths.py")
+    run_script("agent_env/bin/ADE_enforce_relative_paths.py")
 
 
 @pytest.mark.xdist_group("serial")
 def test_css_compliance():
     """Ensure CSS compliance."""
-    run_script("scripts/check_css_compliance.py")
+    run_script("agent_env/bin/ADE_check_css_compliance.py")

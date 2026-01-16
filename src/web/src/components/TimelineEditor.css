@@ -1,0 +1,87 @@
+.timeline-main {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.timeline-ruler-container {
+    position: sticky;
+    top: 0;
+    display: flex;
+    cursor: crosshair;
+    border-bottom: 1px solid var(--color-border);
+    height: 24px;
+}
+
+.timeline-ruler-header {
+    flex-shrink: 0;
+    position: sticky;
+    left: 0;
+    z-index: 130;
+    background-color: var(--color-bg-base);
+}
+
+.timeline-track-tick {
+    position: absolute;
+    top: 0;
+    height: 100%;
+}
+
+.timeline-major-tick-label {
+    transform: translateX(-50%);
+    top: 2px;
+}
+
+.timeline-playhead-line {
+    position: absolute;
+    pointer-events: none;
+    z-index: 105;
+    top: 0;
+    width: 2px;
+    background: var(--color-primary);
+}
+
+.timeline-playhead-triangle {
+    position: absolute;
+    top: 0;
+    left: -4px;
+    width: 0;
+    height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 6px solid var(--color-primary);
+}
+
+.timeline-lane-header-bg {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 109;
+    background-color: var(--color-bg-base);
+}
+
+.timeline-context-menu {
+    position: fixed;
+    z-index: 1000;
+    background-color: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    box-shadow: var(--shadow-lg);
+    padding: 4px 0;
+    min-width: 120px;
+}
+
+.timeline-hover-popup {
+    position: fixed;
+    z-index: 1000;
+    background-color: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    box-shadow: var(--shadow-lg);
+    padding: 8px;
+    min-width: 120px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}

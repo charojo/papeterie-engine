@@ -41,6 +41,9 @@ import {
     Crop,
     MousePointer,
     Clapperboard,
+    ArrowRight,
+    LogIn,
+    Keyboard,
 } from 'lucide-react';
 
 const icons = {
@@ -87,6 +90,11 @@ const icons = {
     crop: Crop,
     pointer: MousePointer,
     rotate: RotateCw,
+    login: LogIn,
+    arrowRight: ArrowRight,
+    sortUp: ChevronUp,
+    sortDown: ChevronDown,
+    keyboard: Keyboard,
 };
 
 export const Icon = ({ name, size = 16, className, ...props }) => {

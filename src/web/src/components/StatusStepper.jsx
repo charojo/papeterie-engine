@@ -1,4 +1,5 @@
 import React from 'react';
+import './StatusStepper.css';
 
 // Steps: Import -> Optimize -> Configure -> Ready
 const STEPS = [
@@ -18,7 +19,7 @@ export const StatusStepper = ({ currentStatus }) => {
     else if (currentStatus === 'Raw Scene' || currentStatus === 'Raw Sprite') activeIndex = 0;
 
     return (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '2px', fontSize: '0.7rem', opacity: 0.9 }}>
+        <div className="status-stepper-container">
             {STEPS.map((step, index) => {
                 const isActive = index <= activeIndex;
                 const isCurrent = index === activeIndex;
@@ -26,24 +27,14 @@ export const StatusStepper = ({ currentStatus }) => {
                 return (
                     <React.Fragment key={step.id}>
                         {/* Step Circle */}
-                        <div style={{
-                            display: 'flex', alignItems: 'center', gap: '2px',
-                            color: isActive ? 'var(--color-primary)' : 'var(--color-text-muted)'
-                        }}>
-                            <div style={{
-                                width: '6px', height: '6px', borderRadius: '50%',
-                                background: isActive ? 'var(--color-primary)' : 'transparent',
-                                border: '1px solid currentColor'
-                            }} />
-                            <span style={{ fontWeight: isCurrent ? '600' : '400' }}>{step.label}</span>
+                        <div className={`status-step ${isActive ? 'active' : 'inactive'}`}>
+                            <div className={`status-step-circle ${isActive ? 'active' : ''}`} />
+                            <span className={isCurrent ? 'current' : ''}>{step.label}</span>
                         </div>
 
                         {/* Divider */}
                         {index < STEPS.length - 1 && (
-                            <div style={{
-                                width: '8px', height: '1px',
-                                background: isActive ? 'var(--color-primary)' : 'var(--color-divider)'
-                            }} />
+                            <div className={`status-step-divider ${isActive ? 'active' : 'inactive'}`} />
                         )}
                     </React.Fragment>
                 );

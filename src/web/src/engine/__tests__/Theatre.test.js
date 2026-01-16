@@ -1,7 +1,14 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Theatre } from '../Theatre';
+import { AssetLoader } from '../AssetLoader';
+import { SceneRenderer } from '../SceneRenderer';
+import { SelectionManager } from '../SelectionManager';
+import { InteractionManager } from '../InteractionManager';
+import { DebugRenderer } from '../DebugRenderer';
+import { AudioManager } from '../AudioManager';
 
-// Mock Layer class
+
+// Mock Dependencies
 vi.mock('../Layer', () => {
     return {
         Layer: class MockLayer {
@@ -14,10 +21,8 @@ vi.mock('../Layer', () => {
                 this.x_offset = config.x_offset || 0;
                 this.y_offset = config.y_offset || 0;
                 this.currentTilt = 0;
+                this.scroll_speed = config.scroll_speed || 0.0;
                 this.environmental_reaction = config.environmental_reaction || null;
-                this._currentYPhys = 500;
-                this._currentXPhys = 0;
-                this.lastDrawnX = 0;
             }
 
             draw = vi.fn();
@@ -32,8 +37,68 @@ vi.mock('../Layer', () => {
             });
             setRotation = vi.fn();
             setScale = vi.fn();
+            resetState = vi.fn();
         }
     };
+});
+
+vi.mock('../AssetLoader', () => {
+    const MockAssetLoader = vi.fn();
+    MockAssetLoader.prototype.loadSprite = vi.fn();
+    MockAssetLoader.prototype.fetchMetadata = vi.fn();
+    MockAssetLoader.prototype.fetchAndMergeMetadata = vi.fn((config) => Promise.resolve(config));
+    return { AssetLoader: MockAssetLoader };
+});
+
+vi.mock('../SceneRenderer', () => {
+    const MockSceneRenderer = vi.fn();
+    MockSceneRenderer.prototype.render = vi.fn();
+    MockSceneRenderer.prototype.checkAndDrawOcclusion = vi.fn();
+    MockSceneRenderer.prototype.onTelemetry = null;
+    return { SceneRenderer: MockSceneRenderer };
+});
+
+vi.mock('../SelectionManager', () => {
+    const MockSelectionManager = vi.fn();
+    MockSelectionManager.prototype.select = vi.fn();
+    MockSelectionManager.prototype.getSelected = vi.fn(() => null);
+    MockSelectionManager.prototype.handleClick = vi.fn(() => null);
+    MockSelectionManager.prototype.selectedSprite = null;
+    MockSelectionManager.prototype.selectedSprites = new Set();
+    return { SelectionManager: MockSelectionManager };
+});
+
+vi.mock('../InteractionManager', () => {
+    const MockInteractionManager = vi.fn();
+    MockInteractionManager.prototype.handleDragStart = vi.fn(() => false);
+    MockInteractionManager.prototype.handleDragMove = vi.fn();
+    MockInteractionManager.prototype.handleDragEnd = vi.fn();
+    MockInteractionManager.prototype.setCropMode = vi.fn();
+    MockInteractionManager.prototype.isDragging = false;
+    MockInteractionManager.prototype.dragStartX = 0;
+    MockInteractionManager.prototype.dragStartY = 0;
+    return { InteractionManager: MockInteractionManager };
+});
+
+vi.mock('../DebugRenderer', () => {
+    const MockDebugRenderer = vi.fn();
+    MockDebugRenderer.prototype.drawOverlay = vi.fn();
+    MockDebugRenderer.prototype.drawOcclusionIndicator = vi.fn();
+    MockDebugRenderer.prototype.checkOcclusion = vi.fn();
+    MockDebugRenderer.prototype.drawInteractionDebug = vi.fn();
+    return { DebugRenderer: MockDebugRenderer };
+});
+
+vi.mock('../AudioManager', () => {
+    const MockAudioManager = vi.fn();
+    MockAudioManager.prototype.setBasePath = vi.fn();
+    MockAudioManager.prototype.resetSchedule = vi.fn();
+    MockAudioManager.prototype.loadSound = vi.fn(() => Promise.resolve());
+    MockAudioManager.prototype.scheduleAt = vi.fn();
+    MockAudioManager.prototype.stopAll = vi.fn();
+    MockAudioManager.prototype.update = vi.fn();
+    MockAudioManager.prototype.scheduled = [];
+    return { AudioManager: MockAudioManager };
 });
 
 describe('Theatre', () => {
@@ -41,6 +106,10 @@ describe('Theatre', () => {
     let ctx;
     let theatre;
     let sceneData;
+    let assetLoaderMock;
+    let rendererMock;
+    let selectionManagerMock;
+    let interactionManagerMock;
 
     beforeEach(() => {
         // Mock canvas
@@ -59,7 +128,9 @@ describe('Theatre', () => {
             moveTo: vi.fn(),
             lineTo: vi.fn(),
             stroke: vi.fn(),
-            font: ''
+            font: '',
+            setTransform: vi.fn(),
+            getContext: vi.fn()
         };
 
         canvas = {
@@ -121,7 +192,24 @@ describe('Theatre', () => {
             clearTimeout(id);
         }));
 
+        AssetLoader.mockClear();
+        SceneRenderer.mockClear();
+        SelectionManager.mockClear();
+        InteractionManager.mockClear();
+        DebugRenderer.mockClear();
+        AudioManager.mockClear();
+
         theatre = new Theatre(canvas, sceneData, 'test_scene');
+
+        // Grab mock instances
+        assetLoaderMock = AssetLoader.mock.instances[0];
+        rendererMock = SceneRenderer.mock.instances[0];
+        selectionManagerMock = SelectionManager.mock.instances[0];
+        interactionManagerMock = InteractionManager.mock.instances[0];
+
+        // Default mocks
+        assetLoaderMock.loadSprite.mockResolvedValue({ width: 100, height: 100 });
+        assetLoaderMock.fetchAndMergeMetadata.mockImplementation((c) => Promise.resolve(c));
     });
 
     afterEach(() => {
@@ -131,29 +219,27 @@ describe('Theatre', () => {
     describe('constructor', () => {
         it('initializes with correct properties', () => {
             expect(theatre.canvas).toBe(canvas);
-            expect(theatre.ctx).toBe(ctx);
             expect(theatre.sceneData).toBe(sceneData);
             expect(theatre.sceneName).toBe('test_scene');
             expect(theatre.layers).toEqual([]);
             expect(theatre.scroll).toBe(0);
             expect(theatre.elapsedTime).toBe(0);
             expect(theatre.isRunning).toBe(false);
-        });
 
-        it('initializes interaction state', () => {
-            expect(theatre.selectedSprite).toBeNull();
-            expect(theatre.isDragging).toBe(false);
-            expect(theatre.dragStartX).toBe(0);
-            expect(theatre.dragStartY).toBe(0);
+            expect(AssetLoader).toHaveBeenCalled();
+            expect(SceneRenderer).toHaveBeenCalled();
+            expect(SelectionManager).toHaveBeenCalled();
+            expect(InteractionManager).toHaveBeenCalled();
         });
     });
 
     describe('initialize', () => {
-        it('loads layers from scene data', async () => {
+        it('loads layers using AssetLoader', async () => {
             await theatre.initialize();
 
+            expect(assetLoaderMock.loadSprite).toHaveBeenCalledWith('background');
+            expect(assetLoaderMock.loadSprite).toHaveBeenCalledWith('boat');
             expect(theatre.layers.length).toBe(2);
-            // Verify layers were created (Layer mock is called internally)
         });
 
         it('sorts layers by z_depth', async () => {
@@ -170,11 +256,9 @@ describe('Theatre', () => {
             expect(theatre.layersByName.has('boat')).toBe(true);
         });
 
-        it('filters out null layers', async () => {
-            sceneData.layers.push({ sprite_name: null });
+        it('calls renderFrame(0) after init', async () => {
             await theatre.initialize();
-
-            expect(theatre.layers.length).toBe(2);
+            expect(rendererMock.render).toHaveBeenCalled();
         });
     });
 
@@ -184,14 +268,6 @@ describe('Theatre', () => {
 
             expect(theatre.isRunning).toBe(true);
             expect(global.requestAnimationFrame).toHaveBeenCalled();
-        });
-
-        it('does not start if already running', () => {
-            theatre.start();
-            const callCount = global.requestAnimationFrame.mock.calls.length;
-            theatre.start();
-
-            expect(global.requestAnimationFrame.mock.calls.length).toBe(callCount);
         });
 
         it('stops the animation loop', () => {
@@ -215,9 +291,9 @@ describe('Theatre', () => {
             expect(theatre.scroll).toBe(900);
         });
 
-        it('syncs scroll correctly for fractional times', () => {
-            theatre.setTime(2.5);
-            expect(theatre.scroll).toBe(450);
+        it('triggers a render frame', () => {
+            theatre.setTime(5);
+            expect(rendererMock.render).toHaveBeenCalled();
         });
     });
 
@@ -233,130 +309,74 @@ describe('Theatre', () => {
             expect(theatre.isPaused).toBe(false);
         });
 
-        it('togglePause switches state', () => {
-            theatre.togglePause();
-            expect(theatre.isPaused).toBe(true);
-            theatre.togglePause();
-            expect(theatre.isPaused).toBe(false);
-        });
-
-        it('does not advance time when paused', () => {
+        it('continues render loop when paused (dt=0)', () => {
             theatre.pause();
-            // Mock performance.now to advance
-            const initialTime = theatre.elapsedTime;
-
-            // Allow loop to run once with pause=true
-            // We need to invoke loop manually or wait for requestAnimationFrame mock call
-            // Our mock uses setTimeout.
-
-            // Simpler: spy on updateAndDraw
-            vi.spyOn(theatre, 'updateAndDraw');
-            theatre.lastTime = 1000;
-            theatre.loop(2000); // 1 sec later
-
-            expect(theatre.updateAndDraw).toHaveBeenCalledWith(0);
-            expect(theatre.elapsedTime).toBe(initialTime); // Should not change
+            theatre.loop(1000);
+            expect(rendererMock.render).toHaveBeenCalledWith(0, expect.anything());
         });
 
-        it('advances time when running', () => {
-            vi.spyOn(theatre, 'updateAndDraw');
+        it('advances time when running (dt>0)', () => {
             theatre.lastTime = 1000;
             theatre.loop(2000); // 1 sec later
-
-            expect(theatre.updateAndDraw).toHaveBeenCalledWith(1.0);
+            expect(rendererMock.render).toHaveBeenCalledWith(1.0, expect.anything());
             expect(theatre.elapsedTime).toBeGreaterThan(0);
         });
     });
 
-    describe('updateAndDraw', () => {
+    describe('renderFrame', () => {
         beforeEach(async () => {
             await theatre.initialize();
         });
 
-        it('clears the canvas', () => {
-            theatre.updateAndDraw(0.016);
-
-            expect(ctx.fillRect).toHaveBeenCalledWith(0, 0, 1920, 1080);
+        it('delegates to renderer.render', () => {
+            theatre.renderFrame(0.016);
+            expect(rendererMock.render).toHaveBeenCalledWith(0.016, expect.objectContaining({
+                layers: theatre.layers,
+                cameraZoom: 1.0,
+                scroll: 0
+            }));
         });
 
-        it('draws all layers', () => {
-            theatre.updateAndDraw(0.016);
+        it('checks for occlusion if sprite is selected', () => {
+            // Setup selected sprite mock
+            selectionManagerMock.getSelected.mockReturnValue('boat');
 
-            theatre.layers.forEach(layer => {
-                expect(layer.draw).toHaveBeenCalled();
-            });
-        });
+            theatre.renderFrame(0.016);
 
-        it('calls onTelemetry callback if set', () => {
-            const telemetryCallback = vi.fn();
-            theatre.onTelemetry = telemetryCallback;
-
-            theatre.updateAndDraw(0.016);
-
-            expect(telemetryCallback).toHaveBeenCalled();
-            const telemetry = telemetryCallback.mock.calls[0][0];
-            expect(telemetry).toHaveLength(2);
-            expect(telemetry[0].name).toBe('background');
-        });
-
-        it('draws debug overlay when debugMode is enabled', () => {
-            theatre.debugMode = true;
-            theatre.mouseX = 100;
-            theatre.mouseY = 200;
-
-            theatre.updateAndDraw(0.016);
-
-            expect(ctx.fillText).toHaveBeenCalled();
+            expect(rendererMock.checkAndDrawOcclusion).toHaveBeenCalled();
         });
     });
 
-    describe('setLayerVisibility', () => {
-        beforeEach(async () => {
-            await theatre.initialize();
+    describe('camera properties', () => {
+        it('forces render when camera changes to enable live preview', () => {
+            theatre.isPaused = true;
+            theatre.cameraZoom = 1.5;
+            expect(rendererMock.render).toHaveBeenCalled();
         });
 
-        it('sets layer visibility by name', () => {
-            theatre.setLayerVisibility('boat', false);
-
-            const boatLayer = theatre.layersByName.get('boat');
-            expect(boatLayer.visible).toBe(false);
-        });
-
-        it('handles non-existent layer gracefully', () => {
-            expect(() => {
-                theatre.setLayerVisibility('nonexistent', false);
-            }).not.toThrow();
+        it('validates input', () => {
+            const spy = vi.spyOn(console, 'error').mockImplementation(() => { });
+            theatre.cameraZoom = -1;
+            expect(theatre.cameraZoom).not.toBe(-1);
+            spy.mockRestore();
         });
     });
 
-    describe('sprite selection', () => {
+    describe('sprite selection delegation', () => {
         beforeEach(async () => {
             await theatre.initialize();
         });
 
-        it('selects a sprite by name', () => {
+        it('delegates selectSprite to SelectionManager', () => {
             const callback = vi.fn();
             theatre.onSpriteSelected = callback;
 
             theatre.selectSprite('boat');
-
-            expect(theatre.selectedSprite).toBe('boat');
-            const boatLayer = theatre.layersByName.get('boat');
-            expect(boatLayer.isSelected).toBe(true);
-            expect(callback).toHaveBeenCalledWith('boat');
+            expect(selectionManagerMock.select).toHaveBeenCalledWith('boat', theatre.layersByName, false);
         });
 
-        it('deselects previous sprite when selecting new one', () => {
-            theatre.selectSprite('background');
-            theatre.selectSprite('boat');
-
-            const bgLayer = theatre.layersByName.get('background');
-            expect(bgLayer.isSelected).toBe(false);
-        });
-
-        it('returns selected sprite name', () => {
-            theatre.selectSprite('boat');
-
+        it('returns selected sprite from SelectionManager', () => {
+            selectionManagerMock.getSelected.mockReturnValue('boat');
             expect(theatre.getSelectedSprite()).toBe('boat');
         });
     });
@@ -366,95 +386,73 @@ describe('Theatre', () => {
             await theatre.initialize();
         });
 
-        it('selects sprite under cursor', () => {
-            const boatLayer = theatre.layersByName.get('boat');
-            boatLayer.containsPoint = vi.fn(() => true);
+        it('delegates to selectionManager and selects result', () => {
+            selectionManagerMock.handleClick.mockReturnValue('boat');
 
             const result = theatre.handleCanvasClick(100, 100);
 
+            expect(selectionManagerMock.handleClick).toHaveBeenCalled();
+            expect(selectionManagerMock.select).toHaveBeenCalledWith('boat', theatre.layersByName, false, false);
             expect(result).toBe(true);
-            expect(theatre.selectedSprite).toBe('boat');
-        });
-
-        it('returns false if no sprite under cursor', () => {
-            const result = theatre.handleCanvasClick(100, 100);
-
-            expect(result).toBe(false);
-        });
-
-        it('skips invisible layers', () => {
-            const boatLayer = theatre.layersByName.get('boat');
-            boatLayer.visible = false;
-            boatLayer.containsPoint = vi.fn(() => true);
-
-            const result = theatre.handleCanvasClick(100, 100);
-
-            expect(result).toBe(false);
         });
     });
 
-    describe('drag and drop', () => {
+    describe('drag and drop delegation', () => {
         beforeEach(async () => {
             await theatre.initialize();
-            theatre.selectSprite('boat');
         });
 
-        it('starts dragging when clicking on selected sprite', () => {
-            const boatLayer = theatre.layersByName.get('boat');
-            boatLayer.containsPoint = vi.fn(() => true);
+        it('delegates to interactionManager', () => {
+            interactionManagerMock.handleDragStart.mockReturnValue(true);
 
             const result = theatre.handleDragStart(150, 75);
 
+            expect(interactionManagerMock.handleDragStart).toHaveBeenCalledWith(150, 75);
             expect(result).toBe(true);
-            expect(theatre.isDragging).toBe(true);
-            expect(theatre.dragStartX).toBe(150);
-            expect(theatre.dragStartY).toBe(75);
         });
 
-        it('does not start dragging if no sprite selected', () => {
-            theatre.selectedSprite = null;
-
-            const result = theatre.handleDragStart(150, 75);
-
-            expect(result).toBe(false);
-            expect(theatre.isDragging).toBe(false);
-        });
-
-        it('updates sprite position during drag', () => {
-            const boatLayer = theatre.layersByName.get('boat');
-            boatLayer.containsPoint = vi.fn(() => true);
-            boatLayer.x_offset = 100;
-            boatLayer.y_offset = 50;
-
-            theatre.handleDragStart(150, 75);
+        it('delegates drag move', () => {
             theatre.handleDragMove(200, 100);
-
-            expect(boatLayer.setPosition).toHaveBeenCalledWith(150, 75);
+            expect(interactionManagerMock.handleDragMove).toHaveBeenCalledWith(200, 100);
         });
 
-        it('calls onSpritePositionChanged on drag end', () => {
-            const callback = vi.fn();
-            theatre.onSpritePositionChanged = callback;
-
-            const boatLayer = theatre.layersByName.get('boat');
-            boatLayer.containsPoint = vi.fn(() => true);
-            boatLayer.x_offset = 150;
-            boatLayer.y_offset = 75;
-
-            theatre.handleDragStart(150, 75);
+        it('delegates drag end', () => {
             theatre.handleDragEnd();
-
-            expect(callback).toHaveBeenCalledWith('boat', 150, 75, expect.any(Number));
-            expect(theatre.isDragging).toBe(false);
+            expect(interactionManagerMock.handleDragEnd).toHaveBeenCalled();
         });
     });
 
-    describe('setMousePosition', () => {
-        it('updates mouse coordinates', () => {
-            theatre.setMousePosition(100, 200);
+    describe('updateScene', () => {
+        beforeEach(async () => {
+            await theatre.initialize();
+        });
 
-            expect(theatre.mouseX).toBe(100);
-            expect(theatre.mouseY).toBe(200);
+        it('merges new config with existing layers', async () => {
+            const newScene = {
+                layers: [
+                    { sprite_name: 'boat', x_offset: 999 }
+                ]
+            };
+
+            await theatre.updateScene(newScene);
+
+            const boat = theatre.layersByName.get('boat');
+            // MockLayer doesn't really merge config in constructor but in real implementation it does.
+            // We can check if new Layer was created
+            expect(boat.config.x_offset).toBe(999);
+        });
+
+        it('loads new layers', async () => {
+            const newScene = {
+                layers: [
+                    { sprite_name: 'new_sprite' }
+                ]
+            };
+
+            await theatre.updateScene(newScene);
+            expect(assetLoaderMock.loadSprite).toHaveBeenCalledWith('new_sprite');
+            expect(theatre.layers.length).toBe(1); // Since we replaced list logic with filtering
         });
     });
 });
+

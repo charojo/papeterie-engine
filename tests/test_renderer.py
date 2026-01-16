@@ -15,7 +15,7 @@ def setup_pygame(mocker):
     pygame.display.set_mode((1, 1), pygame.NOFRAME)
 
     # Mock image loading to return a 100x100 surface
-    mock_surface = MagicMock(spec=pygame.Surface)
+    mock_surface = MagicMock()
     mock_surface.get_width.return_value = 100
     mock_surface.get_height.return_value = 100
     mock_surface.get_size.return_value = (100, 100)
@@ -27,7 +27,7 @@ def setup_pygame(mocker):
     mocker.patch("pygame.image.load", return_value=mock_surface)
 
     # Mock smoothscale
-    mock_smooth = MagicMock(spec=pygame.Surface)
+    mock_smooth = MagicMock()
     mock_smooth.get_width.return_value = 100
     mock_smooth.get_height.return_value = 100
     mock_smooth.get_size.return_value = (100, 100)
@@ -42,14 +42,15 @@ def setup_pygame(mocker):
 
 
 @pytest.fixture
-def dummy_png():
+def dummy_png(tmp_path):
     """Create a dummy PNG file for testing."""
-    path = "tests/dummy.png"
+    # Use a unique name to avoid collisions in parallel tests
+    import uuid
+
+    path = tmp_path / f"dummy_{uuid.uuid4()}.png"
     with open(path, "w") as f:
         f.write("fake image data")
-    yield path
-    if os.path.exists(path):
-        os.remove(path)
+    return str(path)
 
 
 def test_parallax_calculation(dummy_png):
@@ -90,7 +91,7 @@ def test_scaling_logic(mocker):
 
     # Mock smoothscale to verify it is called
     mock_smoothscale = mocker.patch("pygame.transform.smoothscale")
-    mock_smoothscale.return_value = MagicMock(spec=pygame.Surface)
+    mock_smoothscale.return_value = MagicMock()
     mock_smoothscale.return_value.get_size.return_value = (100, 100)  # Mock return size
 
     try:
@@ -118,7 +119,6 @@ def test_environmental_reaction_pivot_on_crest(mocker, dummy_png):
     # Completely isolate this test's mocks from the autouse fixture
     # by patching at the renderer module level
     mock_rotated_surface = MagicMock(
-        spec=pygame.Surface,
         get_size=lambda: (100, 50),
         get_rect=lambda **kwargs: pygame.Rect(0, 0, 100, 50),
         set_alpha=MagicMock(),
@@ -129,7 +129,7 @@ def test_environmental_reaction_pivot_on_crest(mocker, dummy_png):
     )
 
     # Configure image mock with set_alpha and dimensions
-    mock_img = MagicMock(spec=pygame.Surface)
+    mock_img = MagicMock()
     mock_img.get_size.return_value = (100, 50)
     mock_img.get_width.return_value = 100
     mock_img.get_height.return_value = 50
@@ -140,7 +140,7 @@ def test_environmental_reaction_pivot_on_crest(mocker, dummy_png):
     mocker.patch("renderer.theatre.pygame.transform.smoothscale", return_value=mock_img)
 
     # Mock screen for draw method
-    mock_screen = MagicMock(spec=pygame.Surface, get_size=lambda: (800, 600), blit=MagicMock())
+    mock_screen = MagicMock(get_size=lambda: (800, 600), blit=MagicMock())
 
     # 1. Create a mock wave layer (environment)
     wave_layer = ParallaxLayer(dummy_png, z_depth=2, vertical_percent=0.7, scroll_speed=0.0)
@@ -203,11 +203,11 @@ def test_rotation_position_stability(dummy_png, mocker):
     Ensure that the horizontal center of a sprite remains stable when rotated,
     despite the bounding box size changing.
     """
-    mock_screen = MagicMock(spec=pygame.Surface)
+    mock_screen = MagicMock()
     mock_screen.get_size.return_value = (800, 600)
 
     # Mock image loading to ensure self.image is not None
-    mock_img = MagicMock(spec=pygame.Surface)
+    mock_img = MagicMock()
     mock_img.get_size.return_value = (100, 50)
     mock_img.get_width.return_value = 100
     mock_img.get_height.return_value = 50
@@ -220,7 +220,7 @@ def test_rotation_position_stability(dummy_png, mocker):
     layer = ParallaxLayer(dummy_png, z_depth=1, vertical_percent=0.5)
 
     # 1. 0 rotation (100x50)
-    mock_rotated_0 = MagicMock(spec=pygame.Surface)
+    mock_rotated_0 = MagicMock()
     mock_rotated_0.get_size.return_value = (100, 50)
     mock_rotated_0.set_alpha = MagicMock()
 
@@ -246,7 +246,7 @@ def test_rotation_position_stability(dummy_png, mocker):
     mock_screen.blit.reset_mock()
 
     # 2. 45 rotation (say bounding box is 120x120)
-    mock_rotated_45 = MagicMock(spec=pygame.Surface)
+    mock_rotated_45 = MagicMock()
     mock_rotated_45.get_size.return_value = (120, 120)
     mock_rotated_45.set_alpha = MagicMock()
 
@@ -282,11 +282,11 @@ def test_location_behavior(dummy_png, mocker):
     """
     Verify LocationBehavior correctly applies x, y, and scale.
     """
-    mock_screen = MagicMock(spec=pygame.Surface)
+    mock_screen = MagicMock()
     mock_screen.get_size.return_value = (800, 600)
 
     # Mock image loading
-    mock_img = MagicMock(spec=pygame.Surface)
+    mock_img = MagicMock()
     mock_img.get_size.return_value = (100, 100)
     mock_img.set_alpha = MagicMock()
     mock_img.convert_alpha.return_value = mock_img

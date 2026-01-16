@@ -1,0 +1,4 @@
+[submodule "agent_env"]
+	path = agent_env
+	url = https://github.com/charojo/agent-dev-environment.git
+	branch = release/v0.0.2

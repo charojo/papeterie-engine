@@ -1,6 +1,8 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Icon } from './Icon';
+import './TimelineEditor.css';
 import { createLogger } from '../utils/logger';
+import { useTimelineDrag } from '../hooks/useTimelineDrag';
 
 const log = createLogger('TimelineEditor');
 
@@ -19,12 +21,13 @@ export function TimelineEditor({
     onKeyframeSelect, // (spriteName, behaviorIndex, time) => void
     isPlaying = false,
     assetBaseUrl = '/assets',
-    forceScrollToSelection = 0 // Counter to force scroll even if selection hasn't changed
+    forceScrollToSelection = 0, // Counter to force scroll even if selection hasn't changed
+    onHeaderDoubleClick,
+    onAddSpriteRequested
 }) {
     const [zoom, setZoom] = useState(20); // pixels per second
     const containerRef = useRef(null);
     const laneRefs = useRef({});
-    const [draggingKeyframe, setDraggingKeyframe] = useState(null);
     const [contextMenu, setContextMenu] = useState(null); // { x, y, item, z }
 
     const HEADER_WIDTH = 30;
@@ -328,213 +331,19 @@ export function TimelineEditor({
         document.addEventListener('mouseup', handleMouseUp);
     };
 
-    // Generalized Drag Handler (Handles Time X and Lane Y)
-    const handleItemDragStart = (e, item, initialZ) => {
-        e.stopPropagation();
-        const startX = e.clientX;
-        const startY = e.clientY;
-        const initialTime = item.time;
-
-        // Initialize state for dragging
-        let dragActivated = false;
-        let autoScrollInterval = null;
-
-        const DRAG_THRESHOLD = 5; // pixels
-        const SCROLL_EDGE_SIZE = 40; // pixels from edge to trigger scroll
-        const SCROLL_SPEED = 5; // pixels per frame
-        const RULER_HEIGHT = 24; // Height of the sticky ruler
-
-        const handleDragMove = (moveEvent) => {
-            const dx = moveEvent.clientX - startX;
-            const dy = moveEvent.clientY - startY;
-            const distance = Math.sqrt(dx * dx + dy * dy);
-
-            // Only activate drag if threshold exceeded
-            if (!dragActivated && distance < DRAG_THRESHOLD) {
-                return;
-            }
-
-            // Activate drag mode (use local variable, not state)
-            if (!dragActivated) {
-                dragActivated = true;
-                log.debug('Drag started', { item: item.key, type: item.type });
-                setDraggingKeyframe({
-                    id: item.key,
-                    spriteName: item.sprite.sprite_name,
-                    behaviorIndex: item.type === 'behavior' ? item.behaviorIndex : null,
-                    initialX: (item.time * zoom) + PADDING_LEFT - 14.5
-                });
-            }
-
-            const newTimeRaw = initialTime + (dx / zoom);
-            // Snap to 0.1s
-            const newTime = Math.max(0, Math.min(duration, Math.round(newTimeRaw * 10) / 10));
-
-            // Preview Time Update
-            if (item.type === 'behavior') {
-                onKeyframeMove && onKeyframeMove(item.sprite.sprite_name, item.behaviorIndex, newTime, false);
-            }
-
-            setDraggingKeyframe(prev => ({
-                ...prev,
-                currentX: (newTime * zoom) + PADDING_LEFT - 14.5
-            }));
-
-            // Auto-scroll when near edges
-            if (containerRef.current) {
-                const containerRect = containerRef.current.getBoundingClientRect();
-                const relativeY = moveEvent.clientY - containerRect.top;
-
-                // Clear any existing scroll interval
-                if (autoScrollInterval) {
-                    clearInterval(autoScrollInterval);
-                    autoScrollInterval = null;
-                }
-
-                // Check if near top edge (below ruler)
-                if (relativeY < RULER_HEIGHT + SCROLL_EDGE_SIZE && relativeY > RULER_HEIGHT) {
-                    autoScrollInterval = setInterval(() => {
-                        if (containerRef.current) {
-                            log.debug('Drag auto-scroll (Up)', { relativeY });
-                            containerRef.current.scrollTop = Math.max(0, containerRef.current.scrollTop - SCROLL_SPEED);
-                        }
-                    }, 16);
-                }
-                // Check if near bottom edge
-                else if (relativeY > containerRect.height - SCROLL_EDGE_SIZE) {
-                    autoScrollInterval = setInterval(() => {
-                        if (containerRef.current) {
-                            log.debug('Drag auto-scroll (Down)', { relativeY });
-                            containerRef.current.scrollTop += SCROLL_SPEED;
-                        }
-                    }, 16);
-                }
-            }
-        };
-
-        const handleDragUp = (upEvent) => {
-            // Clear auto-scroll interval
-            if (autoScrollInterval) {
-                clearInterval(autoScrollInterval);
-                autoScrollInterval = null;
-            }
-
-            const dx = upEvent.clientX - startX;
-            const dy = upEvent.clientY - startY;
-            const distance = Math.sqrt(dx * dx + dy * dy);
-
-            // If drag threshold not met, treat as click
-            if (!dragActivated && distance < DRAG_THRESHOLD) {
-                setDraggingKeyframe(null);
-                document.removeEventListener('mousemove', handleDragMove);
-                document.removeEventListener('mouseup', handleDragUp);
-                return;
-            }
-
-            log.debug('Drag end', { dx, dy });
-
-            // 1. Calculate New Time
-            const newTimeRaw = initialTime + (dx / zoom);
-            const newTime = Math.max(0, Math.min(duration, Math.round(newTimeRaw * 10) / 10));
-
-            // 2. Calculate New Z-Depth (Vertical Drop with Lane Insertion)
-            let finalZ = initialZ;
-            if (containerRef.current) {
-                const containerRect = containerRef.current.getBoundingClientRect();
-                const scrollTop = containerRef.current.scrollTop;
-                // Account for ruler height when calculating Y position relative to tracks
-                const relativeY = upEvent.clientY - containerRect.top + scrollTop - RULER_HEIGHT;
-                const trackIndex = Math.floor(relativeY / TRACK_HEIGHT);
-
-                log.debug('Z Calculation:', {
-                    clientY: upEvent.clientY,
-                    containerTop: containerRect.top,
-                    scrollTop,
-                    rulerHeight: RULER_HEIGHT,
-                    relativeY,
-                    trackHeight: TRACK_HEIGHT,
-                    trackIndex,
-                    sortedZDepths,
-                    targetZ: sortedZDepths[trackIndex]
-                });
-
-                // Check if drop is in the gap between lanes (top 25% or bottom 25% of track)
-                const trackOffset = relativeY % TRACK_HEIGHT;
-                const isInTopGap = trackOffset < TRACK_HEIGHT * 0.25;
-                const isInBottomGap = trackOffset > TRACK_HEIGHT * 0.75;
-
-                log.debug('Gap Detection:', { trackOffset, isInTopGap, isInBottomGap });
-
-                if ((isInTopGap || isInBottomGap) && trackIndex >= 0 && trackIndex < sortedZDepths.length) {
-                    // Determine which gap we're in
-                    let upperIndex, lowerIndex;
-                    if (isInTopGap && trackIndex > 0) {
-                        // Top gap: between current and previous track
-                        upperIndex = trackIndex - 1;
-                        lowerIndex = trackIndex;
-                    } else if (isInBottomGap && trackIndex < sortedZDepths.length - 1) {
-                        // Bottom gap: between current and next track
-                        upperIndex = trackIndex;
-                        lowerIndex = trackIndex + 1;
-                    }
-
-                    // Create new lane with midpoint Z
-                    if (upperIndex !== undefined && lowerIndex !== undefined) {
-                        const upperZ = sortedZDepths[upperIndex];
-                        const lowerZ = sortedZDepths[lowerIndex];
-                        finalZ = (upperZ + lowerZ) / 2;
-                        log.debug('Creating midpoint Z:', { finalZ });
-                    } else {
-                        // Snap to nearest lane
-                        finalZ = sortedZDepths[trackIndex];
-                        log.debug('Snapping to lane (no midpoint):', { finalZ });
-                    }
-                } else if (trackIndex >= 0 && trackIndex < sortedZDepths.length) {
-                    // Snap to existing lane
-                    finalZ = sortedZDepths[trackIndex];
-                    log.debug('Snapping to existing lane:', { trackIndex, finalZ });
-                } else {
-                    log.warn('Track index out of bounds:', { trackIndex, numLanes: sortedZDepths.length });
-                }
-            }
-
-            log.debug('Final Result:', { spriteName: item.sprite.sprite_name, finalZ, newTime });
-
-            // 3. Commit Changes
-            if (item.type === 'behavior' || (item.type === 'base' && item.behaviorIndex !== null)) {
-                // Update Time if changed (or always if calling onKeyframeMove)
-                if (newTime !== initialTime) {
-                    log.debug(`Moving keyframe for ${item.type}`);
-                    onKeyframeMove && onKeyframeMove(item.sprite.sprite_name, item.behaviorIndex, newTime, true);
-                }
-
-                // Update Z if changed
-                if (finalZ !== initialZ && onLayerUpdate) {
-                    log.debug('Updating Z-depth for keyframe:', finalZ);
-                    onLayerUpdate(item.sprite.sprite_name, {
-                        z_depth: finalZ,
-                        behaviorIndex: item.behaviorIndex
-                    });
-                }
-            } else if (item.type === 'base') {
-                // Base Item with no behaviorIndex (update sprite-level Z only)
-                if (finalZ !== initialZ && onLayerUpdate) {
-                    log.debug('Updating Z-depth for sprite:', finalZ);
-                    onLayerUpdate(item.sprite.sprite_name, { z_depth: finalZ });
-                }
-                if (newTime !== initialTime) {
-                    log.warn('Attempted to move base item in time with no behavior index');
-                }
-            }
-
-            setDraggingKeyframe(null);
-            document.removeEventListener('mousemove', handleDragMove);
-            document.removeEventListener('mouseup', handleDragUp);
-        };
-
-        document.addEventListener('mousemove', handleDragMove);
-        document.addEventListener('mouseup', handleDragUp);
-    };
+    // Generalized Drag Handler (Handles Time X and Lane Y) extracted to hook
+    const { handleItemDragStart, draggingKeyframe } = useTimelineDrag({
+        containerRef,
+        zoom,
+        duration,
+        sortedZDepths,
+        onKeyframeMove,
+        onLayerUpdate,
+        TRACK_HEIGHT,
+        RULER_HEIGHT: 24, // Matches constant in hook
+        HEADER_WIDTH,
+        PADDING_LEFT
+    });
 
     const handleContextMenu = (e, item, z) => {
         e.preventDefault();
@@ -556,16 +365,119 @@ export function TimelineEditor({
         }
     }, [contextMenu]);
 
+    const handleWheel = (e) => {
+        if (e.ctrlKey || e.metaKey) {
+            e.preventDefault();
+            e.stopPropagation();
+            const delta = e.deltaY;
+            const zoomFactor = delta > 0 ? 0.9 : 1.1;
+            setZoom(z => Math.max(1, Math.min(200, z * zoomFactor)));
+        }
+    };
+
+    useEffect(() => {
+        const container = containerRef.current;
+        if (!container) return;
+
+        // We need to add valid event listener to a container that covers the timeline.
+        // However, containerRef is attached to the tracks container, not the main wrapper.
+        // Let's attach to the main wrapper if we can, but we don't have a ref for it yet.
+        // Or we can just use the onWheel prop on the div, but React's onWheel is passive by default? 
+        // No, React's onWheel works for preventing default if we use it correctly, 
+        // but sometimes browser zooming happens before JS can prevent it?
+        // Actually, for Ctrl+Wheel, browsers invoke browser zoom. To prevent browser zoom, 
+        // we MUST use a non-passive event listener on the window or document, OR the element.
+        // React 18 event delegation might handle it, but preventing default on Ctrl+Wheel is tricky.
+
+        // Let's try the React prop first.
+    }, []);
+
+    // ROBUST HOVER LOGIC (Rule 8)
+    const [hoveredItems, setHoveredItems] = useState([]);
+    const [hoverPosition, setHoverPosition] = useState(null); // { x, y }
+    const hoverTimeoutRef = useRef(null);
+
+    const handleItemMouseEnter = (e, targetItem, z) => {
+        if (draggingKeyframe || contextMenu) return;
+        if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+
+        const rect = e.currentTarget.getBoundingClientRect();
+
+        // Find overlapping items (Same Layer, Same Time)
+        const laneItems = lanes[z] || [];
+        const overlapping = laneItems.filter(it =>
+            Math.abs(it.time - targetItem.time) < 0.05
+        );
+
+        if (overlapping.length > 0) {
+            setHoveredItems(overlapping.map(it => ({ ...it, z }))); // Inject Z for display
+
+            // Anchor: Bottom-Right of Thumbnail with ~10% overlap
+            setHoverPosition({
+                x: rect.right - (rect.width * 0.1),
+                y: rect.bottom - (rect.height * 0.1)
+            });
+        }
+    };
+
+    const handleItemMouseLeave = () => {
+        hoverTimeoutRef.current = setTimeout(() => {
+            setHoveredItems([]);
+            setHoverPosition(null);
+        }, 300); // 300ms grace period to move into popup
+    };
+
+    const handlePopupMouseEnter = () => {
+        if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+    };
+
+    const handlePopupMouseLeave = () => {
+        hoverTimeoutRef.current = setTimeout(() => {
+            setHoveredItems([]);
+            setHoverPosition(null);
+        }, 300);
+    };
+
+    useEffect(() => {
+        // Clear hover when scrolling
+        const container = containerRef.current;
+        if (!container) return;
+
+        const handleScroll = () => {
+            if (hoveredItems.length > 0) {
+                setHoveredItems([]);
+                setHoverPosition(null);
+            }
+        };
+
+        container.addEventListener('scroll', handleScroll);
+        return () => container.removeEventListener('scroll', handleScroll);
+    }, [hoveredItems.length]);
+
     return (
-        <div className="timeline-main">
+        <div
+            className="timeline-main"
+            onWheel={handleWheel}
+        >
             {/* Controls Bar */}
-            <div className="timeline-toolbar">
+            <div
+                className="timeline-toolbar cursor-pointer select-none"
+                onDoubleClick={onHeaderDoubleClick}
+                title="Double-click to toggle timeline height"
+            >
                 <button
-                    className="btn-icon"
+                    className="btn-icon p-1 flex"
+                    onClick={onAddSpriteRequested}
+                    title="Add Sprite (Shift+Click on Stage)"
+                >
+                    <Icon name="add" />
+                </button>
+                <div className="w-0.5" />
+                <button
+                    className="btn-icon p-1 flex"
                     onClick={onPlayPause}
                     aria-label={isPlaying ? "Pause" : "Play"}
                     title={isPlaying ? "Pause (Space)" : "Play (Space)"}
-                    style={{ padding: '4px', display: 'flex' }}
                 >
                     <Icon name={isPlaying ? "pause" : "play"} />
                 </button>
@@ -582,7 +494,7 @@ export function TimelineEditor({
                     className="timeline-scrubber"
                     title={`Scrub to ${currentTime.toFixed(1)}s`}
                 />
-                <div style={{ flex: 1 }} />
+                <div className="flex-1" />
                 <div className="timeline-zoom-controls">
                     <span className="timeline-zoom-label" title="Timeline Zoom">Zoom:</span>
                     <input
@@ -606,15 +518,16 @@ export function TimelineEditor({
                 {/* Ruler - Must be at top level of scrolling container for sticky to work */}
                 <div
                     data-testid="timeline-ruler"
-                    className="sticky top-0 bg-surface flex crosshair border-b h-6"
+                    className="timeline-ruler-container"
                     style={{
+                        backgroundColor: 'var(--color-bg-base)',
                         /* Robust Width Logic: Ensures we are at least 100% for filling, but expand for zoom */
                         width: `calc(max(100%, ${HEADER_WIDTH + (duration * zoom) + 100 + PADDING_LEFT}px))`,
                         zIndex: 120
                     }}
                     onMouseDown={handleMouseDown}
                 >
-                    <div className="flex-shrink-0 w-header sticky left-0 bg-surface" style={{ zIndex: 130 }}></div>
+                    <div className="timeline-ruler-header" style={{ width: HEADER_WIDTH }}></div>
                     <div className="flex-1 relative overflow-hidden">
                         {(() => {
                             // Adaptive tick intervals based on zoom
@@ -633,10 +546,10 @@ export function TimelineEditor({
                                     ticks.push(
                                         <div
                                             key={`sub-${t}`}
-                                            className="absolute"
-                                            style={{ left: (t * zoom) + PADDING_LEFT, top: 0, height: '100%' }}
+                                            className="timeline-track-tick"
+                                            style={{ left: (t * zoom) + PADDING_LEFT }}
                                         >
-                                            <div className="timeline-tick-line" style={{ height: '3px' }} />
+                                            <div className="timeline-tick-line h-3px" />
                                         </div>
                                     );
                                 }
@@ -649,10 +562,10 @@ export function TimelineEditor({
                                 ticks.push(
                                     <div
                                         key={`minor-${t}`}
-                                        className="absolute"
-                                        style={{ left: (t * zoom) + PADDING_LEFT, top: 0, height: '100%' }}
+                                        className="timeline-track-tick"
+                                        style={{ left: (t * zoom) + PADDING_LEFT }}
                                     >
-                                        <div className="timeline-tick-line" style={{ height: '6px' }} />
+                                        <div className="timeline-tick-line h-6px" />
                                     </div>
                                 );
                             }
@@ -660,13 +573,17 @@ export function TimelineEditor({
                             // Render major ticks with centered text on top, large tick on bottom
                             for (let sec = 0; sec <= duration; sec += majorInterval) {
                                 ticks.push(
-                                    <div key={`major-${sec}`} className="absolute" style={{ left: (sec * zoom) + PADDING_LEFT, top: 0, height: '100%' }}>
+                                    <div
+                                        key={`major-${sec}`}
+                                        className="timeline-track-tick"
+                                        style={{ left: (sec * zoom) + PADDING_LEFT }}
+                                    >
                                         {/* Centered time label at top */}
                                         <div className="absolute  text-subtle text-xxs timeline-major-tick-label">
                                             {sec}s
                                         </div>
                                         {/* Large tick at bottom */}
-                                        <div className="timeline-tick-line" style={{ height: '10px' }} />
+                                        <div className="timeline-tick-line h-10px" />
                                     </div>
                                 );
                             }
@@ -679,11 +596,10 @@ export function TimelineEditor({
                                 <div
                                     key={`offset-${offset}`}
                                     data-testid="time-offset-marker"
-                                    className="absolute"
+                                    className="timeline-track-tick"
                                     style={{
                                         left: (offset * zoom) + PADDING_LEFT,
-                                        top: 0,
-                                        height: '100%'
+                                        width: '1px'
                                     }}
                                     title={`Keyframe at ${offset.toFixed(1)}s`}
                                 >
@@ -693,7 +609,7 @@ export function TimelineEditor({
                             );
                         })}
                     </div>
-                </div>
+                </div >
 
                 <div
                     className="min-h-full"
@@ -704,7 +620,7 @@ export function TimelineEditor({
                 >
 
                     {/* Fixed Headers Column Background */}
-                    <div className="absolute left-0 top-0 bottom-0 bg-surface w-header" style={{ zIndex: 109 }} />
+                    <div className="timeline-lane-header-bg" style={{ width: HEADER_WIDTH }} />
                     {sortedZDepths.map((z) => {
                         const items = lanes[z];
 
@@ -715,7 +631,11 @@ export function TimelineEditor({
                                 className="border-b-subtle flex relative h-track"
                             >
                                 {/* Header */}
-                                <div className="timeline-lane-header" style={{ width: HEADER_WIDTH }}>
+                                <div
+                                    className="timeline-lane-header"
+                                    style={{ width: HEADER_WIDTH }}
+                                    title={`Layer ${z} (${z >= 25 ? 'Front' : 'Back'})\nHigher Z = Foreground`}
+                                >
                                     {z}
                                 </div>
 
@@ -750,6 +670,8 @@ export function TimelineEditor({
                                                 title={itemTitle}
                                                 onMouseDown={(e) => handleItemDragStart(e, item, z)}
                                                 onContextMenu={(e) => handleContextMenu(e, item, z)}
+                                                onMouseEnter={(e) => handleItemMouseEnter(e, item, z)}
+                                                onMouseLeave={handleItemMouseLeave}
                                                 onClick={(e) => {
                                                     e.stopPropagation();
                                                     log.debug(`Keyframe clicked: ${item.sprite.sprite_name}, time: ${item.time}s`);
@@ -784,63 +706,94 @@ export function TimelineEditor({
 
                 {/* Playhead Line - Absolute position spanning full scroll height */}
                 <div
-                    className="absolute pointer-events-none"
+                    className="timeline-playhead-line"
                     style={{
-                        zIndex: 105,
                         left: HEADER_WIDTH + (currentTime * zoom) + PADDING_LEFT,
-                        top: 0,
-                        height: `${Math.max(sortedZDepths.length * TRACK_HEIGHT + 24, 200)}px`,
-                        width: '2px',
-                        background: 'var(--color-text-subtle)'
+                        height: `${Math.max(sortedZDepths.length * TRACK_HEIGHT + 24, 200)}px`
                     }}
                 >
                     {/* Header Triangle */}
-                    <div style={{
-                        position: 'absolute',
-                        top: 0,
-                        left: '-4px',
-                        width: 0,
-                        height: 0,
-                        borderLeft: '5px solid transparent',
-                        borderRight: '5px solid transparent',
-                        borderTop: '6px solid var(--color-text-subtle)'
-                    }} />
+                    <div className="timeline-playhead-triangle" />
                 </div>
-            </div>
+            </div >
 
             {/* Context Menu Overlay */}
-            {contextMenu && (
-                <div
-                    className="fixed z-1000 bg-elevated border rounded shadow-lg py-1 min-w-120"
-                    style={{
-                        left: contextMenu.x,
-                        top: contextMenu.y
-                    }}
-                >
-                    {contextMenu.item.type === 'behavior' && (
+            {
+                contextMenu && (
+                    <div
+                        className="timeline-context-menu"
+                        style={{
+                            left: contextMenu.x,
+                            top: contextMenu.y
+                        }}
+                    >
+                        {contextMenu.item.type === 'behavior' && (
+                            <button
+                                className="btn-ghost w-full text-left p-2 text-sm flex-row items-center gap-sm text-danger"
+                                onClick={() => {
+                                    onKeyframeDelete && onKeyframeDelete(contextMenu.item.sprite.sprite_name, contextMenu.item.behaviorIndex);
+                                    closeContextMenu();
+                                }}
+                            >
+                                <Icon name="delete" size={14} />
+                                Delete Keyframe
+                            </button>
+                        )}
                         <button
-                            className="btn-ghost w-full text-left p-2 text-sm flex-row items-center gap-sm text-danger"
+                            className="btn-ghost w-full text-left p-2 text-sm flex-row items-center gap-sm"
                             onClick={() => {
-                                onKeyframeDelete && onKeyframeDelete(contextMenu.item.sprite.sprite_name, contextMenu.item.behaviorIndex);
+                                onSelectLayer && onSelectLayer(contextMenu.item.sprite.sprite_name);
                                 closeContextMenu();
                             }}
                         >
-                            <Icon name="delete" size={14} />
-                            Delete Keyframe
+                            <Icon name="edit" size={14} />
+                            Focus {contextMenu.item.sprite.sprite_name}
                         </button>
-                    )}
-                    <button
-                        className="btn-ghost w-full text-left p-2 text-sm flex-row items-center gap-sm"
-                        onClick={() => {
-                            onSelectLayer && onSelectLayer(contextMenu.item.sprite.sprite_name);
-                            closeContextMenu();
+                    </div>
+                )
+            }
+            {/* Hover Popup for Overlapping Sprites */}
+            {
+                hoveredItems.length > 0 && hoverPosition && (
+                    <div
+                        className="timeline-hover-popup"
+                        style={{
+                            left: hoverPosition.x,
+                            top: hoverPosition.y
                         }}
+                        onMouseEnter={handlePopupMouseEnter}
+                        onMouseLeave={handlePopupMouseLeave}
                     >
-                        <Icon name="edit" size={14} />
-                        Focus {contextMenu.item.sprite.sprite_name}
-                    </button>
-                </div>
-            )}
-        </div>
+                        <div className="text-xs text-subtle px-2 pb-1 border-b-muted">Select Sprite</div>
+                        {hoveredItems.map((item, idx) => (
+                            <button
+                                key={`${item.key}-${idx}`}
+                                className="btn-ghost w-full text-left p-1 text-sm flex items-center gap-2 rounded hover:bg-surface"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onSelectLayer && onSelectLayer(item.sprite.sprite_name);
+                                    // Report specific keyframe selection
+                                    onKeyframeSelect && onKeyframeSelect(
+                                        item.sprite.sprite_name,
+                                        item.type === 'behavior' ? item.behaviorIndex : null,
+                                        item.time
+                                    );
+                                    setHoveredItems([]);
+                                }}
+                            >
+                                <img
+                                    src={`${assetBaseUrl}/users/default/sprites/${item.sprite.sprite_name}/${item.sprite.sprite_name}.png`}
+                                    className="w-6 h-6 object-contain"
+                                    alt=""
+                                />
+                                <span>{item.sprite.sprite_name}</span>
+                                <span className="text-xs text-muted ml-auto">Z:{item.z}</span>
+                            </button>
+                        ))}
+                    </div>
+                )
+            }
+        </div >
     );
 }
+

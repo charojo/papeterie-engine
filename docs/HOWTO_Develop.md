@@ -19,7 +19,7 @@ The most reliable way to initialize or refresh your environment is to run the au
 
 ```bash
 # Automated environment check and setup
-./scripts/ensure_env.sh
+./agent_env/bin/ensure_env.sh
 ```
 
 #### Manual Setup (Fallback)
@@ -56,7 +56,7 @@ cp ../papeterie.env .env
 
 # 4. Bootstrap
 ```bash
-./scripts/ensure_env.sh
+./agent_env/bin/ensure_env.sh
 ```
 
 ### Repository Footprint
@@ -105,19 +105,19 @@ The web interface will be available at `http://127.0.0.1:5173` (or `localhost`).
 
 ## 4. Scripts & Validation
 
-The `scripts/` directory contains essential tools for maintenance and validation.
+The `bin/` directory contains essential tools for maintenance and validation.
 
 | Task / Script | Command | Description |
 | :--- | :--- | :--- |
-| **Fast Validation** | `./scripts/validate.sh --fast` | LOC-only tests for uncommitted changes (~5s). |
-| **Medium Validation** | `./scripts/validate.sh --medium` | File-level coverage with auto-fix (~30s). |
-| **Full Validation** | `./scripts/validate.sh --full` | All tests + E2E, recommended for pre-commit (~90s). |
-| **Exhaustive Validation** | `./scripts/validate.sh --exhaustive` | Maximum coverage + parallel execution (~5m). |
-| **Check AI Models** | `uv run python scripts/check_models.py` | Verifies Google AI Studio API access. |
-| **Process Assets** | `uv run python scripts/process_assets.py` | Utilities for green screen removal, etc. |
-| **Diagrams** | `uv run python scripts/generate_diagrams.py` | Converts `.dot` files to PNGs. |
-| **Analyze Coverage** | `./scripts/analyze.sh` | Generates a coverage report from validation logs. |
-| **Start Dev Stack** | `./scripts/start_dev.sh` | Starts both backend and frontend via tmux. |
+| **Fast Validation** | `./bin/validate.sh --fast` | LOC-only tests for uncommitted changes (~5s). |
+| **Medium Validation** | `./bin/validate.sh --medium` | File-level coverage with auto-fix (~30s). |
+| **Full Validation** | `./bin/validate.sh --full` | All tests + E2E, recommended for pre-commit (~90s). |
+| **Exhaustive Validation** | `./bin/validate.sh --exhaustive` | Maximum coverage + parallel execution (~5m). |
+| **Check AI Models** | `uv run python agent_env/bin/ADE_check_models.py` | Verifies Google AI Studio API access. |
+| **Process Assets** | `uv run python bin/process_assets.py` | Utilities for green screen removal, etc. |
+| **Diagrams** | `uv run python agent_env/bin/ADE_generate_diagrams.py` | Converts `.dot` files to SVGs. |
+| **Analyze Coverage** | `./agent_env/bin/ADE_analyze.sh` | Generates a coverage report from validation logs. |
+| **Start Dev Stack** | `./bin/start_dev.sh` | Starts both backend and frontend via tmux. |
 
 ## 5. IDE & AI Agent Setup
 
@@ -141,9 +141,9 @@ We use the Antigravity agent as the canonical assistant for development tasks an
 
 1. Enable **Agent Mode** and ensure the Antigravity brain is available at `.gemini/antigravity/brain` (the project already reserves this path).
 2. Start an Antigravity session and ask it to scan `docs/HOWTO_Develop.md`, `docs/AGENTS.md`, and `docs/BACKLOG.md` (the project backlog is the canonical ledger for issues).
-3. For every blocker, environment quirk, or procedural gap you encounter, run the helper script to record it immediately (see `scripts/capture_issue.sh`). This creates a timestamped entry in `docs/BACKLOG.md` so the HOWTO can be updated incrementally.
+3. For every blocker, environment quirk, or procedural gap you encounter, run the helper script to record it immediately (see `bin/ADE_capture_issue.sh`). This creates a timestamped entry in `docs/BACKLOG.md` so the HOWTO can be updated incrementally.
 4. After resolving an issue or completing a task, update `docs/HOWTO_Develop.md` with the fix or guidance and mark the corresponding `docs/BACKLOG.md` entry as resolved by appending `- RESOLVED: <date> by <your-name>` under the issue.
-5. Run `python scripts/update_workflow_docs.py` when you add or change agent workflows so `docs/HOWTO_Agent_Workflows.md` stays in sync.
+5. Run `python agent_env/bin/ADE_update_workflow_docs.py` when you add or change agent workflows so `docs/HOWTO_Agent_Workflows.md` stays in sync.
 
 Guidelines for living documentation
 - Record issues at the moment they occur; short, factual notes are best.
@@ -158,7 +158,7 @@ Example capture flow:
 git checkout -b feature/clean-development
 
 # When you hit a missing env var or a failing test, capture it:
-./scripts/capture_issue.sh "Missing GEMINI_API_KEY in .env when running uv run pytest -m live"
+./agent_env/bin/ADE_capture_issue.sh "Missing GEMINI_API_KEY in .env when running uv run pytest -m live"
 
 # After fixing, append a resolution note to the issue entry and update HOWTO
 git add docs/BACKLOG.md docs/HOWTO_Develop.md && git commit -m "docs: record and resolve env var issue in HOWTO"
@@ -189,21 +189,38 @@ The `main` branch is protected. To contribute:
 *   **VS Code Sync**: If the `(.venv)` prompt is missing, restart the terminal after selecting the correct interpreter.
 *   **Asyncio Warnings**: Ensure `pytest-asyncio` is installed and `pyproject.toml` has the correct loop scope configuration.
 *   **Git Auth**: If terminal push fails, use the VS Code Source Control sidebar to "Publish Branch."
+*   **WSL Connection Drops**: Avoid running `pkill -f "node"` as it kills the VS Code Server. Use specific process killing (e.g., `lsof -ti:PORT | xargs kill`) instead.
+*   **Validation Hangs/Crashes**: If `validate.sh` hangs or crashes WSL, it's likely memory pressure from E2E tests (Chromium). Run `validate.sh --full --skip-e2e` for lighter validation, or ensure you have ample free RAM (close other VS Code windows). Check for zombie processes with `pkill -f chrome || true`.
 
 ## 9. Human Development Workflow
 
 The typical development cycle involves an iterative loop between asset creation, metadata generation, and visual verification.
 
-![Human Development Workflow](assets/diagrams/development_workflow.png)
+![Human Development Workflow](assets/diagrams/development_workflow.svg)
 *(Source: [development_workflow.dot](assets/diagrams/development_workflow.dot))*
 
 1.  **Asset Creation**: Design RGBA `.png` sprites and write initial `.prompt` files.
 2.  **Compilation**: Run `uv run python main.py` to generate `.prompt.json` via Gemini.
 3.  **Visual Feedback**: Use `theatre.py` or the Web Dashboard to see the animation in action.
 4.  **Refinement**: Adjust prompts or art based on visual results and re-compile.
-5.  **Validation**: Run `./scripts/validate.sh` to ensure no regressions before committing.
+5.  **Validation**: Run `./bin/validate.sh` to ensure no regressions before committing.
 
-## 10. Working with Antigravity & AI
+
+## 10. CSS Debugging & Safaris
+
+We use a "Safe CSS" workflow to prevent visual regressions during refactoring.
+
+### Refactoring Methodology
+1.  **Check Baseline**: Run `./agent_env/bin/ADE_safe_css.sh` to ensure current state passes (or generate baseline snapshots).
+2.  **Refactor**: Make your CSS changes.
+3.  **Verify**: Run `./agent_env/bin/ADE_safe_css.sh` again.
+    *   **Success**: `✅ CSS Safety Checks PASSED`.
+    *   **Failure**: The script will point you to the report. Open `src/web/playwright-report/index.html` to compare Before/After images.
+
+### System Health
+If the validation script fails immediately, the dev server might be down. Run `./agent_env/bin/ADE_check_health.sh` to diagnose.
+
+## 11. Working with Antigravity & AI
 
 As an agentic engine, Papeterie is designed to be co-developed with AI agents like Antigravity.
 
@@ -220,5 +237,5 @@ For deep dives into specific system architectures, refer to the following design
 *   **[Persistence & User Design](design/persistence_and_user_design.md)**: How assets and user data are stored and managed.
 *   **[Verification Strategy](design/verification.md)**: Detailed breakdown of the testing and validation layers.
 *   **[Undo/Redo System](design/undo_redo_system.md)**: Command pattern architecture for reversible actions.
-*   **[Refactoring Plan](design/refactoring_plan.md)**: Completed phases addressing code sprawl and stability.
+*   **[Issues & Refactoring](ISSUES.md)**: Consolidated architecture issues, refactoring plans, and historical regressions.
 *   **[Junior Dev Ecosystem](design/junior_dev_ecosystem.md)**: Guidance for junior developers and AI agents working on the project.

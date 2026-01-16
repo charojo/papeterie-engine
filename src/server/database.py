@@ -1,4 +1,11 @@
 import os
+
+## @DOC
+# ### Persistence Layer
+# Handles local storage and ownership tracking using **SQLite**:
+# - **User Management**: Stores credentials and timestamps.
+# - **Asset Ownership**: Links sprites and scenes to specific user IDs.
+# - **Database Initialization**: Ensures tables exist at project startup.
 import sqlite3
 from pathlib import Path
 

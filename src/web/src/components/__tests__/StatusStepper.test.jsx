@@ -16,42 +16,42 @@ describe('StatusStepper', () => {
         const { container: _container } = render(<StatusStepper currentStatus="Raw Scene" />);
 
         const importStep = screen.getByText('Import').parentElement;
-        expect(importStep).toHaveStyle({ color: 'var(--color-primary)' });
+        expect(importStep).toHaveClass('active');
     });
 
     it('highlights Import step for Raw Sprite status', () => {
         const { container: _container } = render(<StatusStepper currentStatus="Raw Sprite" />);
 
         const importStep = screen.getByText('Import').parentElement;
-        expect(importStep).toHaveStyle({ color: 'var(--color-primary)' });
+        expect(importStep).toHaveClass('active');
     });
 
     it('highlights Optimize step for Optimizing status', () => {
         const { container: _container } = render(<StatusStepper currentStatus="Optimizing" />);
 
         const optimizeStep = screen.getByText('Optimize').parentElement;
-        expect(optimizeStep).toHaveStyle({ color: 'var(--color-primary)' });
+        expect(optimizeStep).toHaveClass('active');
     });
 
     it('highlights Ready step for Configured status', () => {
         const { container: _container } = render(<StatusStepper currentStatus="Configured" />);
 
         const readyStep = screen.getByText('Ready').parentElement;
-        expect(readyStep).toHaveStyle({ color: 'var(--color-primary)' });
+        expect(readyStep).toHaveClass('active');
     });
 
     it('makes current step bold', () => {
         const { container: _container } = render(<StatusStepper currentStatus="Optimizing" />);
 
         const optimizeLabel = screen.getByText('Optimize');
-        expect(optimizeLabel).toHaveStyle({ fontWeight: '600' });
+        expect(optimizeLabel).toHaveClass('current');
     });
 
     it('renders dividers between steps', () => {
         const { container } = render(<StatusStepper currentStatus="Raw Scene" />);
 
         // Should have 3 dividers (between 4 steps)
-        const dividers = container.querySelectorAll('div[style*="width: 8px"]');
+        const dividers = container.querySelectorAll('.status-step-divider');
         expect(dividers.length).toBe(3);
     });
 
@@ -64,9 +64,9 @@ describe('StatusStepper', () => {
         const configureStep = screen.getByText('Configure').parentElement;
         const readyStep = screen.getByText('Ready').parentElement;
 
-        expect(importStep).toHaveStyle({ color: 'var(--color-primary)' });
-        expect(optimizeStep).toHaveStyle({ color: 'var(--color-primary)' });
-        expect(configureStep).toHaveStyle({ color: 'var(--color-primary)' });
-        expect(readyStep).toHaveStyle({ color: 'var(--color-primary)' });
+        expect(importStep).toHaveClass('active');
+        expect(optimizeStep).toHaveClass('active');
+        expect(configureStep).toHaveClass('active');
+        expect(readyStep).toHaveClass('active');
     });
 });

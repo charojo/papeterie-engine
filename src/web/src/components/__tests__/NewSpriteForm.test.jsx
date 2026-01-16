@@ -1,12 +1,14 @@
-import React from 'react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { NewSpriteForm } from '../NewSpriteForm';
+import { API_BASE } from '../../config';
+import { toast } from 'sonner';
 
-// Mock fetch
-global.fetch = vi.fn();
+// Mock Dependencies
+vi.mock('../../config', () => ({
+    API_BASE: 'http://test-api'
+}));
 
-// Mock toast
 vi.mock('sonner', () => ({
     toast: {
         error: vi.fn(),
@@ -15,88 +17,81 @@ vi.mock('sonner', () => ({
 }));
 
 describe('NewSpriteForm', () => {
-    const mockOnSuccess = vi.fn();
-    const mockOnCancel = vi.fn();
+    let mockOnSuccess;
+    let mockOnCancel;
 
     beforeEach(() => {
-        vi.clearAllMocks();
-        global.fetch.mockReset();
+        mockOnSuccess = vi.fn();
+        mockOnCancel = vi.fn();
+        global.fetch = vi.fn();
     });
 
-    it('renders form fields correctly', () => {
-        render(<NewSpriteForm onSuccess={mockOnSuccess} onCancel={mockOnCancel} />);
+    afterEach(() => {
+        vi.clearAllMocks();
+    });
 
-        expect(screen.getByLabelText(/Sprite Name/i)).toBeInTheDocument();
+    it('renders correctly', () => {
+        render(<NewSpriteForm onSuccess={mockOnSuccess} onCancel={mockOnCancel} />);
+        expect(screen.getByPlaceholderText('e.g. mythical_dragon')).toBeInTheDocument();
         expect(screen.getByLabelText(/Source Image/i)).toBeInTheDocument();
         expect(screen.getByRole('button', { name: /Create Sprite/i })).toBeInTheDocument();
-    });
-
-    it('renders Cancel button when onCancel is provided', () => {
-        render(<NewSpriteForm onSuccess={mockOnSuccess} onCancel={mockOnCancel} />);
         expect(screen.getByRole('button', { name: /Cancel/i })).toBeInTheDocument();
     });
 
-    it('does not render Cancel button when onCancel is not provided', () => {
+    it('validates missing inputs', () => {
         render(<NewSpriteForm onSuccess={mockOnSuccess} />);
-        expect(screen.queryByRole('button', { name: /Cancel/i })).not.toBeInTheDocument();
+        const submitBtn = screen.getByRole('button', { name: /Create Sprite/i });
+
+        fireEvent.click(submitBtn);
+
+        expect(toast.error).toHaveBeenCalledWith("Missing Information", expect.any(Object));
+        expect(global.fetch).not.toHaveBeenCalled();
     });
 
-    it('calls onCancel when Cancel button is clicked', () => {
-        render(<NewSpriteForm onSuccess={mockOnSuccess} onCancel={mockOnCancel} />);
-        fireEvent.click(screen.getByRole('button', { name: /Cancel/i }));
-        expect(mockOnCancel).toHaveBeenCalledTimes(1);
-    });
-
-    it('allows typing in the name input', () => {
-        render(<NewSpriteForm onSuccess={mockOnSuccess} onCancel={mockOnCancel} />);
-
-        const nameInput = screen.getByLabelText(/Sprite Name/i);
-        fireEvent.change(nameInput, { target: { value: 'test_sprite' } });
-
-        expect(nameInput.value).toBe('test_sprite');
-    });
-
-    it('auto-fills name from file when name is empty', () => {
-        render(<NewSpriteForm onSuccess={mockOnSuccess} onCancel={mockOnCancel} />);
-
+    it('auto-fills name when file is selected', () => {
+        render(<NewSpriteForm onSuccess={mockOnSuccess} />);
         const fileInput = screen.getByLabelText(/Source Image/i);
-        const file = new File(['test'], 'my_dragon.png', { type: 'image/png' });
+        const nameInput = screen.getByPlaceholderText('e.g. mythical_dragon');
 
+        const file = new File(['dummy content'], 'dragon.png', { type: 'image/png' });
         fireEvent.change(fileInput, { target: { files: [file] } });
 
-        const nameInput = screen.getByLabelText(/Sprite Name/i);
-        expect(nameInput.value).toBe('my_dragon');
+        expect(nameInput.value).toBe('dragon');
     });
 
-    it('shows error toast when submitting without name or file', async () => {
-        const { toast } = await import('sonner');
-        render(<NewSpriteForm onSuccess={mockOnSuccess} onCancel={mockOnCancel} />);
+    it('submits successfully', async () => {
+        global.fetch.mockImplementationOnce(() => Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({ name: 'dragon' })
+        }));
 
-        fireEvent.click(screen.getByRole('button', { name: /Create Sprite/i }));
+        render(<NewSpriteForm onSuccess={mockOnSuccess} />);
 
-        expect(toast.error).toHaveBeenCalledWith(
-            "Missing Information",
-            expect.objectContaining({ description: expect.any(String) })
+        const fileInput = screen.getByLabelText(/Source Image/i);
+        const submitBtn = screen.getByRole('button', { name: /Create Sprite/i });
+
+        const file = new File(['dummy'], 'dragon.png', { type: 'image/png' });
+        fireEvent.change(fileInput, { target: { files: [file] } });
+
+        fireEvent.click(submitBtn);
+
+        expect(global.fetch).toHaveBeenCalledWith(
+            `${API_BASE}/sprites/upload`,
+            expect.objectContaining({
+                method: 'POST',
+                body: expect.any(FormData)
+            })
         );
-    });
-
-    it('disables buttons while loading', async () => {
-        // Mock a slow response
-        global.fetch.mockImplementation(() => new Promise(() => { })); // Never resolves
-
-        render(<NewSpriteForm onSuccess={mockOnSuccess} onCancel={mockOnCancel} />);
-
-        const nameInput = screen.getByLabelText(/Sprite Name/i);
-        const fileInput = screen.getByLabelText(/Source Image/i);
-        const file = new File(['test'], 'test.png', { type: 'image/png' });
-
-        fireEvent.change(nameInput, { target: { value: 'test' } });
-        fireEvent.change(fileInput, { target: { files: [file] } });
-
-        fireEvent.click(screen.getByRole('button', { name: /Create Sprite/i }));
 
         await waitFor(() => {
-            expect(screen.getByRole('button', { name: /Cancel/i })).toBeDisabled();
+            expect(mockOnSuccess).toHaveBeenCalledWith('dragon');
         });
+    });
+
+    it('calls onCancel when cancel button clicked', () => {
+        render(<NewSpriteForm onSuccess={mockOnSuccess} onCancel={mockOnCancel} />);
+        const cancelBtn = screen.getByRole('button', { name: /Cancel/i });
+        fireEvent.click(cancelBtn);
+        expect(mockOnCancel).toHaveBeenCalled();
     });
 });

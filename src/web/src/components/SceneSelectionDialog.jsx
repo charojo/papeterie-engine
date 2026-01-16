@@ -1,72 +1,52 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { AssetSelectionGrid } from './AssetSelectionGrid';
 import { Icon } from './Icon';
+import { ASSET_BASE } from '../config';
 
-export const SceneSelectionDialog = ({ scenes, onSelect, onCreate }) => {
-    const [search, setSearch] = useState('');
-
-    const filteredScenes = scenes.filter(s =>
-        s.name.toLowerCase().includes(search.toLowerCase())
-    );
-
+export const SceneSelectionDialog = ({ scenes, onSelect, onCreate, onCancel }) => {
     return (
-        <div style={{ padding: '24px', flex: 1, overflowY: 'auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h2>Open a Scene</h2>
-                <input
-                    className="input"
-                    placeholder="Search scenes..."
-                    value={search}
-                    onChange={e => setSearch(e.target.value)}
-                    style={{ width: '200px' }}
-                />
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '16px', marginTop: '16px' }}>
-                {/* Always show Create as the first item */}
-                <div
-                    className="card glass btn"
-                    data-testid="create-scene-button"
-                    onClick={onCreate}
-                    style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        height: 'auto',
-                        gap: '8px',
-                        border: '2px dashed var(--color-primary)',
-                        opacity: 0.8
-                    }}
-                >
-                    <Icon name="add" size={24} color="var(--color-primary)" />
-                    <span style={{ fontWeight: 'bold', color: 'var(--color-primary)' }}>Create</span>
-                </div>
-
-                {filteredScenes.map(scene => (
-                    <div
-                        key={scene.name}
-                        data-testid={`scene-item-${scene.name}`}
-                        className="card glass btn"
-                        onClick={() => onSelect(scene)}
-                        style={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'flex-start',
-                            height: 'auto',
-                            gap: '8px'
-                        }}
-                    >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', width: '100%' }}>
-                            <Icon name="scene" />
-                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }} title={scene.name}>{scene.name}</span>
+        <AssetSelectionGrid
+            title="Open a Scene"
+            items={scenes}
+            onSelect={onSelect}
+            onCreate={onCreate}
+            onCancel={onCancel}
+            searchPlaceholder="Search scenes..."
+            createLabel="Create"
+            itemIcon="scene"
+            getItemName={(scene) => scene.name}
+            getItemSubtitle={(scene) => `${scene.config?.layers?.length || 0} Layers`}
+            renderThumbnail={(scene) => {
+                // 1. Try background image from config
+                const backgroundUrl = scene.config?.background_image;
+                if (backgroundUrl) {
+                    return (
+                        <img
+                            src={`${ASSET_BASE}${backgroundUrl}`}
+                            alt=""
+                            style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'cover' }}
+                            onError={(e) => { e.target.style.display = 'none'; }}
+                        />
+                    );
+                }
+                // 2. Fallback: Try to use the first sprite as a thumbnail
+                const firstSprite = scene.used_sprites?.[0];
+                if (firstSprite) {
+                    return (
+                        <div style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--color-bg-base)' }}>
+                            <img
+                                src={`${ASSET_BASE}/assets/users/${scene.creator || 'default'}/sprites/${firstSprite}/${firstSprite}.png`}
+                                alt=""
+                                style={{ maxWidth: '80%', maxHeight: '80%', objectFit: 'contain' }}
+                            />
+                            <div style={{ position: 'absolute', bottom: 4, right: 4 }}>
+                                <Icon name="scene" size={12} opacity={0.5} />
+                            </div>
                         </div>
-                        <div style={{ fontSize: '0.8em', opacity: 0.7 }}>
-                            {scene.layers?.length || 0} Layers
-                        </div>
-                    </div>
-                ))}
-                {filteredScenes.length === 0 && <div style={{ opacity: 0.5 }}>No scenes found.</div>}
-            </div>
-        </div>
+                    );
+                }
+                return <Icon name="scene" size={32} opacity={0.2} />;
+            }}
+        />
     );
 };

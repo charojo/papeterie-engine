@@ -1,3 +1,9 @@
+// ## @DOC
+// # ### Audio Subsystem
+// # Manages spatialized audio and event-based sound scheduling.
+// # - **Asset Delivery**: Handles loading and caching of sound files from the backend.
+// # - **Timeline Sync**: Schedules sound effects to trigger at specific timestamps in a scene.
+// # - **Spatialization**: Future-ready hooks for volume and panning relative to camera position.
 export class AudioManager {
     constructor() {
         this.sounds = new Map(); // name -> { audio: HTMLAudioElement, loaded: boolean }
@@ -73,7 +79,7 @@ export class AudioManager {
         if (entry && entry.loaded) {
             const audio = entry.audio;
             audio.currentTime = 0;
-            audio.volume = volume; // TODO: Implement fade_in
+            audio.volume = volume;
             audio.loop = loop;
 
             // Simple fade in logic could go here or in update loop

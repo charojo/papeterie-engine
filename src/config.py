@@ -1,3 +1,8 @@
+## @DOC
+# ### Central Configuration
+# This module defines global paths, asset directories, and server settings
+# used across the Papeterie Engine. It ensures all components use consistent
+# storage locations and network configurations.
 import os
 from pathlib import Path
 from typing import List
@@ -34,4 +39,6 @@ CORS_ORIGINS: List[str] = [
 # Storage & Auth Configuration
 STORAGE_MODE = "LOCAL"  # Options: LOCAL, CLOUD (S3/GCS simulation)
 STORAGE_ROOT = ASSETS_DIR / "users"
-AUTH_SECRET_KEY = "super-secret-key-change-me"  # For token signing
+AUTH_SECRET_KEY = os.environ.get("AUTH_SECRET_KEY", "dev-insecure-secret-key-change-me")
+if AUTH_SECRET_KEY.startswith("dev-"):
+    print("WARNING: Using insecure default AUTH_SECRET_KEY. Set AUTH_SECRET_KEY in production.")

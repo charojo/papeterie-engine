@@ -1,4 +1,5 @@
 import { createLogger } from '../utils/logger.js';
+import { ThemeManager } from './ThemeManager.js';
 
 const log = createLogger('Layer');
 
@@ -13,7 +14,8 @@ export const EventType = {
     DRIFT: "drift",
     PULSE: "pulse",
     BACKGROUND: "background",
-    LOCATION: "location"
+    LOCATION: "location",
+    SPARKLE: "sparkle"
 };
 
 export const CoordinateType = {
@@ -21,24 +23,28 @@ export const CoordinateType = {
     Y: "y",
     SCALE: "scale",
     ROTATION: "rotation",
-    OPACITY: "opacity"
+    OPACITY: "opacity",
+    BRIGHTNESS: "brightness"
 };
 
-class EventRuntime {
+import { behaviorFactory, BehaviorContext } from './BehaviorFactory.js';
+
+export class EventRuntime {
     constructor(config) {
         this.config = config;
         this.active = config.enabled ?? true;
     }
-    apply(_layer, _dt, _transform, _elapsedTime) { }
+    apply(_transform, _context) { }
 }
 
-class OscillateRuntime extends EventRuntime {
+export class OscillateRuntime extends EventRuntime {
     constructor(config) {
         super(config);
         this.timeAccum = 0.0;
     }
-    apply(layer, dt, transform, elapsedTime) {
+    apply(transform, context) {
         if (!this.active) return;
+        const { elapsedTime } = context;
 
         const freq = this.config.frequency || 0;
         const amp = this.config.amplitude || 0;
@@ -55,14 +61,15 @@ class OscillateRuntime extends EventRuntime {
     }
 }
 
-class DriftRuntime extends EventRuntime {
+export class DriftRuntime extends EventRuntime {
     constructor(config) {
         super(config);
         this.currentValue = 0.0;
         this.reachedCap = false;
     }
-    apply(layer, dt, transform, elapsedTime) {
+    apply(transform, context) {
         if (!this.active) return;
+        const { elapsedTime } = context;
 
         const vel = this.config.velocity || 0;
         // Drift is physically integrative, but we can approximate it as a function of time
@@ -101,13 +108,14 @@ class DriftRuntime extends EventRuntime {
     }
 }
 
-class PulseRuntime extends EventRuntime {
+export class PulseRuntime extends EventRuntime {
     constructor(config) {
         super(config);
         this.timeAccum = 0.0;
     }
-    apply(layer, dt, transform, elapsedTime) {
+    apply(transform, context) {
         if (!this.active) return;
+        const { elapsedTime } = context;
 
         // Threshold check
         if (this.config.activation_threshold_scale !== undefined && this.config.activation_threshold_scale !== null) {
@@ -138,20 +146,89 @@ class PulseRuntime extends EventRuntime {
 }
 
 // BackgroundRuntime is a no-op at runtime for transform, but properties are applied in init
-class BackgroundRuntime extends EventRuntime {
-    apply(_layer, _dt, _transform) {
+export class BackgroundRuntime extends EventRuntime {
+    apply(_transform, _context) {
         // No transform modifications for background
     }
 }
 
-class LocationRuntime extends EventRuntime {
+export class SparkleRuntime extends EventRuntime {
+    constructor(config) {
+        super(config);
+        this.reset();
+    }
+
+    reset() {
+        this.nextSparkleTime = 0;
+        this.isSparkling = false;
+        this.sparkleStartTime = 0;
+        // Default config
+        this.minInterval = this.config.min_interval ?? 0.5;
+        this.maxInterval = this.config.max_interval ?? 2.0;
+        this.duration = this.config.duration ?? 0.2; // Short duration for the sparkle
+        this.maxBrightness = this.config.max_brightness ?? 2.0;
+    }
+
+    // Determine next interval
+    _scheduleNext(currentTime) {
+        const interval = this.minInterval + Math.random() * (this.maxInterval - this.minInterval);
+        this.nextSparkleTime = currentTime + interval;
+        this.isSparkling = false;
+    }
+
+    apply(transform, context) {
+        if (!this.active) return;
+        const { elapsedTime } = context;
+
+        // Initialize if first run or reset
+        if (this.nextSparkleTime === 0 && !this.isSparkling) {
+            this._scheduleNext(elapsedTime);
+        }
+
+        if (this.isSparkling) {
+            const progress = (elapsedTime - this.sparkleStartTime) / this.duration;
+
+            if (progress >= 1.0) {
+                // Sparkle finished
+                transform.brightness = 1.0;
+                this._scheduleNext(elapsedTime);
+            } else {
+                // Calculate brightness based on progress (Triangle wave: 0 -> 1 -> 0)
+                // Peak at 0.5
+                let val;
+                if (progress < 0.5) {
+                    val = progress * 2.0; // 0 to 1
+                } else {
+                    val = 2.0 * (1.0 - progress); // 1 to 0
+                }
+
+                // Map 0..1 to 1.0..maxBrightness
+                transform.brightness = 1.0 + (val * (this.maxBrightness - 1.0));
+            }
+
+        } else {
+            // Waiting for next sparkle
+            if (elapsedTime >= this.nextSparkleTime) {
+                this.isSparkling = true;
+                this.sparkleStartTime = elapsedTime;
+                // Apply first frame of sparkle
+                transform.brightness = 1.0;
+            } else {
+                transform.brightness = 1.0;
+            }
+        }
+    }
+}
+
+
+export class LocationRuntime extends EventRuntime {
     constructor(config) {
         super(config);
         // Any defined time_offset (including 0) makes it a keyframe
         this.isKeyframe = config.time_offset !== undefined;
     }
 
-    apply(layer, dt, transform, _elapsedTime) {
+    apply(transform, _context) {
         if (!this.active) return;
 
         // For non-keyframe location behaviors (time_offset undefined), apply immediately
@@ -159,11 +236,12 @@ class LocationRuntime extends EventRuntime {
             if (this.config.x !== undefined) transform.x += this.config.x;
             if (this.config.y !== undefined) transform.y += this.config.y;
         }
-        // Keyframe-based locations are handled in Layer.getTransform via elapsedTime
+        // Keyframe-based locations are handled in Layer.getTransform via context.elapsedTime
     }
 
     // Static method to apply time-based location behaviors
-    static applyKeyframes(layer, elapsedTime, transform, screenH) {
+    static applyKeyframes(transform, context) {
+        const { layer, elapsedTime, screenH } = context;
         // Get all location behaviors sorted by time
         const locationBehaviors = layer.eventRuntimes
             .filter(rt => rt instanceof LocationRuntime && rt.isKeyframe)
@@ -265,6 +343,13 @@ class LocationRuntime extends EventRuntime {
     }
 }
 
+// Register core behaviors with the factory
+behaviorFactory.register(EventType.OSCILLATE, OscillateRuntime);
+behaviorFactory.register(EventType.DRIFT, DriftRuntime);
+behaviorFactory.register(EventType.PULSE, PulseRuntime);
+behaviorFactory.register(EventType.BACKGROUND, BackgroundRuntime);
+behaviorFactory.register(EventType.LOCATION, LocationRuntime);
+behaviorFactory.register(EventType.SPARKLE, SparkleRuntime);
 
 export class Layer {
     constructor(config, image) {
@@ -321,25 +406,22 @@ export class Layer {
         const events = config.behaviors || config.events || [];
 
         events.forEach(evt => {
-            if (evt.type === EventType.OSCILLATE) {
-                this.eventRuntimes.push(new OscillateRuntime(evt));
-            } else if (evt.type === EventType.DRIFT) {
-                this.eventRuntimes.push(new DriftRuntime(evt));
-                // Extract scroll_speed from DriftBehavior with X coordinate
-                // This handles the migration from scroll_speed field to DriftBehavior
-                if (evt.coordinate === CoordinateType.X && evt.velocity !== undefined) {
-                    this.scroll_speed = evt.velocity;
+            const runtime = behaviorFactory.create(evt);
+            if (runtime) {
+                this.eventRuntimes.push(runtime);
+
+                // Side effects for specific behaviors
+                if (evt.type === EventType.DRIFT) {
+                    // Extract scroll_speed from DriftBehavior with X coordinate
+                    if (evt.coordinate === CoordinateType.X && evt.velocity !== undefined) {
+                        this.scroll_speed = evt.velocity;
+                    }
+                } else if (evt.type === EventType.BACKGROUND) {
+                    this.is_background = true;
+                    if (evt.scroll_speed !== undefined) {
+                        this.scroll_speed = evt.scroll_speed;
+                    }
                 }
-            } else if (evt.type === EventType.PULSE) {
-                this.eventRuntimes.push(new PulseRuntime(evt));
-            } else if (evt.type === EventType.BACKGROUND) {
-                this.eventRuntimes.push(new BackgroundRuntime(evt));
-                this.is_background = true;
-                if (evt.scroll_speed !== undefined) {
-                    this.scroll_speed = evt.scroll_speed;
-                }
-            } else if (evt.type === EventType.LOCATION) {
-                this.eventRuntimes.push(new LocationRuntime(evt));
             }
         });
     }
@@ -355,6 +437,10 @@ export class Layer {
                 rt.reachedCap = false;
             }
             if (rt.timeAccum !== undefined) rt.timeAccum = 0;
+            // Reset Sparkle runtime state
+            if (rt instanceof SparkleRuntime) {
+                rt.reset();
+            }
         });
     }
 
@@ -368,11 +454,15 @@ export class Layer {
         const { width: baseW, height: baseH } = this._getBaseDimensions(screenH);
         const imgW = baseW * Math.max(0.001, tf.scale);
         const imgH = baseH * Math.max(0.001, tf.scale);
-        const finalRot = tf.rotation;
+
+        // Use the ACTUAL rendered rotation and Y position if available (from environmental reaction)
+        const finalRot = (this.currentTilt !== undefined) ? (tf.rotation + this.currentTilt) : tf.rotation;
 
         const parallaxScroll = this.scroll_speed * scrollX;
         const scrollOffset = (parallaxScroll + this.x_offset + tf.x + (tf.base_x || 0));
-        let finalY = tf.base_y + tf.y;
+
+        // Use _currentYPhys if available, otherwise fall back to calculated base
+        let finalY = (this._currentYPhys !== undefined) ? this._currentYPhys : (tf.base_y + tf.y);
 
         const checkPointStyle = (drawX, drawY) => {
             const cx = drawX + imgW / 2;
@@ -506,16 +596,25 @@ export class Layer {
             scale: this._baseScale ?? 1.0,
             rotation: this._baseRotation ?? 0.0,
             opacity: 1.0,
+            brightness: 1.0, // Default brightness
             horizontal_percent: this.horizontal_percent // Default
         };
 
+        const context = new BehaviorContext({
+            layer: this,
+            dt,
+            elapsedTime,
+            screenW,
+            screenH
+        });
+
         // Apply events
         this.eventRuntimes.forEach(runtime => {
-            runtime.apply(this, dt, transform, elapsedTime);
+            runtime.apply(transform, context);
         });
 
         // Apply time-based location keyframes
-        LocationRuntime.applyKeyframes(this, elapsedTime, transform, screenH);
+        LocationRuntime.applyKeyframes(transform, context);
 
         // Resolve horizontal_percent if modified by keyframes
         if (transform.horizontal_percent !== undefined && transform.horizontal_percent !== null) {
@@ -587,18 +686,30 @@ export class Layer {
             return;
         }
 
+        // Reset debug data for this frame
+        this._debugInteractionData = null;
+
         const tf = this.getTransform(screenH, screenW, dt, elapsedTime);
 
         const finalX = tf.x + (tf.base_x || 0); // Include base_x from horizontal_percent
         let finalY = tf.base_y + tf.y;
         let finalScale = Math.max(0.001, tf.scale);
         let finalRot = tf.rotation;
-        const finalAlpha = Math.max(0, Math.min(1.0, tf.opacity));
 
+        const finalAlpha = Math.max(0, Math.min(1.0, tf.opacity));
+        const finalBrightness = Math.max(0, tf.brightness ?? 1.0);
+
+        // Draw the sprite
+        // Rule 1b: Transparency on Selection
         if (this.isSelected) {
-            // Keep minimal logging for selected sprite if needed, or remove entire block.
-            // The plan said "Remove console.log in draw() method". 
-            // I will remove the block completely as it was spamming.
+            ctx.globalAlpha = 0.2;
+        } else {
+            ctx.globalAlpha = finalAlpha;
+        }
+
+        // Apply brightness filter if needed
+        if (finalBrightness !== 1.0) {
+            ctx.filter = `brightness(${finalBrightness * 100}%)`;
         }
 
         // --- Calculate Initial Drawn Dimensions ---
@@ -623,9 +734,10 @@ export class Layer {
             const yStern = envLayer.getYAtX(screenW, screenH, scrollX, xStern, elapsedTime);
             const yBow = envLayer.getYAtX(screenW, screenH, scrollX, xBow, elapsedTime);
 
-
             // 3. Calculate target position and tilt
             const targetEnvY = (yStern + yBow) / 2.0;
+            // Old debug block removed
+
 
             // Slope-based angle
             const hullDist = xBow - xStern;
@@ -653,6 +765,11 @@ export class Layer {
             }
             finalRot += this.currentTilt;
 
+            // Update debug data with final targets if needed
+            if (this._debugInteractionData) {
+                this._debugInteractionData.targetTilt = targetTilt;
+            }
+
             // Vertical Position smoothing
             const followFactor = reaction.vertical_follow_factor ?? 1.0;
             if (followFactor >= 0) {
@@ -660,7 +777,14 @@ export class Layer {
                 const imgHPos = this.fill_down ? (this.processedImage.height * (imgH / this.processedImage.height)) : imgH;
 
                 // Desired final_y relative to the environment surface
-                let desiredY = targetEnvY + this.y_offset - (imgHPos * (1.0 - followFactor));
+                // Adjust for anchor: targetEnvY is where the ANCHOR point should be
+                let anchorOffset = 0;
+                if (this.vertical_anchor === "bottom") anchorOffset = -imgHPos;
+                else if (this.vertical_anchor === "center") anchorOffset = -imgHPos / 2;
+                // else top: 0
+
+                let desiredY = targetEnvY + this.y_offset + anchorOffset - (imgHPos * (1.0 - followFactor));
+
 
                 // Vertical lift based on tilt
                 const lift = this.currentTilt * (reaction.tilt_lift_factor ?? 0.0);
@@ -674,9 +798,38 @@ export class Layer {
                 }
                 finalY = this._currentYPhys;
             }
-        }
 
-        ctx.globalAlpha = finalAlpha;
+            // --- Update Debug Data (Always if interacting) ---
+            // Calculate where the "Hull Points" of the object actually ARE (transformed)
+            // Center of rotation is center of sprite
+            const rotCX = centerX;
+            const rotCY = finalY + (imgH / 2); // Center Y relative to drawn Y (top-left)
+
+            // Local Offsets
+            // Stern: x = -offsetW, y = +imgH/2 (Bottom of sprite)
+            // Bow:   x = +offsetW, y = +imgH/2 (Bottom of sprite)
+            const rad = finalRot * Math.PI / 180;
+            const cos = Math.cos(rad);
+            const sin = Math.sin(rad);
+
+            // Stern (Left)
+            const sternLX = -offsetW;
+            const sternLY = imgH / 2; // Bottom relative to center
+            const objSternX = rotCX + (sternLX * cos - sternLY * sin);
+            const objSternY = rotCY + (sternLX * sin + sternLY * cos);
+
+            // Bow (Right)
+            const bowLX = offsetW;
+            const bowLY = imgH / 2;
+            const objBowX = rotCX + (bowLX * cos - bowLY * sin);
+            const objBowY = rotCY + (bowLX * sin + bowLY * cos);
+
+            this._debugInteractionData = {
+                xStern, yStern, xBow, yBow, // Environment Points
+                centerX, targetEnvY, tilt: this.currentTilt, targetTilt,
+                objSternX, objSternY, objBowX, objBowY // Object Points
+            };
+        }
 
         // Final position - centering for rotation matches Pygame's center-of-image anchor
         const parallaxScroll = this.scroll_speed * scrollX;
@@ -733,16 +886,22 @@ export class Layer {
             }
         }
 
+
+        // Reset filter
+        if (finalBrightness !== 1.0) {
+            ctx.filter = 'none';
+        }
+
+        // Rule 1b: Reset Alpha so handles are opaque
+        ctx.globalAlpha = 1.0;
+
         // Draw interactive handles when sprite is selected (always show for editing)
         // This allows users to see and interact with the sprite bounds at any time
-        const showHandles = this.isSelected && !this.is_background;
+        const showHandles = this.isSelected;
         if (showHandles) {
-            // Pull selection colors from CSS variables to ensure theme consistency
-            const style = (typeof window !== 'undefined' && window.getComputedStyle && document.documentElement)
-                ? window.getComputedStyle(document.documentElement)
-                : null;
-            const accentColor = style?.getPropertyValue('--color-selection-accent')?.trim() || '#00ffff';
-            const glowColor = style?.getPropertyValue('--color-selection-glow')?.trim() || 'rgba(0, 255, 255, 0.4)';
+            const theme = ThemeManager.theme;
+            const accentColor = theme.selectionAccent;
+            const glowColor = theme.selectionGlow;
 
             const handleSize = 8;
             const rotateHandleSize = 10;
@@ -819,6 +978,8 @@ export class Layer {
         }
 
         ctx.globalAlpha = 1.0;
+
+        // Debug data is now consumed by Theatre.js for top-level rendering
     }
 
     getHandleAtPoint(x, y, screenW, screenH, scrollX) {
@@ -916,6 +1077,7 @@ export class Layer {
     }
 
     _drawBackground(ctx, screenW, screenH) {
+        // Draw image scaled to fill the viewport (cover)
         const imgW = this.processedImage.width;
         const imgH = this.processedImage.height;
         const scale = Math.max(screenW / imgW, screenH / imgH);

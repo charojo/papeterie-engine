@@ -1,3 +1,12 @@
+## @DOC
+# ### Theatre Rendering Engine
+# The Theatre is the Pygame-based rendering core that converts scene metadata
+# into a live animation.
+#
+# **Key Responsibilities:**
+# - **Parallax Rendering**: Manages multi-layered backgrounds with depth-based scrolling.
+# - **Behavior Runtime**: Executes real-time transformations (Drift, Oscillate, Pulse).
+# - **Environmental Integration**: Coordinates sprite reactions to dynamic backgrounds.
 import json
 import logging
 import math
@@ -937,6 +946,7 @@ class Theatre:
 
             # Throttle file integrity check (every 60 frames)
             self._frame_counter += 1
+            frame_count += 1
             if self._frame_counter % 60 == 0:
                 has_changed = (
                     os.path.exists(self.scene_path)
@@ -949,64 +959,55 @@ class Theatre:
                     self.debug_target_layer_index %= len(self.layers) if self.layers else 1
 
             dt = self.clock.tick(60) / 1000.0
-            self.elapsed_time += dt
-            frame_count += 1
-            self.scroll += 3
-            screen_w, screen_h = self.screen.get_size()
+            self.render_frame(dt)
+            pygame.display.flip()
 
-            self.screen.fill((200, 230, 255))
+    def render_frame(self, dt: float):
+        """Render a single frame."""
+        self.elapsed_time += dt
+        self.scroll += 3  # 180px/sec at 60fps
+        screen_w, screen_h = self.screen.get_size()
 
-            layers_by_name = {layer.asset_path.parent.name: layer for layer in self.layers}
+        self.screen.fill((200, 230, 255))
 
-            # Simple environment binding via name for now
-            # (Assuming one-way binding or simple lookup)
+        layers_by_name = {layer.asset_path.parent.name: layer for layer in self.layers}
 
-            for layer in self.layers:
-                env_layer_for_tilt = None
+        for layer in self.layers:
+            env_layer_for_tilt = None
 
-                if layer.environmental_reaction:
-                    target_name = layer.environmental_reaction.target_sprite_name
-                    env_layer_for_tilt = layers_by_name.get(target_name)
+            if layer.environmental_reaction:
+                target_name = layer.environmental_reaction.target_sprite_name
+                env_layer_for_tilt = layers_by_name.get(target_name)
 
-                layer.draw(
-                    self.screen, self.scroll, self.elapsed_time, dt, None, env_layer_for_tilt
-                )
+            layer.draw(self.screen, self.scroll, self.elapsed_time, dt, None, env_layer_for_tilt)
 
-                # DEBUG: Visualize Physics Sampling
-                if layer.asset_path.name == "boat.png" and env_layer_for_tilt:
-                    # Let's just draw the points returned by the log!
-                    # We can't easier get them without recalculating.
-                    pass
+        # DEBUG: Draw a marker at the mouse-reported "Surface Y" for the mouse X
+        # to see what the physics engine thinks is at the mouse X
+        if self.layers and self.debug_target_layer_index < len(self.layers):
+            sampled_layer = self.layers[self.debug_target_layer_index]
+            mx, my = pygame.mouse.get_pos()
+            physics_y = sampled_layer.get_y_at_x(
+                screen_w, screen_h, self.scroll, mx, self.elapsed_time
+            )
+            pygame.draw.circle(self.screen, (255, 0, 255), (mx, physics_y), 5)
 
-            # DEBUG: Draw a marker at the mouse-reported "Surface Y" for the mouse X
-            # to see what the physics engine thinks is at the mouse X
-            if self.layers and self.debug_target_layer_index < len(self.layers):
+        # DEBUG: Interactive Menu & Overlay
+        if self.show_debug_menu:
+            self._draw_debug_menu()
+        elif self.layers and self.debug_target_layer_index < len(self.layers):
+            # Simple overlay when menu is closed
+            if pygame.font.get_init():
                 sampled_layer = self.layers[self.debug_target_layer_index]
                 mx, my = pygame.mouse.get_pos()
                 physics_y = sampled_layer.get_y_at_x(
                     screen_w, screen_h, self.scroll, mx, self.elapsed_time
                 )
-                pygame.draw.circle(self.screen, (255, 0, 255), (mx, physics_y), 5)
-
-            # DEBUG: Interactive Menu & Overlay
-            if self.show_debug_menu:
-                self._draw_debug_menu()
-            elif self.layers and self.debug_target_layer_index < len(self.layers):
-                # Simple overlay when menu is closed
-                if pygame.font.get_init():
-                    sampled_layer = self.layers[self.debug_target_layer_index]
-                    mx, my = pygame.mouse.get_pos()
-                    physics_y = sampled_layer.get_y_at_x(
-                        screen_w, screen_h, self.scroll, mx, self.elapsed_time
-                    )
-                    msg = (
-                        f"Sampling Layer: {sampled_layer.asset_path.parent.name} | "
-                        f"Surface Y: {int(physics_y)}"
-                    )
-                    text = self.font_small.render(msg, True, (255, 0, 0))
-                    self.screen.blit(text, (10, 10))
-
-            pygame.display.flip()
+                msg = (
+                    f"Sampling Layer: {sampled_layer.asset_path.parent.name} | "
+                    f"Surface Y: {int(physics_y)}"
+                )
+                text = self.font_small.render(msg, True, (255, 0, 0))
+                self.screen.blit(text, (10, 10))
 
     def _draw_debug_menu(self):
         """Draw the interactive debug dialog."""

@@ -21,7 +21,7 @@ The engine follows a strict **Compiler-Renderer** separation:
 
 
 
-## �� Directory Structure
+## 📂 Directory Structure
 - `/assets/sprites`: Source `.png` files and their generated `.prompt.json` sidecars.
 - `/assets/prompts`: System instructions (MetaPrompts) for the AI.
 - `/src`: Modular Python package (Compiler, Renderer, Validator).
@@ -38,10 +38,10 @@ This project was developed with an AI coding agent as a collaborative partner. T
 
 | Date | Post | Focus |
 |------|------|-------|
-| 2026-01-09 | [Component Map Architecture](docs/blogs/2026-01-09-component-map-architecture.md) | Frontend-backend communication, Theatre.js engine, state synchronization |
-| 2026-01-09 | [Integration Pattern: Gemini API](docs/blogs/2026-01-09-integration-pattern-gemini-api.md) | LLM validation-fixup loop, two-stage analysis, async patterns |
-| 2026-01-09 | [The AI Partnership](docs/blogs/2026-01-09-ai-partnership-debugging.md) | Agent-in-the-loop debugging, mindset shift from coder to thought partner |
-| 2026-01-09 | [QA System & Workflows](docs/blogs/2026-01-09-qa-system-tests-workflows.md) | Tiered validation, agentic workflows, QA reasoning loops |
+| 2026-01-09 | [Component Map Architecture](docs/blogs/2026-01-09-architecture-and-ai-partnership.md#13-component-map-architecture-react--pygame) | Frontend-backend communication, Theatre.js engine, state synchronization |
+| 2026-01-09 | [Integration Pattern: Gemini API](docs/blogs/2026-01-09-architecture-and-ai-partnership.md#12-the-two-stage-gemini-pipeline) | LLM validation-fixup loop, two-stage analysis, async patterns |
+| 2026-01-09 | [The AI Partnership](docs/blogs/2026-01-09-architecture-and-ai-partnership.md#part-2-the-ai-partnership--methodology) | Agent-in-the-loop debugging, mindset shift from coder to thought partner |
+| 2026-01-09 | [QA System & Workflows](docs/blogs/2026-01-09-architecture-and-ai-partnership.md#part-3-quality-assurance--tooling) | Tiered validation, agentic workflows, QA reasoning loops |
 
 These posts serve as both:
 - **Developer onboarding**: Understand the architecture and design decisions

@@ -139,9 +139,12 @@ export function BehaviorEditor({ behaviors = [], onChange, readOnly = false, spr
     );
 }
 
+import { SoundPicker } from './SoundPicker';
+
 function BehaviorCard({ behavior, _index, onChange, onRemove, onSelect, readOnly, isHighlighted = false }) {
     const [expanded, setExpanded] = useState(false);
     const [soundOptions, setSoundOptions] = useState([]);
+    const [showSoundPicker, setShowSoundPicker] = useState(false);
 
     // Auto-expand when highlighted via timeline selection
     useEffect(() => {
@@ -150,13 +153,17 @@ function BehaviorCard({ behavior, _index, onChange, onRemove, onSelect, readOnly
         }
     }, [isHighlighted]);
 
-    // Fetch sound files for dropdown
+    const fetchSounds = () => {
+        fetch(`${API_BASE}/sounds`)
+            .then(res => res.json())
+            .then(data => setSoundOptions(data.sounds || []))
+            .catch(() => setSoundOptions([]));
+    };
+
+    // Fetch sound files for dropdown/picker
     useEffect(() => {
         if (behavior.type === 'sound') {
-            fetch(`${API_BASE}/sounds`)
-                .then(res => res.json())
-                .then(data => setSoundOptions(data.sounds || []))
-                .catch(() => setSoundOptions([]));
+            fetchSounds();
         }
     }, [behavior.type]);
 
@@ -172,6 +179,33 @@ function BehaviorCard({ behavior, _index, onChange, onRemove, onSelect, readOnly
         onChange(newParams);
     };
 
+    const handleUploadLaunch = () => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'audio/*';
+        input.onchange = async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const formData = new FormData();
+            formData.append('file', file);
+            try {
+                const res = await fetch(`${API_BASE}/sounds/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+                if (res.ok) {
+                    // Refresh options and select the new one
+                    await fetchSounds();
+                    updateParam('sound_file', file.name);
+                    // If picker is open, it will update automatically via soundOptions state change if we re-fetch?
+                    // fetchSounds updates state, so yes.
+                }
+            } catch (err) {
+                console.error("Upload failed", err);
+            }
+        };
+        input.click();
+    };
 
 
     return (
@@ -181,6 +215,7 @@ function BehaviorCard({ behavior, _index, onChange, onRemove, onSelect, readOnly
                 style={{
                     borderBottom: expanded ? '1px solid var(--color-border)' : 'none'
                 }}
+                title={`${behavior.type.charAt(0).toUpperCase() + behavior.type.slice(1)} Behavior - Click to edit`}
                 onClick={() => {
                     setExpanded(!expanded);
                     if (!expanded && onSelect) onSelect(); // Select when expanding
@@ -202,7 +237,7 @@ function BehaviorCard({ behavior, _index, onChange, onRemove, onSelect, readOnly
             </div>
 
             {expanded && (
-                <div className="p-1 grid-2-col">
+                <div className="p-1 grid-2-col relative">
 
                     {/* Common Fields */}
                     {behavior.type !== BehaviorTypes.BACKGROUND && (
@@ -266,50 +301,18 @@ function BehaviorCard({ behavior, _index, onChange, onRemove, onSelect, readOnly
                             <div className="col-span-2">
                                 <div className="flex-col gap-sm">
                                     <label className="text-xs text-subtle">Sound File</label>
-                                    <div className="flex-row gap-sm">
-                                        <select
-                                            className="input flex-1 p-2 text-sm"
-                                            value={behavior.sound_file || ''}
-                                            onChange={e => updateParam('sound_file', e.target.value)}
-                                            disabled={readOnly}
+                                    <div className="flex-row gap-sm items-center">
+                                        <div
+                                            className="input flex-1 p-2 text-sm flex items-center justify-between cursor-pointer hover:bg-surface-hover"
+                                            onClick={() => !readOnly && setShowSoundPicker(true)}
+                                            role="button"
+                                            title="Click to select sound"
                                         >
-                                            <option value="">Select a sound...</option>
-                                            {soundOptions.map(s => (
-                                                <option key={s.filename} value={s.filename}>{s.name}</option>
-                                            ))}
-                                        </select>
-                                        <button
-                                            className="btn btn-xs px-2"
-                                            onClick={() => {
-                                                const input = document.createElement('input');
-                                                input.type = 'file';
-                                                input.accept = 'audio/*';
-                                                input.onchange = async (e) => {
-                                                    const file = e.target.files[0];
-                                                    if (!file) return;
-                                                    const formData = new FormData();
-                                                    formData.append('file', file);
-                                                    try {
-                                                        const res = await fetch(`${API_BASE}/sounds/upload`, {
-                                                            method: 'POST',
-                                                            body: formData
-                                                        });
-                                                        if (res.ok) {
-                                                            // Refresh options
-                                                            const data = await fetch(`${API_BASE}/sounds`).then(r => r.json());
-                                                            setSoundOptions(data.sounds || []);
-                                                            updateParam('sound_file', file.name);
-                                                        }
-                                                    } catch (err) {
-                                                        console.error("Upload failed", err);
-                                                    }
-                                                };
-                                                input.click();
-                                            }}
-                                            title="Upload Sound"
-                                        >
-                                            <Icon name="add" size={12} />
-                                        </button>
+                                            <span className={behavior.sound_file ? "text-text-main" : "text-muted italic"}>
+                                                {behavior.sound_file || "Select a sound..."}
+                                            </span>
+                                            <Icon name="music" size={12} className="text-muted" />
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -317,14 +320,33 @@ function BehaviorCard({ behavior, _index, onChange, onRemove, onSelect, readOnly
                             <Field label="Fade In (s)" value={behavior.fade_in} type="number" step="0.1" onChange={v => updateParam('fade_in', v)} readOnly={readOnly} />
                             <Field label="Fade Out (s)" value={behavior.fade_out} type="number" step="0.1" onChange={v => updateParam('fade_out', v)} readOnly={readOnly} />
                             <div className="flex-row items-center gap-md">
-                                <input
-                                    type="checkbox"
-                                    checked={behavior.loop || false}
-                                    onChange={e => updateParam('loop', e.target.checked)}
-                                    disabled={readOnly}
-                                />
-                                <label className="text-sm">Loop</label>
+                                <label className="text-sm flex-row items-center gap-2 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={behavior.loop || false}
+                                        onChange={e => updateParam('loop', e.target.checked)}
+                                        disabled={readOnly}
+                                    />
+                                    Loop
+                                </label>
                             </div>
+
+                            {/* Sound Picker Modal */}
+                            {showSoundPicker && (
+                                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                                    <div className="bg-surface rounded-lg shadow-xl w-full max-w-2xl h-[70vh] flex overflow-hidden border border-border">
+                                        <SoundPicker
+                                            sounds={soundOptions}
+                                            onSelect={(val) => {
+                                                updateParam('sound_file', val.filename);
+                                                setShowSoundPicker(false);
+                                            }}
+                                            onClose={() => setShowSoundPicker(false)}
+                                            onUpload={handleUploadLaunch}
+                                        />
+                                    </div>
+                                </div>
+                            )}
                         </>
                     )}
                 </div>
@@ -335,6 +357,29 @@ function BehaviorCard({ behavior, _index, onChange, onRemove, onSelect, readOnly
 
 function Field({ label, value, type = "text", step, options, onChange, readOnly }) {
     const id = `field-${label.replace(/\s+/g, '-').toLowerCase()}`;
+
+    const handleKeyDown = (e) => {
+        if (readOnly) return;
+        if (type !== 'number') return;
+
+        const currentStep = parseFloat(step || 1);
+        const currentVal = parseFloat(value ?? 0);
+
+        if (e.key === '+' || e.key === '=') {
+            e.preventDefault();
+            e.stopPropagation();
+            onChange(currentVal + currentStep);
+        } else if (e.key === '-' || e.key === '_') {
+            e.preventDefault();
+            e.stopPropagation();
+            onChange(currentVal - currentStep);
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            e.stopPropagation();
+            e.target.blur();
+        }
+    };
+
     return (
         <div className="flex-col gap-0">
             <label htmlFor={id} className="text-xs text-subtle">{label}</label>
@@ -356,6 +401,7 @@ function Field({ label, value, type = "text", step, options, onChange, readOnly 
                     step={step}
                     value={value ?? ''}
                     onChange={e => onChange(e.target.value)}
+                    onKeyDown={handleKeyDown}
                     disabled={readOnly}
                 />
             )}
