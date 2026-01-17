@@ -220,7 +220,7 @@ describe('SceneDetailView', () => {
         const jsonTab = screen.getByText('Config');
         await act(async () => { fireEvent.click(jsonTab); });
 
-        expect(screen.getByPlaceholderText('Describe changes to metadata/physics...')).toBeInTheDocument();
+        expect(screen.getByPlaceholderText('Describe changes to metadata/physics... (Enter to apply)')).toBeInTheDocument();
     });
 
     it('handles keyboard shortcuts (Arrow Keys) for Z-depth', async () => {

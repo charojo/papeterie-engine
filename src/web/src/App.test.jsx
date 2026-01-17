@@ -71,14 +71,14 @@ describe('App Component', () => {
         }));
     };
 
-    it('renders TopBar and Welcome state by default', async () => {
+    it('renders TopBar and SceneSelectionDialog by default', async () => {
         loginAsGuest();
         await act(async () => {
             render(<App />);
         });
 
         expect(screen.getByText('Papeterie')).toBeInTheDocument(); // Title in TopBar
-        expect(screen.getByText('Welcome to Papeterie')).toBeInTheDocument(); // Welcome state
+        expect(screen.getByTestId('scene-selection-dialog')).toBeInTheDocument(); // Scene selection shown by default
         expect(screen.getByTitle('Create/Open a Scene')).toBeInTheDocument(); // Open button icon
     });
 

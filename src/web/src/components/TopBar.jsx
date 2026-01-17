@@ -10,7 +10,7 @@ export const TopBar = ({ title, leftContent, rightContent }) => {
             padding: '8px 16px',
             borderBottom: '1px solid var(--color-border)',
             background: 'var(--color-bg-elevated)',
-            zIndex: 100,
+            zIndex: 500,
             height: '40px',
             flexShrink: 0
         }}>

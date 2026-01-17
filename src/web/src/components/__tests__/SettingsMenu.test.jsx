@@ -103,7 +103,7 @@ describe('SettingsMenu', () => {
         render(<SettingsMenu {...defaultProps} />);
         fireEvent.click(screen.getByRole('button', { name: /Settings/i }));
 
-        fireEvent.click(screen.getByText('Reset All'));
+        fireEvent.click(screen.getByText('Reset display options'));
 
         expect(defaultProps.onResetAll).toHaveBeenCalled();
     });
@@ -112,7 +112,7 @@ describe('SettingsMenu', () => {
         render(<SettingsMenu {...defaultProps} />);
         fireEvent.click(screen.getByRole('button', { name: /Settings/i }));
 
-        fireEvent.click(screen.getByText('Sign out'));
+        fireEvent.click(screen.getByText('signout'));
 
         expect(defaultProps.onLogout).toHaveBeenCalled();
         // Menu should be closed

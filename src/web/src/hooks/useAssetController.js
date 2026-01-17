@@ -19,7 +19,7 @@ import { UpdateConfigCommand } from '../utils/Commands';
  * @param {Function} refresh - Refresh callback
  * @param {Function} onDelete - Delete callback
  */
-export function useAssetController(type, asset, refresh, onDelete) {
+export function useAssetController(type, asset, refresh, onDelete, updateAssetLocal) {
     const [selectedImage, setSelectedImage] = useState(type === 'sprite' ? asset.name : 'original');
     const [selectedSprites, setSelectedSprites] = useState([]); // Multi-selection support
     const [configPrompt, setConfigPrompt] = useState('');
@@ -108,7 +108,7 @@ export function useAssetController(type, asset, refresh, onDelete) {
         localStorage.setItem('lastActiveTab', tab);
     };
 
-    const { handleBehaviorsChange: handleEventsChange } = useBehaviorEditor(type, asset, selectedImage, refresh, executeCommand);
+    const { handleBehaviorsChange: handleEventsChange } = useBehaviorEditor(type, asset, selectedImage, refresh, executeCommand, updateAssetLocal);
 
 
     const {
@@ -129,7 +129,7 @@ export function useAssetController(type, asset, refresh, onDelete) {
         handleSpriteScaleChanged: handleSaveScale,
         handleKeyframeMove,
         handleKeyframeDelete
-    } = useTransformEditor(asset, refresh, executeCommand);
+    } = useTransformEditor(asset, refresh, executeCommand, updateAssetLocal);
 
     const [telemetry, setTelemetry] = useState(null);
     const handleTelemetry = useCallback((data) => {

@@ -113,7 +113,7 @@ export function BehaviorEditor({ behaviors = [], onChange, readOnly = false, spr
                 </div>
             )}
 
-            <div className={`flex-1 flex-col gap-0 border-t ${inline ? 'overflow-visible' : 'overflow-auto'}`}>
+            <div className={`flex-1 flex-col gap-0.5 border-t ${inline ? 'overflow-visible' : 'overflow-auto'}`}>
                 {filteredBehaviors.length === 0 && (
                     <div className="p-2 text-center text-subtle italic text-xs">
                         No {activeTab.toLowerCase()} behaviors defined.
@@ -237,7 +237,7 @@ function BehaviorCard({ behavior, _index, onChange, onRemove, onSelect, readOnly
                         size="xs"
                         onClick={(e) => { e.stopPropagation(); onRemove(); }}
                         title="Delete Behavior"
-                        icon="delete"
+                        icon="close"
                     />
                 )}
             </div>

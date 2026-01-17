@@ -127,20 +127,19 @@ describe('SceneDetailView Mocked', () => {
     it('shows optimization controls when not expanded', () => {
         render(<SceneDetailView {...defaultProps} isExpanded={false} />);
 
-        expect(screen.getByPlaceholderText("e.g., 'Make the trees sway gently...'")).toBeInTheDocument();
-        expect(screen.getAllByText('Optimize')[0]).toBeInTheDocument();
+        expect(screen.getByPlaceholderText("e.g., 'Make the trees sway gently...' (Enter to apply)")).toBeInTheDocument();
     });
 
     it('hides optimization controls when expanded', () => {
         render(<SceneDetailView {...defaultProps} isExpanded={true} />);
 
-        expect(screen.queryByPlaceholderText("e.g., 'Make the trees sway gently...'")).not.toBeInTheDocument();
+        expect(screen.queryByPlaceholderText("e.g., 'Make the trees sway gently...' (Enter to apply)")).not.toBeInTheDocument();
     });
 
     it('updates visual prompt input', () => {
         render(<SceneDetailView {...defaultProps} />);
 
-        const input = screen.getByPlaceholderText("e.g., 'Make the trees sway gently...'");
+        const input = screen.getByPlaceholderText("e.g., 'Make the trees sway gently...' (Enter to apply)");
         fireEvent.change(input, { target: { value: 'New prompt' } });
 
         expect(mockController.setVisualPrompt).toHaveBeenCalledWith('New prompt');
@@ -170,14 +169,15 @@ describe('SceneDetailView Mocked', () => {
         expect(mockController.handleTabChange).toHaveBeenCalledWith('sprites');
     });
 
-    it('handles optimization click', () => {
+    it('handles optimization on Enter', () => {
         useAssetControllerModule.useAssetController.mockReturnValue({
             ...mockController,
             visualPrompt: 'Some prompt'
         });
         render(<SceneDetailView {...defaultProps} />);
 
-        fireEvent.click(screen.getByTitle('Apply AI visualization'));
+        const input = screen.getByTitle('Visualize changes with AI. Press Enter to apply.');
+        fireEvent.keyDown(input, { key: 'Enter' });
         expect(mockController.handleOptimize).toHaveBeenCalled();
     });
 
@@ -189,8 +189,8 @@ describe('SceneDetailView Mocked', () => {
 
         render(<SceneDetailView {...defaultProps} />);
 
-        // Button should be disabled and show spinner (Icon mocked name)
-        expect(screen.getByText('Icon:generate')).toBeInTheDocument();
+        // Should show optimize icon with animate-spin (mocked)
+        expect(screen.getByText('Icon:optimize')).toBeInTheDocument();
     });
 
     it('registers window key listeners for Undo/Redo', () => {

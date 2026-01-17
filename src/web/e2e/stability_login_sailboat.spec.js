@@ -47,7 +47,7 @@ test.describe('Stability: Login -> Sailboat', () => {
         console.log('Waiting for Dashboard...');
         // const welcomeBtn = page.locator('[data-testid="welcome-open-scene"]');
         // Or check for empty state container
-        const dashboard = page.locator('.welcome-empty-state');
+        const dashboard = page.getByText('Open a Scene');
         await expect(dashboard).toBeVisible({ timeout: 15000 });
 
         // 5. Ensure "Sailboat" exists specifically, or just ensure A scene exists and use it.

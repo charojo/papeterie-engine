@@ -17,15 +17,24 @@ export const SettingsMenu = ({
     const [isOpen, setIsOpen] = useState(false);
     const menuRef = useRef(null);
 
-    // Close menu when clicking outside
+    // Close menu when clicking outside or pressing Escape
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (menuRef.current && !menuRef.current.contains(event.target)) {
                 setIsOpen(false);
             }
         };
+        const handleKeyDown = (event) => {
+            if (event.key === 'Escape') {
+                setIsOpen(false);
+            }
+        };
         document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
+        document.addEventListener('keydown', handleKeyDown);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            document.removeEventListener('keydown', handleKeyDown);
+        };
     }, []);
 
     return (
@@ -39,17 +48,28 @@ export const SettingsMenu = ({
             />
 
             {isOpen && (
-                <div className="glass absolute top-full right-0 mt-2 min-w-220 bg-elevated border rounded-xl shadow-xl z-100 overflow-hidden">
-                    {/* User info */}
+                <div className="glass absolute top-full right-0 mt-2 min-w-280 bg-elevated border rounded-xl shadow-xl z-1000 overflow-hidden py-1">
+                    {/* User info with signout */}
                     {user && (
-                        <div className="px-4 py-3 border-b text-muted text-xs">
-                            Signed in as <strong className="text-main">{user.user.username}</strong>
-                            {user.type === 'local' && <span className="opacity-60"> (Local)</span>}
+                        <div className="px-6 py-4 border-b text-muted text-xs flex justify-between items-center">
+                            <span>
+                                Signed in as <strong className="text-main">{user.user.username}</strong>
+                                {user.type === 'local' && <span className="opacity-60"> (Local)</span>}
+                            </span>
+                            <button
+                                className="text-muted text-xs underline hover:text-main focus:outline-none cursor-pointer bg-transparent border-none"
+                                onClick={() => {
+                                    onLogout();
+                                    setIsOpen(false);
+                                }}
+                            >
+                                signout
+                            </button>
                         </div>
                     )}
 
                     {/* Theme Section */}
-                    <div className="px-4 py-3 border-b">
+                    <div className="px-6 py-4 border-b">
                         <div className="text-xxs text-muted mb-2 uppercase tracking-wide">
                             Theme
                         </div>
@@ -66,7 +86,7 @@ export const SettingsMenu = ({
                     </div>
 
                     {/* Combined Contrast Slider */}
-                    <div className="px-4 py-3 border-b">
+                    <div className="px-6 py-4 border-b">
                         <div className="flex justify-between items-center mb-2">
                             <div className="text-xxs text-muted uppercase tracking-wide">
                                 Contrast
@@ -89,7 +109,7 @@ export const SettingsMenu = ({
                     </div>
 
                     {/* Font Size Selector */}
-                    <div className="px-4 py-3 border-b">
+                    <div className="px-6 py-4 border-b">
                         <div className="text-xxs text-muted mb-2 uppercase tracking-wide">
                             Text Size
                         </div>
@@ -111,18 +131,18 @@ export const SettingsMenu = ({
                     <Button
                         variant="ghost"
                         isBlock
-                        className="py-3 px-4 border-b border-muted text-muted text-xs font-medium"
+                        className="py-4 px-6 border-b border-muted text-muted text-xs font-medium"
                         onClick={onResetAll}
                         title="Reset all display settings, panel sizes, and toolbar positions"
-                        icon="history"
+                        icon="revert"
                     >
-                        Reset All
+                        Reset display options
                     </Button>
 
                     <Button
                         variant="ghost"
                         isBlock
-                        className="py-3 px-4 border-b border-muted text-primary text-xs font-semibold"
+                        className="py-4 px-6 text-primary text-xs font-semibold"
                         onClick={() => {
                             onOpenDesignSystem();
                             setIsOpen(false);
@@ -131,20 +151,6 @@ export const SettingsMenu = ({
                         icon="app"
                     >
                         Design System
-                    </Button>
-
-                    {/* Logout */}
-                    <Button
-                        variant="ghost"
-                        isBlock
-                        className="py-3 px-4 text-muted text-sm font-normal"
-                        onClick={() => {
-                            onLogout();
-                            setIsOpen(false);
-                        }}
-                        icon="chevronRight"
-                    >
-                        Sign out
                     </Button>
                 </div>
             )}

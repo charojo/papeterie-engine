@@ -29,7 +29,7 @@ function App() {
   const [sprites, setSprites] = useState([]);
   const [scenes, setScenes] = useState([]);
   const [selectedItem, setSelectedItem] = usePersistentState('papeterie-selected-item', null);
-  const [view, setView] = usePersistentState('papeterie-view', 'list');
+  const [view, setView] = usePersistentState('papeterie-view', 'scene-selection');
   const [isExpanded, setIsExpanded] = usePersistentState('papeterie-is-expanded', false);
 
   const [user, setUser] = usePersistentState('papeterie-user', null);
@@ -70,7 +70,7 @@ function App() {
 
   const handleDeleteScene = useCallback(() => {
     setSelectedItem(null);
-    setView('list');
+    setView('scene-selection');
   }, [setSelectedItem, setView]);
 
   const handleOpenSprite = useCallback((spriteName) => {
@@ -134,6 +134,20 @@ function App() {
       toast.error("Failed to fetch data", { description: e.message });
     }
   }, [user, storageMode, selectedItem, view, setSelectedItem, backendAvailable]);
+
+  const updateAssetLocal = useCallback((type, assetName, newConfig) => {
+    if (type === 'sprite') {
+      setSprites(prev => prev.map(s => s.name === assetName ? { ...s, metadata: newConfig } : s));
+      if (selectedItem?.name === assetName && view === 'sprite-detail') {
+        setSelectedItem(prev => ({ ...prev, metadata: newConfig }));
+      }
+    } else {
+      setScenes(prev => prev.map(s => s.name === assetName ? { ...s, config: newConfig } : s));
+      if (selectedItem?.name === assetName && view === 'scene-detail') {
+        setSelectedItem(prev => ({ ...prev, config: newConfig }));
+      }
+    }
+  }, [selectedItem, view, setSelectedItem]);
 
   useEffect(() => {
     const init = async () => {
@@ -251,7 +265,29 @@ function App() {
               const data = await res.json();
               const newItem = data.find(s => s.name === name);
 
-              if (newItem) {
+              let finalItem = newItem;
+
+              if (!finalItem) {
+                console.warn(`Created item '${name}' not found in list immediately. Using optimistic local fallback.`);
+                if (type === 'sprite') {
+                  finalItem = {
+                    name: name,
+                    has_metadata: false,
+                    has_original: true,
+                    metadata: { behaviors: [] }
+                  };
+                } else {
+                  finalItem = {
+                    name: name,
+                    config: { name: name, layers: [] },
+                    used_sprites: [],
+                    has_config: true,
+                    has_original: true
+                  };
+                }
+              }
+
+              if (finalItem) {
                 if (type === 'sprite') {
                   toast.success(`Sprite '${name}' created!`, {
                     description: "It is now available to add to your scenes."
@@ -259,7 +295,7 @@ function App() {
                   setSelectedItem(null);
                   setView('list');
                 } else {
-                  setSelectedItem(newItem);
+                  setSelectedItem(finalItem);
                   setView('scene-detail');
                 }
               }
@@ -279,9 +315,8 @@ function App() {
               // Return to previous view
               if (selectedItem) {
                 setView('scene-detail');
-              } else {
-                setView('list');
               }
+              // Stay on scene-selection if no selected item
             }}
           />
         )}
@@ -297,6 +332,7 @@ function App() {
             toggleExpand={() => setIsExpanded(!isExpanded)}
             setContextualActions={setContextualActions}
             onOpenSprite={handleOpenSprite}
+            updateAssetLocal={updateAssetLocal}
           />
         )}
 
@@ -305,29 +341,10 @@ function App() {
         )}
 
         {effectiveView === 'design-system' && (
-          <DesignSystemView onBack={() => setView('list')} />
+          <DesignSystemView onBack={() => setView('scene-selection')} />
         )}
 
-        {effectiveView === 'list' && (
-          /* Default empty state */
-          <div className="welcome-empty-state">
-            <Icon name="app" size={64} className="welcome-icon" />
-            <h2>Welcome to Papeterie</h2>
-            <Button
-              variant="primary"
-              onClick={() => setView('scene-selection')}
-              data-testid="welcome-open-scene"
-            >
-              Open Scene
-            </Button>
-            <Button
-              onClick={() => setView('create')}
-              data-testid="welcome-new-project"
-            >
-              New Project
-            </Button>
-          </div>
-        )}
+
       </main>
       <Toaster theme="dark" position="bottom-right" />
     </div >

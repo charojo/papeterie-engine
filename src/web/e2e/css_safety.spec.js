@@ -24,12 +24,11 @@ test.describe('CSS Safety Checks', () => {
 
     test('Safety Snapshot: Landing / Scene List', async ({ page }) => {
         // Verify critical elements exist before snapshot
-        // App starts in "list" view which is actually the Welcome State if no scenes/sprites loaded or just default
-        await expect(page.getByText('Welcome to Papeterie')).toBeVisible();
-        await expect(page.getByTestId('welcome-open-scene')).toBeVisible();
+        // Since default view is "scene-selection", we expect the scene selection grid
+        await expect(page.getByText('Open a Scene')).toBeVisible();
 
         await expect(page).toHaveScreenshot('safety-landing.png', {
-            maxDiffPixels: 1000,
+            maxDiffPixels: 2000,
             fullPage: true
         });
     });

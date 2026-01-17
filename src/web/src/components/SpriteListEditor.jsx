@@ -151,10 +151,11 @@ export function SpriteListEditor({
 
     return (
         <div className="flex flex-col h-full min-h-0">
-            <div className="flex-1 overflow-y-auto flex flex-col gap-px px-0.5">
+            {/* Always show scrollbar to prevent horizontal layout shifts when content height changes */}
+            <div className="flex-1 overflow-y-scroll flex flex-col gap-px px-0.5">
                 {/* Column Headers - Sticky inside scrollable container */}
                 <div
-                    className="sticky top-0 z-10 flex items-center gap-1 px-1 py-1 border-b border-muted bg-surface text-xxs font-bold uppercase tracking-wider text-muted select-none cursor-pointer"
+                    className="sticky top-0 z-110 flex items-center gap-1 px-1 py-1 border-b border-muted bg-accent text-xxs font-bold uppercase tracking-wider text-muted select-none cursor-pointer"
                     onDoubleClick={onHeaderDoubleClick}
                     title="Double-click to toggle sidebar size"
                 >
@@ -261,7 +262,7 @@ export function SpriteListEditor({
                             }}
                             onToggleVisibility={() => onToggleVisibility(layer.sprite_name)}
                             onDeleteSprite={() => onDeleteSprite(layer.sprite_name)}
-                            onBehaviorsChange={(newBehaviors) => onBehaviorsChange(newBehaviors)}
+                            onBehaviorsChange={(newBehaviors) => onBehaviorsChange(newBehaviors, layer.sprite_name)}
                             onBehaviorSelect={(idx) => onBehaviorSelect && onBehaviorSelect(layer.sprite_name, idx)}
                             behaviorGuidance={selectedSprite === layer.sprite_name ? behaviorGuidance : null}
                             isScene={isScene}
@@ -357,17 +358,16 @@ function SpriteAccordionItem({
         }
     }, [isSelected, isShiftHeld, selectedBehaviorIndex]);
 
-    // Auto-scroll if selected OR expanded
+    // Auto-scroll only when first selected, NOT on every expansion/re-render
     useEffect(() => {
-        if ((isSelected || isExpanded) && itemRef.current && itemRef.current.scrollIntoView) {
-            // Increased timeout to 100ms to verify layout stability before scrolling
-            // This helps with "expanding out of view" issues at the bottom
+        if (isSelected && itemRef.current && itemRef.current.scrollIntoView) {
             const timeoutId = setTimeout(() => {
-                itemRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                // block: 'nearest' is less jarring than 'start'
+                itemRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             }, 100);
             return () => clearTimeout(timeoutId);
         }
-    }, [isSelected, isExpanded]);
+    }, [isSelected]);
 
     // Handle Escape key to close the Add Behavior popup
     useEffect(() => {

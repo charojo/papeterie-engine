@@ -19,7 +19,7 @@ import './SceneDetailView.css';
 const log = createLogger('SceneDetailView');
 const SCENE_DURATION = 30;
 
-export function SceneDetailView({ asset, user, refresh, onDelete, isExpanded, toggleExpand, sprites, setContextualActions, onOpenSprite }) {
+export function SceneDetailView({ asset, user, refresh, onDelete, isExpanded, toggleExpand, sprites, setContextualActions, onOpenSprite, updateAssetLocal }) {
     const userId = user?.user_id || user?.username || 'default';
     const {
 
@@ -66,7 +66,7 @@ export function SceneDetailView({ asset, user, refresh, onDelete, isExpanded, to
         undo,
         redo,
         saveConfig
-    } = useAssetController('scene', asset, refresh, onDelete);
+    } = useAssetController('scene', asset, refresh, onDelete, updateAssetLocal);
 
     const [currentTime, setCurrentTime] = useState(0);
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -503,25 +503,28 @@ export function SceneDetailView({ asset, user, refresh, onDelete, isExpanded, to
                     <div className="scene-detail-config-wrapper">
                         {!isExpanded && (
                             <div className="scene-detail-visualize-section">
-                                <div className="flex gap-2 mb-2">
-                                    <textarea
-                                        className="input flex-1 h-12 resize-none"
-                                        placeholder="e.g., 'Make the trees sway gently...'"
-                                        value={visualPrompt}
-                                        onChange={e => setVisualPrompt(e.target.value)}
-                                        title="Visualize changes with AI"
-                                    />
-                                    <Button
-                                        variant="primary"
-                                        className="h-auto"
-                                        onClick={handleOptimize}
-                                        disabled={isOptimizing || !visualPrompt.trim()}
-                                        loading={isOptimizing}
-                                        icon="optimize"
-                                        title="Apply AI visualization"
-                                    >
-                                        Optimize
-                                    </Button>
+                                <div className="ai-prompt-container">
+                                    <div className="relative flex gap-2 items-center">
+                                        <input
+                                            type="text"
+                                            className={`input input-ghost flex-1 h-9 ${isOptimizing ? 'pr-10' : ''}`}
+                                            placeholder="e.g., 'Make the trees sway gently...' (Enter to apply)"
+                                            value={visualPrompt}
+                                            onChange={e => setVisualPrompt(e.target.value)}
+                                            onKeyDown={e => {
+                                                if (e.key === 'Enter' && !isOptimizing && visualPrompt.trim()) {
+                                                    handleOptimize();
+                                                }
+                                            }}
+                                            title="Visualize changes with AI. Press Enter to apply."
+                                            disabled={isOptimizing}
+                                        />
+                                        {isOptimizing && (
+                                            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-primary">
+                                                <Icon name="optimize" className="animate-spin" size={18} />
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         )}
@@ -587,22 +590,28 @@ export function SceneDetailView({ asset, user, refresh, onDelete, isExpanded, to
 
                             {activeTab === 'json' && (
                                 <div className="scene-detail-config-scroll-area">
-                                    <div className="flex gap-2 mb-2">
-                                        <textarea
-                                            className="input flex-1 h-10 resize-none"
-                                            placeholder="Describe changes to metadata/physics..."
-                                            value={configPrompt}
-                                            onChange={e => setConfigPrompt(e.target.value)}
-                                            title="Refine Configuration"
-                                        />
-                                        <Button
-                                            variant="primary"
-                                            className="h-auto"
-                                            onClick={handleUpdateConfig}
-                                            disabled={isOptimizing || !configPrompt.trim()}
-                                            title="Apply AI refinements"
-                                            icon="config"
-                                        />
+                                    <div className="ai-prompt-container mb-4">
+                                        <div className="relative flex gap-2 items-center">
+                                            <input
+                                                type="text"
+                                                className={`input input-ghost flex-1 h-9 ${isOptimizing ? 'pr-10' : ''}`}
+                                                placeholder="Describe changes to metadata/physics... (Enter to apply)"
+                                                value={configPrompt}
+                                                onChange={e => setConfigPrompt(e.target.value)}
+                                                onKeyDown={e => {
+                                                    if (e.key === 'Enter' && !isOptimizing && configPrompt.trim()) {
+                                                        handleUpdateConfig();
+                                                    }
+                                                }}
+                                                title="Refine Configuration. Press Enter to apply."
+                                                disabled={isOptimizing}
+                                            />
+                                            {isOptimizing && (
+                                                <div className="absolute right-3 top-1/2 -translate-y-1/2 text-primary">
+                                                    <Icon name="optimize" className="animate-spin" size={18} />
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                     <SmartConfigViewer configData={configData} selectedImage={selectedImage} type="scene" scrollContainerRef={configScrollRef} />
                                 </div>

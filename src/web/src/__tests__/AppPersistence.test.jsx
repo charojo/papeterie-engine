@@ -36,7 +36,7 @@ describe('App Session Persistence', () => {
         });
 
         // Initial view should be 'list' (default if not in localStorage)
-        expect(localStorage.getItem('papeterie-view')).toBe('"list"');
+        expect(localStorage.getItem('papeterie-view')).toBe('"scene-selection"');
 
         // Find a button that changes the view, e.g., "Create Scene"
         // Note: This requires knowing the text/test-id in App.jsx
