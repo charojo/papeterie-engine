@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Icon } from './Icon';
+import { Button } from './Button';
 
 export const SettingsMenu = ({
     theme,
@@ -10,6 +11,7 @@ export const SettingsMenu = ({
     onContrastChange,
     onResetAll,
     onLogout,
+    onOpenDesignSystem,
     user
 }) => {
     const [isOpen, setIsOpen] = useState(false);
@@ -28,14 +30,13 @@ export const SettingsMenu = ({
 
     return (
         <div ref={menuRef} className="relative">
-            <button
-                className="btn-icon"
+            <Button
+                variant="icon"
                 onClick={() => setIsOpen(!isOpen)}
                 title="Settings"
                 aria-label="Settings"
-            >
-                <Icon name="settings" size={16} />
-            </button>
+                icon="settings"
+            />
 
             {isOpen && (
                 <div className="glass absolute top-full right-0 mt-2 min-w-220 bg-elevated border rounded-xl shadow-xl z-100 overflow-hidden">
@@ -94,68 +95,57 @@ export const SettingsMenu = ({
                         </div>
                         <div className="flex gap-1">
                             {['small', 'medium', 'large', 'xl'].map((size) => (
-                                <button
+                                <Button
                                     key={size}
-                                    className={`btn flex-1 p-1 h-8 flex items-center justify-center relative ${fontSize === size ? 'btn-primary selected-ring' : ''} ${size === 'small' ? 'text-xs' : size === 'large' ? 'text-md' : size === 'xl' ? 'text-lg' : 'text-sm'}`}
+                                    variant={fontSize === size ? 'primary' : 'secondary'}
+                                    className={`flex-1 p-1 h-8 ${fontSize === size ? 'selected-ring' : ''} ${size === 'small' ? 'text-xs' : size === 'large' ? 'text-md' : size === 'xl' ? 'text-lg' : 'text-sm'}`}
                                     onClick={() => onFontSizeChange(size)}
                                     title={size.charAt(0).toUpperCase() + size.slice(1)}
                                 >
                                     A
-                                </button>
+                                </Button>
                             ))}
                         </div>
                     </div>
 
-                    <button
+                    <Button
+                        variant="ghost"
+                        isBlock
+                        className="py-3 px-4 border-b border-muted text-muted text-xs font-medium"
                         onClick={onResetAll}
-                        style={{
-                            width: '100%',
-                            padding: '12px 16px',
-                            background: 'transparent',
-                            border: 'none',
-                            borderBottom: '1px solid var(--color-border)',
-                            color: 'var(--color-text-muted)',
-                            cursor: 'pointer',
-                            textAlign: 'left',
-                            fontSize: '0.85rem',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px',
-                            fontWeight: '500'
-                        }}
-                        onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'var(--color-bg-elevated)'}
-                        onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                         title="Reset all display settings, panel sizes, and toolbar positions"
+                        icon="history"
                     >
-                        <Icon name="history" size={14} />
                         Reset All
-                    </button>
+                    </Button>
+
+                    <Button
+                        variant="ghost"
+                        isBlock
+                        className="py-3 px-4 border-b border-muted text-primary text-xs font-semibold"
+                        onClick={() => {
+                            onOpenDesignSystem();
+                            setIsOpen(false);
+                        }}
+                        title="View visual components and design standards"
+                        icon="app"
+                    >
+                        Design System
+                    </Button>
 
                     {/* Logout */}
-                    <button
+                    <Button
+                        variant="ghost"
+                        isBlock
+                        className="py-3 px-4 text-muted text-sm font-normal"
                         onClick={() => {
                             onLogout();
                             setIsOpen(false);
                         }}
-                        style={{
-                            width: '100%',
-                            padding: '12px 16px',
-                            background: 'transparent',
-                            border: 'none',
-                            color: 'var(--color-text-muted)',
-                            cursor: 'pointer',
-                            textAlign: 'left',
-                            fontSize: '0.9rem',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px'
-                        }}
-                        onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'var(--color-bg-elevated)'}
-                        onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                        icon="chevronRight"
                     >
-                        <Icon name="chevronRight" size={14} />
                         Sign out
-                    </button>
+                    </Button>
                 </div>
             )}
         </div>

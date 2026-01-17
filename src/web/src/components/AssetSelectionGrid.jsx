@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Icon } from './Icon';
+import { Button } from './Button';
 import './AssetSelectionGrid.css';
 
 /**
@@ -62,9 +63,13 @@ export const AssetSelectionGrid = ({
                         onChange={e => setSearch(e.target.value)}
                     />
                     {onCancel && (
-                        <button className="btn" onClick={onCancel}>
-                            <Icon name="close" size={16} /> Cancel
-                        </button>
+                        <Button
+                            variant="secondary"
+                            onClick={onCancel}
+                            icon="close"
+                        >
+                            Cancel
+                        </Button>
                     )}
                 </div>
             </div>
@@ -76,7 +81,7 @@ export const AssetSelectionGrid = ({
                     data-testid="create-item-button"
                     onClick={onCreate}
                 >
-                    <Icon name="add" size={24} color="var(--color-primary)" />
+                    <Icon name="add" variant="roomy" color="var(--color-primary)" />
                     <span className="create-item-label">{createLabel}</span>
                 </div>
 

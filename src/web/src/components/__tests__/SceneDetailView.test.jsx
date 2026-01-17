@@ -327,9 +327,11 @@ describe('SceneDetailView', () => {
         const detailsBtn = screen.getByTitle('Click to toggle details');
         const onDetailsBtn = within(detailsBtn).getByTitle('Toggle details columns on');
 
-        await act(async () => { fireEvent.click(onDetailsBtn); });
+        await act(async () => {
+            fireEvent.click(onDetailsBtn);
+        });
         // The mock layout doesn't reflect this, but we can verify the state update doesn't crash.
-        expect(onDetailsBtn.className).toContain('btn-primary');
+        expect(onDetailsBtn.closest('button').className).toContain('btn-primary');
     });
 
     it('handles scene deletion', async () => {
@@ -395,13 +397,13 @@ describe('SceneDetailView', () => {
             fireEvent.click(detailsOnBtn);
         });
         // Expect active class or state change (can't check internal state directly, check class)
-        expect(detailsOnBtn).toHaveClass('btn-primary');
+        expect(detailsOnBtn.closest('button')).toHaveClass('btn-primary');
 
         const detailsOffBtn = screen.getByTitle('Toggle details columns off');
         await act(async () => {
             fireEvent.click(detailsOffBtn);
         });
-        expect(detailsOffBtn).toHaveClass('btn-primary');
+        expect(detailsOffBtn.closest('button')).toHaveClass('btn-primary');
 
         // Toggle Overlay
         // Initial state 'off'
@@ -412,6 +414,6 @@ describe('SceneDetailView', () => {
         await act(async () => {
             fireEvent.click(overlayOn);
         });
-        expect(overlayOn).toHaveClass('btn-primary');
+        expect(overlayOn.closest('button')).toHaveClass('btn-primary');
     });
 });

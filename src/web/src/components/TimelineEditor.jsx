@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Icon } from './Icon';
+import { Button } from './Button';
 import './TimelineEditor.css';
 import { createLogger } from '../utils/logger';
 import { useTimelineDrag } from '../hooks/useTimelineDrag';
@@ -141,6 +142,9 @@ export function TimelineEditor({
 
     // Scroll Logic (Smart "Scroll Into View" - both vertical and horizontal)
     useEffect(() => {
+        // Guard: Skip if nothing selected
+        if (!selectedLayer && !selectedKeyframe) return;
+
         // Skip scrolling if selection originated from a timeline click
         if (skipScrollRef.current) {
             log.debug('[TimelineScroll] Skipping - selection from timeline click');
@@ -166,115 +170,112 @@ export function TimelineEditor({
 
             // Skip if we've already scrolled to this exact selection (and no force scroll was requested)
             if (lastScrolledSelectionRef.current === selectionKey) {
-                log.debug('[TimelineScroll] Skipping - already scrolled to:', selectionKey);
+                // Double check if we are still visible? No, trust the cache to prevent loop.
                 return;
             }
 
-            log.debug('[TimelineScroll] Processing scroll for:', selectionKey);
+            // requestAnimationFrame to decouple read/write and prevent synchronous layout thrashing loops
+            requestAnimationFrame(() => {
+                if (!containerRef.current) return;
 
-            // Calculate which lane we should scroll to
-            // Priority: selectedKeyframe's lane > sprite's base lane
-            let targetZ = null;
+                log.debug('[TimelineScroll] Processing scroll for:', selectionKey);
 
-            if (selectedKeyframe && selectedKeyframe.spriteName === selectedLayer) {
-                log.debug('[TimelineScroll] Seeking lane for keyframe:', selectedKeyframe);
-                // Find lane containing this specific keyframe - MUST match sprite name
-                for (const [z, items] of Object.entries(lanes)) {
-                    const found = items.find(it =>
-                        it.sprite.sprite_name === selectedLayer &&
-                        (selectedKeyframe.behaviorIndex === null ? it.type === 'base' : (it.type === 'behavior' && it.behaviorIndex === selectedKeyframe.behaviorIndex)) &&
-                        Math.abs(it.time - selectedKeyframe.time) < 0.01
-                    );
-                    if (found) {
-                        log.debug('[TimelineScroll] Found keyframe in lane Z=', z);
-                        targetZ = z;
-                        break;
-                    }
-                }
-            }
+                // Calculate which lane we should scroll to
+                // Priority: selectedKeyframe's lane > sprite's base lane
+                let targetZ = null;
 
-            if (targetZ === null) {
-                const sprite = layers.find(l => l.sprite_name === selectedLayer);
-                if (sprite) {
-                    targetZ = sprite.z_depth !== undefined ? sprite.z_depth : 0;
-                    log.debug('[TimelineScroll] Using sprite base Z=', targetZ);
-                }
-            }
-
-            log.debug('[TimelineScroll] Final targetZ=', targetZ, 'exists in laneRefs:', !!(targetZ !== null && laneRefs.current[targetZ]));
-
-            if (targetZ !== null && laneRefs.current[targetZ]) {
-                const el = laneRefs.current[targetZ];
-                const container = containerRef.current;
-                if (el && container) {
-                    const RULER_HEIGHT = 24;
-                    const elRect = el.getBoundingClientRect();
-                    const containerRect = container.getBoundingClientRect();
-
-                    // 1. Vertical Visibility (Lanes)
-                    const elTopRel = elRect.top - containerRect.top;
-                    const elBottomRel = elRect.bottom - containerRect.top;
-                    const visibleMinY = RULER_HEIGHT;
-                    const visibleMaxY = containerRect.height;
-
-                    const isFullyVisibleY = elTopRel >= visibleMinY && elBottomRel <= visibleMaxY;
-                    const isPartiallyVisibleY = (elTopRel < visibleMaxY && elBottomRel > visibleMinY);
-
-                    // 2. Horizontal Visibility (Time)
-                    const targetTime = (selectedKeyframe && selectedKeyframe.spriteName === selectedLayer) ? selectedKeyframe.time : 0;
-                    const targetX = HEADER_WIDTH + (targetTime * zoom) + PADDING_LEFT;
-                    const scrollLeft = container.scrollLeft;
-                    const containerWidth = container.clientWidth;
-
-                    const buffer = 50;
-                    const visibleMinX = scrollLeft + HEADER_WIDTH + buffer;
-                    const visibleMaxX = scrollLeft + containerWidth - buffer;
-
-                    const isVisibleX = targetX >= visibleMinX && targetX <= visibleMaxX;
-
-                    log.debug('[TimelineScroll] Visibility Check', {
-                        targetZ,
-                        targetTime,
-                        isFullyVisibleY,
-                        isPartiallyVisibleY,
-                        isVisibleX
-                    });
-
-                    let scrolled = false;
-
-                    // Vertical Scroll
-                    if (!isFullyVisibleY && !isPartiallyVisibleY) {
-                        const newScrollTop = container.scrollTop + elTopRel - RULER_HEIGHT;
-                        container.scrollTop = newScrollTop;
-                        log.debug('[TimelineScroll] Vertical: Scrolled to reveal (out of view)');
-                        scrolled = true;
-                    } else if (!isFullyVisibleY) {
-                        if (elTopRel < visibleMinY) {
-                            container.scrollTop = container.scrollTop + (elTopRel - visibleMinY);
-                        } else if (elBottomRel > visibleMaxY) {
-                            container.scrollTop = container.scrollTop + (elBottomRel - visibleMaxY);
+                if (selectedKeyframe && selectedKeyframe.spriteName === selectedLayer) {
+                    // Find lane containing this specific keyframe - MUST match sprite name
+                    for (const [z, items] of Object.entries(lanes)) {
+                        const found = items.find(it =>
+                            it.sprite.sprite_name === selectedLayer &&
+                            (selectedKeyframe.behaviorIndex === null ? it.type === 'base' : (it.type === 'behavior' && it.behaviorIndex === selectedKeyframe.behaviorIndex)) &&
+                            Math.abs(it.time - selectedKeyframe.time) < 0.01
+                        );
+                        if (found) {
+                            targetZ = z;
+                            break;
                         }
-                        log.debug('[TimelineScroll] Vertical: Nudged to fully reveal');
-                        scrolled = true;
                     }
-
-                    // Horizontal Scroll
-                    if (!isVisibleX) {
-                        const newScrollLeft = Math.max(0, targetX - (containerWidth / 2));
-                        container.scrollLeft = newScrollLeft;
-                        log.debug('[TimelineScroll] Horizontal: Scrolled to reveal time');
-                        scrolled = true;
-                    }
-
-                    if (!scrolled) {
-                        log.debug('[TimelineScroll] Already in view, skipping scroll');
-                    }
-
-                    lastScrolledSelectionRef.current = selectionKey;
                 }
-            } else {
-                log.debug('[TimelineScroll] targetZ invalid or ref missing', { targetZ });
-            }
+
+                if (targetZ === null) {
+                    const sprite = layers.find(l => l.sprite_name === selectedLayer);
+                    if (sprite) {
+                        targetZ = sprite.z_depth !== undefined ? sprite.z_depth : 0;
+                    }
+                }
+
+                if (targetZ !== null && laneRefs.current[targetZ]) {
+                    const el = laneRefs.current[targetZ];
+                    const container = containerRef.current;
+                    if (el && container) {
+                        const RULER_HEIGHT = 24;
+                        const elRect = el.getBoundingClientRect();
+                        const containerRect = container.getBoundingClientRect();
+
+                        // 1. Vertical Visibility (Lanes)
+                        const elTopRel = elRect.top - containerRect.top;
+                        const elBottomRel = elRect.bottom - containerRect.top;
+                        const visibleMinY = RULER_HEIGHT;
+                        const visibleMaxY = containerRect.height;
+
+                        const isFullyVisibleY = elTopRel >= visibleMinY && elBottomRel <= visibleMaxY;
+                        const isPartiallyVisibleY = (elTopRel < visibleMaxY && elBottomRel > visibleMinY);
+
+                        // 2. Horizontal Visibility (Time)
+                        const targetTime = (selectedKeyframe && selectedKeyframe.spriteName === selectedLayer) ? selectedKeyframe.time : 0;
+                        const targetX = HEADER_WIDTH + (targetTime * zoom) + PADDING_LEFT;
+                        const scrollLeft = container.scrollLeft;
+                        const containerWidth = container.clientWidth;
+
+                        const buffer = 50;
+                        const visibleMinX = scrollLeft + HEADER_WIDTH + buffer;
+                        const visibleMaxX = scrollLeft + containerWidth - buffer;
+
+                        const isVisibleX = targetX >= visibleMinX && targetX <= visibleMaxX;
+
+                        let scrolled = false;
+
+                        // Vertical Scroll
+                        if (!isFullyVisibleY && !isPartiallyVisibleY) {
+                            const newScrollTop = container.scrollTop + elTopRel - RULER_HEIGHT;
+                            if (Math.abs(container.scrollTop - newScrollTop) > 1) {
+                                container.scrollTop = newScrollTop;
+                                scrolled = true;
+                            }
+                        } else if (!isFullyVisibleY) {
+                            let dest = container.scrollTop;
+                            if (elTopRel < visibleMinY) {
+                                dest = container.scrollTop + (elTopRel - visibleMinY);
+                            } else if (elBottomRel > visibleMaxY) {
+                                dest = container.scrollTop + (elBottomRel - visibleMaxY);
+                            }
+                            if (Math.abs(container.scrollTop - dest) > 1) {
+                                container.scrollTop = dest;
+                                scrolled = true;
+                            }
+                        }
+
+                        // Horizontal Scroll
+                        if (!isVisibleX) {
+                            const newScrollLeft = Math.max(0, targetX - (containerWidth / 2));
+                            if (Math.abs(container.scrollLeft - newScrollLeft) > 1) {
+                                container.scrollLeft = newScrollLeft;
+                                scrolled = true;
+                            }
+                        }
+
+                        if (scrolled) {
+                            log.debug('[TimelineScroll] Performed scroll');
+                        }
+                    }
+                }
+
+                // Always update cache to prevent re-trying this selection
+                lastScrolledSelectionRef.current = selectionKey;
+            });
+
         }
     }, [selectedLayer, selectedKeyframe, layers, lanes, forceScrollToSelection, zoom]);
 
@@ -465,22 +466,22 @@ export function TimelineEditor({
                 onDoubleClick={onHeaderDoubleClick}
                 title="Double-click to toggle timeline height"
             >
-                <button
-                    className="btn-icon p-1 flex"
+                <Button
+                    variant="icon"
+                    size="sm"
                     onClick={onAddSpriteRequested}
                     title="Add Sprite (Shift+Click on Stage)"
-                >
-                    <Icon name="add" />
-                </button>
+                    icon="add"
+                />
                 <div className="w-0.5" />
-                <button
-                    className="btn-icon p-1 flex"
+                <Button
+                    variant="icon"
+                    size="sm"
                     onClick={onPlayPause}
                     aria-label={isPlaying ? "Pause" : "Play"}
                     title={isPlaying ? "Pause (Space)" : "Play (Space)"}
-                >
-                    <Icon name={isPlaying ? "pause" : "play"} />
-                </button>
+                    icon={isPlaying ? "pause" : "play"}
+                />
                 <span className="timeline-time-info" title={`Current time: ${currentTime.toFixed(2)} seconds`}>
                     {currentTime.toFixed(2)}s / {duration}s
                 </span>
@@ -520,14 +521,12 @@ export function TimelineEditor({
                     data-testid="timeline-ruler"
                     className="timeline-ruler-container"
                     style={{
-                        backgroundColor: 'var(--color-bg-base)',
                         /* Robust Width Logic: Ensures we are at least 100% for filling, but expand for zoom */
-                        width: `calc(max(100%, ${HEADER_WIDTH + (duration * zoom) + 100 + PADDING_LEFT}px))`,
-                        zIndex: 120
+                        width: `calc(max(100%, var(--timeline-header-width) + (${duration * zoom}px) + 100px + var(--timeline-padding-left)))`,
                     }}
                     onMouseDown={handleMouseDown}
                 >
-                    <div className="timeline-ruler-header" style={{ width: HEADER_WIDTH }}></div>
+                    <div className="timeline-ruler-header"></div>
                     <div className="flex-1 relative overflow-hidden">
                         {(() => {
                             // Adaptive tick intervals based on zoom
@@ -615,12 +614,12 @@ export function TimelineEditor({
                     className="min-h-full"
                     style={{
                         /* Matches Ruler Width: Essential for synchronized scrolling */
-                        width: `calc(max(100%, ${HEADER_WIDTH + (duration * zoom) + 100 + PADDING_LEFT}px))`,
+                        width: `calc(max(100%, var(--timeline-header-width) + (${duration * zoom}px) + 100px + var(--timeline-padding-left)))`,
                     }}
                 >
 
                     {/* Fixed Headers Column Background */}
-                    <div className="timeline-lane-header-bg" style={{ width: HEADER_WIDTH }} />
+                    <div className="timeline-lane-header-bg" />
                     {sortedZDepths.map((z) => {
                         const items = lanes[z];
 
@@ -633,7 +632,6 @@ export function TimelineEditor({
                                 {/* Header */}
                                 <div
                                     className="timeline-lane-header"
-                                    style={{ width: HEADER_WIDTH }}
                                     title={`Layer ${z} (${z >= 25 ? 'Front' : 'Back'})\nHigher Z = Foreground`}
                                 >
                                     {z}
@@ -728,27 +726,32 @@ export function TimelineEditor({
                         }}
                     >
                         {contextMenu.item.type === 'behavior' && (
-                            <button
-                                className="btn-ghost w-full text-left p-2 text-sm flex-row items-center gap-sm text-danger"
+                            <Button
+                                variant="danger"
+                                size="sm"
+                                isBlock
+                                className="btn-ghost"
                                 onClick={() => {
                                     onKeyframeDelete && onKeyframeDelete(contextMenu.item.sprite.sprite_name, contextMenu.item.behaviorIndex);
                                     closeContextMenu();
                                 }}
+                                icon="delete"
                             >
-                                <Icon name="delete" size={14} />
                                 Delete Keyframe
-                            </button>
+                            </Button>
                         )}
-                        <button
-                            className="btn-ghost w-full text-left p-2 text-sm flex-row items-center gap-sm"
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            isBlock
                             onClick={() => {
                                 onSelectLayer && onSelectLayer(contextMenu.item.sprite.sprite_name);
                                 closeContextMenu();
                             }}
+                            icon="edit"
                         >
-                            <Icon name="edit" size={14} />
                             Focus {contextMenu.item.sprite.sprite_name}
-                        </button>
+                        </Button>
                     </div>
                 )
             }
@@ -766,9 +769,11 @@ export function TimelineEditor({
                     >
                         <div className="text-xs text-subtle px-2 pb-1 border-b-muted">Select Sprite</div>
                         {hoveredItems.map((item, idx) => (
-                            <button
+                            <Button
                                 key={`${item.key}-${idx}`}
-                                className="btn-ghost w-full text-left p-1 text-sm flex items-center gap-2 rounded hover:bg-surface"
+                                variant="ghost"
+                                size="sm"
+                                isBlock
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     onSelectLayer && onSelectLayer(item.sprite.sprite_name);
@@ -781,14 +786,16 @@ export function TimelineEditor({
                                     setHoveredItems([]);
                                 }}
                             >
-                                <img
-                                    src={`${assetBaseUrl}/users/default/sprites/${item.sprite.sprite_name}/${item.sprite.sprite_name}.png`}
-                                    className="w-6 h-6 object-contain"
-                                    alt=""
-                                />
-                                <span>{item.sprite.sprite_name}</span>
-                                <span className="text-xs text-muted ml-auto">Z:{item.z}</span>
-                            </button>
+                                <div className="flex-row items-center gap-sm">
+                                    <img
+                                        src={`${assetBaseUrl}/users/default/sprites/${item.sprite.sprite_name}/${item.sprite.sprite_name}.png`}
+                                        className="w-6 h-6 object-contain"
+                                        alt=""
+                                    />
+                                    <span>{item.sprite.sprite_name}</span>
+                                    <span className="text-xs text-muted ml-auto">Z:{item.z}</span>
+                                </div>
+                            </Button>
                         ))}
                     </div>
                 )

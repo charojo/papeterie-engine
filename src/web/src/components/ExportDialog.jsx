@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 
 import { Icon } from './Icon';
+import { Button } from './Button';
 
 export function ExportDialog({ isOpen, onClose, sceneName, onExport }) {
     const [duration, setDuration] = useState(5.0);
@@ -43,15 +44,13 @@ export function ExportDialog({ isOpen, onClose, sceneName, onExport }) {
             <div className="modal-container">
                 <div className="modal-header">
                     <h3>Export Video</h3>
-                    <button className="btn-icon" onClick={handleClose}>
-                        <Icon name="close" size={16} />
-                    </button>
+                    <Button variant="icon" onClick={handleClose} icon="close" />
                 </div>
 
                 <div className="modal-content">
                     {status === 'idle' && (
                         <>
-                            <p className="text-muted" style={{ margin: 0, fontSize: '14px' }}>
+                            <p className="text-muted text-sm m-0">
                                 Export <strong>{sceneName}</strong> as an MP4 video.
                             </p>
                             <div className="form-group">
@@ -67,7 +66,7 @@ export function ExportDialog({ isOpen, onClose, sceneName, onExport }) {
                                 />
                             </div>
                             <div className="info-box">
-                                <Icon name="info" size={14} />
+                                <Icon name="info" variant="tight" />
                                 <span>Resolution: 1280x720 (HD) @ 30fps</span>
                             </div>
                         </>
@@ -85,7 +84,7 @@ export function ExportDialog({ isOpen, onClose, sceneName, onExport }) {
                         <div className="status-container text-success">
                             <Icon name="check" size={32} />
                             <p>Export Complete!</p>
-                            <a href={downloadUrl} download className="btn-primary" target="_blank" rel="noreferrer">
+                            <a href={downloadUrl} download className="btn btn-primary" target="_blank" rel="noreferrer">
                                 Download Video
                             </a>
                         </div>
@@ -103,16 +102,16 @@ export function ExportDialog({ isOpen, onClose, sceneName, onExport }) {
                 <div className="modal-footer">
                     {status === 'idle' && (
                         <>
-                            <button className="btn" onClick={handleClose}>Cancel</button>
-                            <button className="btn-primary" onClick={handleExport}>
+                            <Button variant="secondary" onClick={handleClose}>Cancel</Button>
+                            <Button variant="primary" onClick={handleExport}>
                                 Start Export
-                            </button>
+                            </Button>
                         </>
                     )}
                     {(status === 'success' || status === 'error') && (
-                        <button className="btn-secondary" onClick={handleClose}>
+                        <Button variant="secondary" onClick={handleClose}>
                             Close
-                        </button>
+                        </Button>
                     )}
                 </div>
             </div>

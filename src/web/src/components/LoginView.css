@@ -84,21 +84,9 @@
 }
 
 .login-local-enter-btn {
-    width: 90%;
-    height: 44px;
     font-size: 0.75rem;
-    font-weight: bold;
-    border-radius: 12px;
-    transition: all 0.2s;
 }
 
-.login-local-enter-btn:hover {
-    transform: scale(1.02);
-}
-
-.login-local-enter-btn:active {
-    transform: scale(0.98);
-}
 
 .login-right-pane {
     padding: 40px;
@@ -159,13 +147,7 @@
 }
 
 .login-forgot-btn {
-    font-size: 10px;
-    font-weight: bold;
     color: rgba(var(--color-primary-rgb), 0.4);
-    transition: color 0.2s;
-    background: transparent;
-    border: none;
-    cursor: pointer;
 }
 
 .login-forgot-btn:hover {
@@ -174,22 +156,9 @@
 
 .login-submit-btn {
     margin-top: 8px;
-    height: 40px;
     font-size: 0.75rem;
-    font-weight: bold;
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-    transition: all 0.2s;
-    background: rgba(var(--color-bg-elevated-rgb), 0.6);
-    width: 100%;
 }
 
-.login-submit-btn:active {
-    transform: scale(0.98);
-}
 
 .login-toggle-container {
     text-align: center;
@@ -201,21 +170,9 @@
 }
 
 .login-toggle-btn {
-    margin-left: 6px;
     color: var(--color-primary);
-    font-weight: 700;
-    font-size: 0.75rem;
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    padding: 4px 8px;
-    border-radius: 8px;
-    transition: all 0.2s;
 }
 
-.login-toggle-btn:hover {
-    background: rgba(var(--color-primary-rgb), 0.1);
-}
 
 @keyframes fadeIn {
     from {

@@ -1,0 +1,58 @@
+<svg width="800" height="400" xmlns="http://www.w3.org/2000/svg">
+<rect width="100%" height="100%" fill="white" />
+<text x="400.0" y="30" text-anchor="middle" font-family="sans-serif" font-size="20" font-weight="bold">Technical Debt Markers</text>
+<line x1="80" y1="320" x2="720" y2="320" stroke="black" stroke-width="2"/>
+<line x1="80" y1="320" x2="80" y2="80" stroke="black" stroke-width="2"/>
+<line x1="75" y1="320.0" x2="80" y2="320.0" stroke="black"/>
+<text x="70" y="325.0" text-anchor="end" font-family="sans-serif" font-size="12">0</text>
+<line x1="80" y1="320.0" x2="720" y2="320.0" stroke="#ddd" stroke-dasharray="4"/>
+<line x1="75" y1="272.0" x2="80" y2="272.0" stroke="black"/>
+<text x="70" y="277.0" text-anchor="end" font-family="sans-serif" font-size="12">1</text>
+<line x1="80" y1="272.0" x2="720" y2="272.0" stroke="#ddd" stroke-dasharray="4"/>
+<line x1="75" y1="224.0" x2="80" y2="224.0" stroke="black"/>
+<text x="70" y="229.0" text-anchor="end" font-family="sans-serif" font-size="12">3</text>
+<line x1="80" y1="224.0" x2="720" y2="224.0" stroke="#ddd" stroke-dasharray="4"/>
+<line x1="75" y1="176.0" x2="80" y2="176.0" stroke="black"/>
+<text x="70" y="181.0" text-anchor="end" font-family="sans-serif" font-size="12">5</text>
+<line x1="80" y1="176.0" x2="720" y2="176.0" stroke="#ddd" stroke-dasharray="4"/>
+<line x1="75" y1="128.0" x2="80" y2="128.0" stroke="black"/>
+<text x="70" y="133.0" text-anchor="end" font-family="sans-serif" font-size="12">7</text>
+<line x1="80" y1="128.0" x2="720" y2="128.0" stroke="#ddd" stroke-dasharray="4"/>
+<line x1="75" y1="80.0" x2="80" y2="80.0" stroke="black"/>
+<text x="70" y="85.0" text-anchor="end" font-family="sans-serif" font-size="12">9</text>
+<line x1="80" y1="80.0" x2="720" y2="80.0" stroke="#ddd" stroke-dasharray="4"/>
+<line x1="80.0" y1="320" x2="80.0" y2="325" stroke="black"/>
+<text x="80.0" y="330" text-anchor="start" font-family="sans-serif" font-size="10" transform="rotate(45, 80.0, 330)">2025-12-24</text>
+<line x1="129.23076923076923" y1="320" x2="129.23076923076923" y2="325" stroke="black"/>
+<text x="129.23076923076923" y="330" text-anchor="start" font-family="sans-serif" font-size="10" transform="rotate(45, 129.23076923076923, 330)">2025-12-30</text>
+<line x1="178.46153846153845" y1="320" x2="178.46153846153845" y2="325" stroke="black"/>
+<text x="178.46153846153845" y="330" text-anchor="start" font-family="sans-serif" font-size="10" transform="rotate(45, 178.46153846153845, 330)">2025-12-31</text>
+<line x1="227.6923076923077" y1="320" x2="227.6923076923077" y2="325" stroke="black"/>
+<text x="227.6923076923077" y="330" text-anchor="start" font-family="sans-serif" font-size="10" transform="rotate(45, 227.6923076923077, 330)">2026-01-01</text>
+<line x1="276.9230769230769" y1="320" x2="276.9230769230769" y2="325" stroke="black"/>
+<text x="276.9230769230769" y="330" text-anchor="start" font-family="sans-serif" font-size="10" transform="rotate(45, 276.9230769230769, 330)">2026-01-02</text>
+<line x1="326.1538461538462" y1="320" x2="326.1538461538462" y2="325" stroke="black"/>
+<text x="326.1538461538462" y="330" text-anchor="start" font-family="sans-serif" font-size="10" transform="rotate(45, 326.1538461538462, 330)">2026-01-03</text>
+<line x1="375.3846153846154" y1="320" x2="375.3846153846154" y2="325" stroke="black"/>
+<text x="375.3846153846154" y="330" text-anchor="start" font-family="sans-serif" font-size="10" transform="rotate(45, 375.3846153846154, 330)">2026-01-04</text>
+<line x1="424.61538461538464" y1="320" x2="424.61538461538464" y2="325" stroke="black"/>
+<text x="424.61538461538464" y="330" text-anchor="start" font-family="sans-serif" font-size="10" transform="rotate(45, 424.61538461538464, 330)">2026-01-05</text>
+<line x1="473.84615384615387" y1="320" x2="473.84615384615387" y2="325" stroke="black"/>
+<text x="473.84615384615387" y="330" text-anchor="start" font-family="sans-serif" font-size="10" transform="rotate(45, 473.84615384615387, 330)">2026-01-06</text>
+<line x1="523.0769230769231" y1="320" x2="523.0769230769231" y2="325" stroke="black"/>
+<text x="523.0769230769231" y="330" text-anchor="start" font-family="sans-serif" font-size="10" transform="rotate(45, 523.0769230769231, 330)">2026-01-07</text>
+<line x1="572.3076923076924" y1="320" x2="572.3076923076924" y2="325" stroke="black"/>
+<text x="572.3076923076924" y="330" text-anchor="start" font-family="sans-serif" font-size="10" transform="rotate(45, 572.3076923076924, 330)">2026-01-09</text>
+<line x1="621.5384615384615" y1="320" x2="621.5384615384615" y2="325" stroke="black"/>
+<text x="621.5384615384615" y="330" text-anchor="start" font-family="sans-serif" font-size="10" transform="rotate(45, 621.5384615384615, 330)">2026-01-10</text>
+<line x1="670.7692307692308" y1="320" x2="670.7692307692308" y2="325" stroke="black"/>
+<text x="670.7692307692308" y="330" text-anchor="start" font-family="sans-serif" font-size="10" transform="rotate(45, 670.7692307692308, 330)">2026-01-15</text>
+<line x1="720.0" y1="320" x2="720.0" y2="325" stroke="black"/>
+<text x="720.0" y="330" text-anchor="start" font-family="sans-serif" font-size="10" transform="rotate(45, 720.0, 330)">2026-01-16</text>
+<rect x="570" y="80" width="10" height="10" fill="#e91e63"/>
+<text x="585" y="90" font-family="sans-serif" font-size="12">TODOs</text>
+<rect x="570" y="100" width="10" height="10" fill="#f44336"/>
+<text x="585" y="110" font-family="sans-serif" font-size="12">FIXMEs</text>
+<polyline points="80.0,320.0 129.23076923076923,320.0 178.46153846153845,320.0 227.6923076923077,266.6666666666667 276.9230769230769,213.33333333333334 326.1538461538462,213.33333333333334 375.3846153846154,133.33333333333334 424.61538461538464,133.33333333333334 473.84615384615387,133.33333333333334 523.0769230769231,186.66666666666666 572.3076923076924,160.0 621.5384615384615,160.0 670.7692307692308,106.66666666666669 720.0,133.33333333333334" fill="none" stroke="#e91e63" stroke-width="2"/>
+<polyline points="80.0,320.0 129.23076923076923,320.0 178.46153846153845,320.0 227.6923076923077,320.0 276.9230769230769,320.0 326.1538461538462,320.0 375.3846153846154,213.33333333333334 424.61538461538464,213.33333333333334 473.84615384615387,213.33333333333334 523.0769230769231,240.0 572.3076923076924,213.33333333333334 621.5384615384615,213.33333333333334 670.7692307692308,80.0 720.0,80.0" fill="none" stroke="#f44336" stroke-width="2"/>
+</svg>

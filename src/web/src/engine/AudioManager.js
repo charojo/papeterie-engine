@@ -49,41 +49,61 @@ export class AudioManager {
     }
 
     update(currentTime) {
-        // Find events that haven't been played and are due
-        // We iterate through all ensuring we don't miss any if we jumped frames
-        // But for "events", we might need a "just happened" check if seeking backwards.
-        // For now, simple forward playback logic:
-
         for (const s of this.scheduled) {
             if (currentTime >= s.time && !s.played) {
-                // If we are *way* past the time (e.g. initial load or seek), 
-                // we might want to skip or play only if within a window.
-                // For now, let's play if within 100ms or if it's a loop.
                 const timeDiff = currentTime - s.time;
-
                 if (timeDiff < 0.2 || s.loop) {
                     this.play(s.name, s);
                 }
-
                 s.played = true;
             } else if (currentTime < s.time) {
-                // Since sorted, we can break early? 
-                // No, just in case unsorted edits happen, safe to iterate or ensure sort.
-                s.played = false; // Reset if we scrubbed back
+                s.played = false;
             }
         }
+
+        this.sounds.forEach(entry => {
+            // Initialize pending fade
+            if (entry._pendingFade) {
+                entry.fadeStartTime = currentTime;
+                entry.fadeTargetVolume = entry._pendingFade.volume;
+                entry.fadeDuration = entry._pendingFade.duration;
+                delete entry._pendingFade;
+            }
+
+            // Apply fade
+            if (entry.fadeTargetVolume !== undefined && entry.fadeStartTime !== undefined) {
+                const elapsed = currentTime - entry.fadeStartTime;
+                if (elapsed >= entry.fadeDuration) {
+                    entry.audio.volume = entry.fadeTargetVolume;
+                    delete entry.fadeTargetVolume;
+                    delete entry.fadeStartTime;
+                    delete entry.fadeDuration;
+                } else {
+                    const progress = Math.max(0, elapsed / entry.fadeDuration);
+                    entry.audio.volume = progress * entry.fadeTargetVolume;
+                }
+            }
+        });
     }
 
-    play(name, { volume = 1.0, loop = false, fade_in: _fade_in = 0, fade_out: _fade_out = 0 } = {}) {
+    play(name, { volume = 1.0, loop = false, fade_in = 0, fade_out: _fade_out = 0 } = {}) {
         const entry = this.sounds.get(name);
         if (entry && entry.loaded) {
             const audio = entry.audio;
             audio.currentTime = 0;
-            audio.volume = volume;
             audio.loop = loop;
 
-            // Simple fade in logic could go here or in update loop
-            // For MVP, just direct play
+            if (fade_in > 0) {
+                audio.volume = 0;
+                entry._pendingFade = { volume, duration: fade_in };
+            } else {
+                audio.volume = volume;
+                delete entry.fadeTargetVolume;
+                delete entry.fadeStartTime;
+                delete entry.fadeDuration;
+                delete entry._pendingFade;
+            }
+
             audio.play().catch(e => console.warn("Audio play failed (interaction needed?):", e));
         }
     }
@@ -92,6 +112,10 @@ export class AudioManager {
         this.sounds.forEach(entry => {
             entry.audio.pause();
             entry.audio.currentTime = 0;
+            delete entry.fadeTargetVolume;
+            delete entry.fadeStartTime;
+            delete entry.fadeDuration;
+            delete entry._pendingFade;
         });
         // Reset state for scheduled items
         this.scheduled.forEach(s => s.played = false);

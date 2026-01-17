@@ -118,7 +118,7 @@ describe('SceneDetailView Mocked', () => {
         render(<SceneDetailView {...defaultProps} />);
 
         expect(screen.getByTestId('asset-detail-layout')).toBeInTheDocument();
-        expect(screen.getByText('TestScene')).toBeInTheDocument();
+        // expect(screen.getByText('TestScene')).toBeInTheDocument(); // Title is now in TopBar, not here
         expect(screen.getByTestId('image-viewer')).toBeInTheDocument();
         expect(screen.getByTestId('timeline-editor')).toBeInTheDocument();
         expect(screen.getByTestId('sprite-list-editor')).toBeInTheDocument();
@@ -190,9 +190,7 @@ describe('SceneDetailView Mocked', () => {
         render(<SceneDetailView {...defaultProps} />);
 
         // Button should be disabled and show spinner (Icon mocked name)
-        // const btn = screen.getAllByRole('button')[0];
-        // Actually, let's find by icon name
-        expect(screen.getByText('Icon:optimize')).toBeInTheDocument();
+        expect(screen.getByText('Icon:generate')).toBeInTheDocument();
     });
 
     it('registers window key listeners for Undo/Redo', () => {

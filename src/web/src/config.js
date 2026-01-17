@@ -1,9 +1,6 @@
-const protocol = window.location.protocol;
-const hostname = window.location.hostname;
-const port = "8000"; // Backend is fixed to 8000 for local dev
-
-export const ASSET_BASE = `${protocol}//${hostname}:${port}`;
-export const API_BASE = `${ASSET_BASE}/api`;
+// Use relative paths to leverage Vite proxy in dev and relative paths in production
+export const ASSET_BASE = '';
+export const API_BASE = '/api';
 export const ASSETS_DIR_BASE = `${ASSET_BASE}/assets`;
 
 /**

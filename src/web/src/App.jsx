@@ -9,6 +9,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Toaster, toast } from 'sonner';
 import { SceneDetailView } from './components/SceneDetailView';
 import { Icon } from './components/Icon';
+import { Button } from './components/Button';
 import { SettingsMenu } from './components/SettingsMenu';
 import { SceneSelectionDialog } from './components/SceneSelectionDialog';
 import { TopBar } from './components/TopBar';
@@ -16,9 +17,9 @@ import { usePersistentState } from './hooks/usePersistentState';
 import { LoginView } from './components/LoginView';
 import { PromptsView } from './components/PromptsView';
 import { CreateView } from './components/CreateView';
+import { DesignSystemView } from './components/DesignSystemView';
 import { SelectionTile } from './components/SelectionTile';
 import { CollapsibleSection } from './components/CollapsibleSection';
-import SampleTSComponent from './components/SampleTSComponent';
 import { API_BASE, fetchWithTimeout } from './config';
 import './App.css';
 
@@ -66,6 +67,26 @@ function App() {
   const [backendAvailable, setBackendAvailable] = useState(true);
 
   const [contextualActions, setContextualActions] = useState(null);
+
+  const handleDeleteScene = useCallback(() => {
+    setSelectedItem(null);
+    setView('list');
+  }, [setSelectedItem, setView]);
+
+  const handleOpenSprite = useCallback((spriteName) => {
+    const sprite = sprites.find(s => s.name === spriteName);
+    if (sprite) {
+      /* No-op: Sprite navigation disabled in favor of scene-only flow */
+      console.log("Sprite open requested for", spriteName);
+    } else {
+      console.warn("Could not find sprite:", spriteName);
+    }
+  }, [sprites]);
+
+  const handleLogout = () => {
+    setUser(null);
+    setSelectedItem(null);
+  };
 
   // Apply theme to document
   useEffect(() => {
@@ -157,12 +178,13 @@ function App() {
     return <LoginView onLogin={(userData) => setUser(userData)} storageMode={storageMode} />;
   }
 
-  const handleLogout = () => {
-    setUser(null);
-    setSelectedItem(null);
-  };
 
-  const appTitle = (view === 'scene-detail' || view === 'sprite-detail') && selectedItem ? selectedItem.name : "Papeterie";
+  // Prevent blank screen: if view requires selectedItem but none exists, redirect
+  const effectiveView = (view === 'scene-detail' || view === 'sprite-detail') && !selectedItem
+    ? 'scene-selection'
+    : view;
+
+  const appTitle = (effectiveView === 'scene-detail' || effectiveView === 'sprite-detail') && selectedItem ? selectedItem.name : "Papeterie";
 
   return (
     <div className="app-container">
@@ -182,9 +204,12 @@ function App() {
             {/* 2. Middle Group (Search, Open, Share, Trash) */}
             <div className="contextual-middle-group">
               {contextualActions?.search}
-              <button className="btn-icon" onClick={() => setView('scene-selection')} title="Create/Open a Scene">
-                <Icon name="scene" size={16} />
-              </button>
+              <Button
+                variant="icon"
+                onClick={() => setView('scene-selection')}
+                title="Create/Open a Scene"
+                icon="scene"
+              />
               {contextualActions?.right}
             </div>
 
@@ -209,6 +234,7 @@ function App() {
                 window.location.reload(); // Reload to apply
               }}
               onLogout={handleLogout}
+              onOpenDesignSystem={() => setView('design-system')}
               user={user}
             />
           </div>
@@ -216,7 +242,7 @@ function App() {
       />
 
       <main className="main-content">
-        {view === 'create' && (
+        {effectiveView === 'create' && (
           <CreateView
             onCreated={async (type, name) => {
               await fetchData();
@@ -241,7 +267,7 @@ function App() {
           />
         )}
 
-        {view === 'scene-selection' && (
+        {effectiveView === 'scene-selection' && (
           <SceneSelectionDialog
             scenes={scenes}
             onSelect={(scene) => {
@@ -260,39 +286,46 @@ function App() {
           />
         )}
 
-        {view === 'scene-detail' && selectedItem && (
+        {effectiveView === 'scene-detail' && selectedItem && (
           <SceneDetailView
             asset={selectedItem}
+            user={user}
             sprites={sprites}
             refresh={fetchData}
-            onDelete={() => { setSelectedItem(null); setView('list'); }}
+            onDelete={handleDeleteScene}
             isExpanded={isExpanded}
             toggleExpand={() => setIsExpanded(!isExpanded)}
             setContextualActions={setContextualActions}
-            onOpenSprite={(spriteName) => {
-              const sprite = sprites.find(s => s.name === spriteName);
-              if (sprite) {
-                /* No-op: Sprite navigation disabled in favor of scene-only flow */
-                console.log("Sprite open requested for", spriteName);
-              } else {
-                console.warn("Could not find sprite:", spriteName);
-              }
-            }}
+            onOpenSprite={handleOpenSprite}
           />
         )}
 
-        {view === 'configuration' && (
+        {effectiveView === 'configuration' && (
           <PromptsView user={user} />
         )}
 
-        {view === 'list' && (
+        {effectiveView === 'design-system' && (
+          <DesignSystemView onBack={() => setView('list')} />
+        )}
+
+        {effectiveView === 'list' && (
           /* Default empty state */
           <div className="welcome-empty-state">
             <Icon name="app" size={64} className="welcome-icon" />
             <h2>Welcome to Papeterie</h2>
-            <SampleTSComponent />
-            <button className="btn btn-primary" onClick={() => setView('scene-selection')} data-testid="welcome-open-scene">Open Scene</button>
-            <button className="btn" onClick={() => setView('create')} data-testid="welcome-new-project">New Project</button>
+            <Button
+              variant="primary"
+              onClick={() => setView('scene-selection')}
+              data-testid="welcome-open-scene"
+            >
+              Open Scene
+            </Button>
+            <Button
+              onClick={() => setView('create')}
+              data-testid="welcome-new-project"
+            >
+              New Project
+            </Button>
           </div>
         )}
       </main>

@@ -84,3 +84,18 @@ def log_token_usage(
                 "estimated_cost": f"{estimated_cost:.6f}",
             }
         )
+
+
+def log_response_usage(response, model_name: str, task_name: str):
+    """
+    Extracts usage_metadata from a Gemini response and logs it.
+    """
+    if hasattr(response, "usage_metadata") and response.usage_metadata:
+        usage = response.usage_metadata
+        log_token_usage(
+            model_name=model_name,
+            prompt_tokens=usage.prompt_token_count,
+            candidate_tokens=usage.candidates_token_count,
+            total_tokens=usage.total_token_count,
+            task_name=task_name,
+        )

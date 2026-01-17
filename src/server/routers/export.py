@@ -36,9 +36,14 @@ async def export_video(request: ExportRequest):
     """
     Export a scene to an MP4 video file.
     """
+    from src.server.dependencies import is_safe_id
+
     try:
         user_id = request.user_id
         scene_name = request.scene_name
+
+        if not (is_safe_id(user_id) and is_safe_id(scene_name)):
+            raise HTTPException(status_code=400, detail="Invalid identification format")
 
         # Paths
         # Assuming standard structure: assets/users/{user_id}/scenes/{scene_name}

@@ -31,6 +31,8 @@ describe('TimelineEditor', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         vi.useFakeTimers();
+        // Mock requestAnimationFrame to execute synchronously
+        vi.spyOn(window, 'requestAnimationFrame').mockImplementation(cb => cb());
     });
 
     afterEach(() => {
@@ -404,14 +406,6 @@ describe('TimelineEditor', () => {
     });
 
     describe('scrolling and zoom', () => {
-        beforeEach(() => {
-            vi.useFakeTimers();
-        });
-
-        afterEach(() => {
-            vi.useRealTimers();
-        });
-
         it('zooms in/out with Ctrl+Wheel', () => {
             render(<TimelineEditor {...defaultProps} />);
             const container = screen.getByTestId('timeline-tracks').parentElement;

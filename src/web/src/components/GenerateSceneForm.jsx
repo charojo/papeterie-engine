@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { toast } from 'sonner';
 import { Icon } from './Icon';
+import { Button } from './Button';
 import { API_BASE } from '../config';
-import './Forms.css';
+
 
 export function GenerateSceneForm({ onSuccess }) {
     const [name, setName] = useState('');
@@ -53,9 +54,15 @@ export function GenerateSceneForm({ onSuccess }) {
                     value={prompt} onChange={e => setPrompt(e.target.value)}
                     placeholder="Describe the scene you want to generate" />
             </div>
-            <button type="submit" className="btn btn-primary btn-form-submit" disabled={loading}>
-                {loading ? <Icon name="generate" className="animate-spin" /> : 'Generate Scene'}
-            </button>
+            <Button
+                type="submit"
+                variant="primary"
+                className="btn-form-submit"
+                loading={loading}
+                icon="generate"
+            >
+                Generate Scene
+            </Button>
         </form>
     )
 }

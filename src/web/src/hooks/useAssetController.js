@@ -132,9 +132,9 @@ export function useAssetController(type, asset, refresh, onDelete) {
     } = useTransformEditor(asset, refresh, executeCommand);
 
     const [telemetry, setTelemetry] = useState(null);
-    const handleTelemetry = (data) => {
+    const handleTelemetry = useCallback((data) => {
         setTelemetry(data);
-    };
+    }, []);
 
     const [debugOverlayMode, setDebugOverlayMode] = useState('off'); // 'on' | 'off'
 
@@ -211,7 +211,7 @@ export function useAssetController(type, asset, refresh, onDelete) {
         setSelectedSprites([]);
     }, []);
 
-    const handleSpriteSelected = async (spriteName, allSelected = null) => {
+    const handleSpriteSelected = useCallback(async (spriteName, allSelected = null) => {
         // Toggle deselection if already selected AND single select
         if (selectedImage === spriteName && (!allSelected || allSelected.length <= 1)) {
             handleClearSelection();
@@ -239,7 +239,7 @@ export function useAssetController(type, asset, refresh, onDelete) {
             // ... Logic removed to prevent auto-bringing to front on select
         } 
         */
-    };
+    }, [selectedImage, activeTab, handleClearSelection]);
 
     // --- Computed State ---
 

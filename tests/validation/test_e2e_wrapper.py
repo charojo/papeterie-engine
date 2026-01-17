@@ -113,6 +113,7 @@ def test_e2e_playwright(ensure_servers_running):
 
     # Determine scope from environment variable
     e2e_scope = os.environ.get("E2E_SCOPE", "full")
+    e2e_filter = os.environ.get("E2E_FILTER")
     update_snapshots = os.environ.get("UPDATE_SNAPSHOTS", "false").lower() == "true"
 
     if e2e_scope == "skip":
@@ -129,6 +130,54 @@ def test_e2e_playwright(ensure_servers_running):
     else:
         print("Running Full E2E Suite...")
         base_cmd.extend(["--reporter=list", "--workers=1"])
+
+    if e2e_filter:
+        target_filter = e2e_filter
+        if e2e_filter.isdigit():
+            # Resolve numeric filter by listing tests
+            print(f"Resolving E2E test #{e2e_filter}...")
+            try:
+                list_proc = subprocess.run(
+                    ["npx", "playwright", "test", "--list"],
+                    cwd=frontend_dir,
+                    capture_output=True,
+                    text=True,
+                )
+                if list_proc.returncode == 0:
+                    lines = list_proc.stdout.splitlines()
+                    test_lines = []
+                    for line in lines:
+                        stripped = line.strip()
+                        if stripped.startswith("["):  # e.g. [chromium] › ...
+                            test_lines.append(stripped)
+
+                    idx = int(e2e_filter) - 1  # 1-based index
+                    if 0 <= idx < len(test_lines):
+                        # Extract the test title, usually the last part after ›
+                        # Example: [chromium] › file.js › Suite › Test Name
+                        # We can just grep the whole line content effectively, or the last segment.
+                        # Playwright -g matches against the full title.
+                        # Let's use the full line but escape special regex chars if needed?
+                        # Actually -g takes a regex. The list output puts it nicely.
+                        # Let's try to grab the unique title at the end.
+                        found_line = test_lines[idx]
+                        # Clean up the listing format to get a usable grep string
+                        # Listing: [chromium] › file.spec.js:25:5 › Suite › Test Name
+                        # We just want "Test Name" or a reliable substring.
+                        # Splitting by ' › ' seems robust for Playwright default reporter.
+                        parts = found_line.split(" › ")
+                        if len(parts) > 0:
+                            target_filter = parts[-1]
+                            print(f"Resolved #{e2e_filter} to: '{target_filter}'")
+                        else:
+                            print(f"Could not parse test name from: {found_line}")
+                    else:
+                        print(f"Test #{e2e_filter} out of range (Found {len(test_lines)} tests)")
+            except Exception as e:
+                print(f"Error resolving test list: {e}")
+
+        print(f"Applying E2E Filter: {target_filter}")
+        base_cmd.extend(["-g", target_filter])
 
     print(f"Executing: {' '.join(base_cmd)}")
 
@@ -151,6 +200,28 @@ def test_e2e_playwright(ensure_servers_running):
             if ret_code is not None:
                 # Process finished
                 if ret_code != 0:
+                    # Look for visual regression diffs
+                    test_results_dir = os.path.join(frontend_dir, "test-results")
+                    if os.path.exists(test_results_dir):
+                        print("\nFinding visual regression diffs...")
+                        found_diffs = False
+                        for root, dirs, files in os.walk(test_results_dir):
+                            for file in files:
+                                if file.endswith("-diff.png"):
+                                    found_diffs = True
+                                    full_path = os.path.join(root, file)
+                                    print(f"Visual Diff Found: {full_path}")
+                                    # Also ensure we point out the expected vs actual if they exist
+                                    actual = full_path.replace("-diff.png", "-actual.png")
+                                    expected = full_path.replace("-diff.png", "-expected.png")
+                                    if os.path.exists(actual):
+                                        print(f"  - Actual: {actual}")
+                                    if os.path.exists(expected):
+                                        print(f"  - Expected: {expected}")
+
+                        if not found_diffs:
+                            print("No visual regression diff images found in test-results.")
+
                     pytest.fail(f"Playwright tests failed with exit code {ret_code}.")
                 return  # Success
 

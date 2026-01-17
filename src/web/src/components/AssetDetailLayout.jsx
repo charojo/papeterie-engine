@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Icon } from './Icon';
+import { Button } from './Button';
 import './AssetDetailLayout.css';
 import { useResizableRatio } from '../hooks/useResizable';
 
@@ -10,8 +11,10 @@ export const AssetDetailLayout = ({
     _onRefreshLogs, // Callback to manually fetch logs (coming soon)
     isExpanded, // Prop passed from parent
     resizableState, // Optional external control for resizing
-    onResizeHandleDoubleClick // Callback for double-click on handle
+    onResizeHandleDoubleClick, // Callback for double-click on handle
+    title // Optional title to display
 }) => {
+
 
     const [copyFeedback, setCopyFeedback] = useState(false);
     const [isLogMinimized, setIsLogMinimized] = useState(true); // Start minimized
@@ -53,38 +56,51 @@ export const AssetDetailLayout = ({
         >
             {/* Main Content Split - resizable panels */}
             <div
-                ref={containerRef}
                 className="asset-detail-main"
                 style={{
-                    flex: isExpanded ? 1 : (isLogMinimized ? '1 1 auto' : `0 0 ${logRatio * 100}%`)
+                    flex: isExpanded ? 1 : (isLogMinimized ? '1 1 auto' : `0 0 ${logRatio * 100}%`),
+                    display: 'flex',
+                    flexDirection: 'column'
                 }}
             >
-                {/* Visuals Column - no card frame */}
-                <section
-                    className="asset-detail-visuals"
-                    style={{
-                        width: isExpanded ? '100%' : `${ratio * 100}%`
-                    }}
+                {title && (
+                    <div className="asset-detail-header w-full px-4 py-2 border-b border-muted bg-surface flex items-center justify-between shadow-sm z-10">
+                        <h1 className="text-lg font-bold truncate text-text">{title}</h1>
+                    </div>
+                )}
+
+                <div
+                    ref={containerRef}
+                    className="asset-detail-split-container flex-1 flex overflow-hidden relative"
+                    style={{ display: 'flex', flexDirection: 'row', width: '100%' }}
                 >
-                    {visualContent}
-                </section>
-
-                {/* Resize Handle */}
-                {!isExpanded && (
-                    <div
-                        className={`resize-handle resize-handle-h ${isResizing ? 'active' : ''}`}
-                        onMouseDown={(e) => startResize(e, containerRef.current)}
-                        onDoubleClick={onResizeHandleDoubleClick}
-                        title="Drag to resize panels (Double-click to toggle)"
-                    />
-                )}
-
-                {/* Config Column - Hidden if expanded, no card frame */}
-                {!isExpanded && (
-                    <section className="asset-detail-config">
-                        {configContent}
+                    {/* Visuals Column - no card frame */}
+                    <section
+                        className="asset-detail-visuals"
+                        style={{
+                            width: isExpanded ? '100%' : `${ratio * 100}%`
+                        }}
+                    >
+                        {visualContent}
                     </section>
-                )}
+
+                    {/* Resize Handle */}
+                    {!isExpanded && (
+                        <div
+                            className={`resize-handle resize-handle-h ${isResizing ? 'active' : ''}`}
+                            onMouseDown={(e) => startResize(e, containerRef.current)}
+                            onDoubleClick={onResizeHandleDoubleClick}
+                            title="Drag to resize panels (Double-click to toggle)"
+                        />
+                    )}
+
+                    {/* Config Column - Hidden if expanded, no card frame */}
+                    {!isExpanded && (
+                        <section className="asset-detail-config">
+                            {configContent}
+                        </section>
+                    )}
+                </div>
             </div>
 
             {/* Log Resize Handle */}
@@ -122,30 +138,27 @@ export const AssetDetailLayout = ({
                             </span>
                         )}
                         <div className="logs-actions">
-                            <button
-                                className="btn logs-btn-tool"
-                                style={{
-                                    color: copyFeedback ? 'var(--color-primary)' : 'var(--color-text-muted)'
-                                }}
+                            <Button
+                                variant="ghost"
+                                size="xs"
+                                active={copyFeedback}
                                 title="Copy logs to clipboard"
                                 onClick={() => {
                                     navigator.clipboard.writeText(logs || "");
                                     setCopyFeedback(true);
                                     setTimeout(() => setCopyFeedback(false), 2000);
                                 }}
-                            >
-                                {copyFeedback ? <Icon name="check" size={12} /> : <Icon name="copy" size={12} />}
-                            </button>
-                            <button
-                                className="btn logs-btn-tool"
-                                style={{
-                                    color: 'var(--color-text-muted)'
-                                }}
+                                icon={copyFeedback ? "check" : "copy"}
+                                iconVariant="tight"
+                            />
+                            <Button
+                                variant="ghost"
+                                size="xs"
                                 title={isLogMinimized ? "Expand logs" : "Minimize logs"}
                                 onClick={() => setIsLogMinimized(!isLogMinimized)}
-                            >
-                                <Icon name={isLogMinimized ? "collapse" : "expand"} size={12} />
-                            </button>
+                                icon={isLogMinimized ? "collapse" : "expand"}
+                                iconVariant="tight"
+                            />
                         </div>
                     </div>
                     {!isLogMinimized && (
@@ -158,3 +171,4 @@ export const AssetDetailLayout = ({
         </div>
     );
 };
+

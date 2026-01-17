@@ -1,0 +1,70 @@
+<svg width="800" height="400" xmlns="http://www.w3.org/2000/svg">
+<rect width="100%" height="100%" fill="white" />
+<text x="400.0" y="30" text-anchor="middle" font-family="sans-serif" font-size="20" font-weight="bold">Source Lines of Code over Time</text>
+<line x1="80" y1="320" x2="720" y2="320" stroke="black" stroke-width="2"/>
+<line x1="80" y1="320" x2="80" y2="80" stroke="black" stroke-width="2"/>
+<line x1="75" y1="320.0" x2="80" y2="320.0" stroke="black"/>
+<text x="70" y="325.0" text-anchor="end" font-family="sans-serif" font-size="12">0</text>
+<line x1="80" y1="320.0" x2="720" y2="320.0" stroke="#ddd" stroke-dasharray="4"/>
+<line x1="75" y1="272.0" x2="80" y2="272.0" stroke="black"/>
+<text x="70" y="277.0" text-anchor="end" font-family="sans-serif" font-size="12">4839</text>
+<line x1="80" y1="272.0" x2="720" y2="272.0" stroke="#ddd" stroke-dasharray="4"/>
+<line x1="75" y1="224.0" x2="80" y2="224.0" stroke="black"/>
+<text x="70" y="229.0" text-anchor="end" font-family="sans-serif" font-size="12">9679</text>
+<line x1="80" y1="224.0" x2="720" y2="224.0" stroke="#ddd" stroke-dasharray="4"/>
+<line x1="75" y1="176.0" x2="80" y2="176.0" stroke="black"/>
+<text x="70" y="181.0" text-anchor="end" font-family="sans-serif" font-size="12">14519</text>
+<line x1="80" y1="176.0" x2="720" y2="176.0" stroke="#ddd" stroke-dasharray="4"/>
+<line x1="75" y1="128.0" x2="80" y2="128.0" stroke="black"/>
+<text x="70" y="133.0" text-anchor="end" font-family="sans-serif" font-size="12">19359</text>
+<line x1="80" y1="128.0" x2="720" y2="128.0" stroke="#ddd" stroke-dasharray="4"/>
+<line x1="75" y1="80.0" x2="80" y2="80.0" stroke="black"/>
+<text x="70" y="85.0" text-anchor="end" font-family="sans-serif" font-size="12">24199</text>
+<line x1="80" y1="80.0" x2="720" y2="80.0" stroke="#ddd" stroke-dasharray="4"/>
+<line x1="80.0" y1="320" x2="80.0" y2="325" stroke="black"/>
+<text x="80.0" y="330" text-anchor="start" font-family="sans-serif" font-size="10" transform="rotate(45, 80.0, 330)">2025-12-24</text>
+<line x1="129.23076923076923" y1="320" x2="129.23076923076923" y2="325" stroke="black"/>
+<text x="129.23076923076923" y="330" text-anchor="start" font-family="sans-serif" font-size="10" transform="rotate(45, 129.23076923076923, 330)">2025-12-30</text>
+<line x1="178.46153846153845" y1="320" x2="178.46153846153845" y2="325" stroke="black"/>
+<text x="178.46153846153845" y="330" text-anchor="start" font-family="sans-serif" font-size="10" transform="rotate(45, 178.46153846153845, 330)">2025-12-31</text>
+<line x1="227.6923076923077" y1="320" x2="227.6923076923077" y2="325" stroke="black"/>
+<text x="227.6923076923077" y="330" text-anchor="start" font-family="sans-serif" font-size="10" transform="rotate(45, 227.6923076923077, 330)">2026-01-01</text>
+<line x1="276.9230769230769" y1="320" x2="276.9230769230769" y2="325" stroke="black"/>
+<text x="276.9230769230769" y="330" text-anchor="start" font-family="sans-serif" font-size="10" transform="rotate(45, 276.9230769230769, 330)">2026-01-02</text>
+<line x1="326.1538461538462" y1="320" x2="326.1538461538462" y2="325" stroke="black"/>
+<text x="326.1538461538462" y="330" text-anchor="start" font-family="sans-serif" font-size="10" transform="rotate(45, 326.1538461538462, 330)">2026-01-03</text>
+<line x1="375.3846153846154" y1="320" x2="375.3846153846154" y2="325" stroke="black"/>
+<text x="375.3846153846154" y="330" text-anchor="start" font-family="sans-serif" font-size="10" transform="rotate(45, 375.3846153846154, 330)">2026-01-04</text>
+<line x1="424.61538461538464" y1="320" x2="424.61538461538464" y2="325" stroke="black"/>
+<text x="424.61538461538464" y="330" text-anchor="start" font-family="sans-serif" font-size="10" transform="rotate(45, 424.61538461538464, 330)">2026-01-05</text>
+<line x1="473.84615384615387" y1="320" x2="473.84615384615387" y2="325" stroke="black"/>
+<text x="473.84615384615387" y="330" text-anchor="start" font-family="sans-serif" font-size="10" transform="rotate(45, 473.84615384615387, 330)">2026-01-06</text>
+<line x1="523.0769230769231" y1="320" x2="523.0769230769231" y2="325" stroke="black"/>
+<text x="523.0769230769231" y="330" text-anchor="start" font-family="sans-serif" font-size="10" transform="rotate(45, 523.0769230769231, 330)">2026-01-07</text>
+<line x1="572.3076923076924" y1="320" x2="572.3076923076924" y2="325" stroke="black"/>
+<text x="572.3076923076924" y="330" text-anchor="start" font-family="sans-serif" font-size="10" transform="rotate(45, 572.3076923076924, 330)">2026-01-09</text>
+<line x1="621.5384615384615" y1="320" x2="621.5384615384615" y2="325" stroke="black"/>
+<text x="621.5384615384615" y="330" text-anchor="start" font-family="sans-serif" font-size="10" transform="rotate(45, 621.5384615384615, 330)">2026-01-10</text>
+<line x1="670.7692307692308" y1="320" x2="670.7692307692308" y2="325" stroke="black"/>
+<text x="670.7692307692308" y="330" text-anchor="start" font-family="sans-serif" font-size="10" transform="rotate(45, 670.7692307692308, 330)">2026-01-15</text>
+<line x1="720.0" y1="320" x2="720.0" y2="325" stroke="black"/>
+<text x="720.0" y="330" text-anchor="start" font-family="sans-serif" font-size="10" transform="rotate(45, 720.0, 330)">2026-01-16</text>
+<rect x="570" y="80" width="10" height="10" fill="#2196F3"/>
+<text x="585" y="90" font-family="sans-serif" font-size="12">Total</text>
+<rect x="570" y="100" width="10" height="10" fill="#4CAF50"/>
+<text x="585" y="110" font-family="sans-serif" font-size="12">Python</text>
+<rect x="570" y="120" width="10" height="10" fill="#ff9800"/>
+<text x="585" y="130" font-family="sans-serif" font-size="12">TS/JS</text>
+<rect x="570" y="140" width="10" height="10" fill="#9c27b0"/>
+<text x="585" y="150" font-family="sans-serif" font-size="12">CSS</text>
+<rect x="570" y="160" width="10" height="10" fill="#795548"/>
+<text x="585" y="170" font-family="sans-serif" font-size="12">Shell</text>
+<rect x="570" y="180" width="10" height="10" fill="#607d8b"/>
+<text x="585" y="190" font-family="sans-serif" font-size="12">JSON</text>
+<polyline points="80.0,317.6693251787264 129.23076923076923,310.8062316624654 178.46153846153845,234.83615025414272 227.6923076923077,211.96578371007067 276.9230769230769,189.50204553907187 326.1538461538462,163.1009545849002 375.3846153846154,128.6763915864292 424.61538461538464,125.59196661019052 473.84615384615387,112.1930658291665 523.0769230769231,105.42914996487457 572.3076923076924,90.85995289061532 621.5384615384615,88.7474689036737 670.7692307692308,83.25302698458614 720.0,80.0" fill="none" stroke="#2196F3" stroke-width="2"/>
+<polyline points="80.0,318.5520062812513 129.23076923076923,315.73536096532916 178.46153846153845,301.2355882474482 227.6923076923077,295.5427910244225 276.9230769230769,288.96731269887186 326.1538461538462,279.6247778833836 375.3846153846154,276.01471135170874 424.61538461538464,274.1799247902806 473.84615384615387,274.1997603206744 523.0769230769231,274.249349146659 572.3076923076924,272.7616843671226 621.5384615384615,272.7319310715319 670.7692307692308,281.3207157320551 720.0,281.5984131575685" fill="none" stroke="#4CAF50" stroke-width="2"/>
+<polyline points="80.0,320.0 129.23076923076923,320.0 178.46153846153845,308.6044877887516 227.6923076923077,292.06165544030745 276.9230769230769,283.96875903962973 326.1538461538462,276.0543824124964 375.3846153846154,249.03839001611635 424.61538461538464,249.04830778131327 473.84615384615387,247.80858713169965 523.0769230769231,241.8975990743419 572.3076923076924,237.38501590974835 621.5384615384615,237.38501590974835 670.7692307692308,221.9827265589487 720.0,218.48175544443984" fill="none" stroke="#ff9800" stroke-width="2"/>
+<polyline points="80.0,320.0 129.23076923076923,320.0 178.46153846153845,318.40323980329765 227.6923076923077,318.40323980329765 276.9230769230769,318.40323980329765 326.1538461538462,316.8064796065953 375.3846153846154,316.69738418942933 424.61538461538464,316.69738418942933 473.84615384615387,306.6110169841729 523.0769230769231,305.76800694243565 572.3076923076924,305.09359890904585 621.5384615384615,305.09359890904585 670.7692307692308,294.94772511260794 720.0,295.5328732592256" fill="none" stroke="#9c27b0" stroke-width="2"/>
+<polyline points="80.0,320.0 129.23076923076923,320.0 178.46153846153845,319.38509855779165 227.6923076923077,319.38509855779165 276.9230769230769,318.7206082895988 326.1538461538462,318.16521343857187 375.3846153846154,318.0164469606182 424.61538461538464,317.85776271746766 473.84615384615387,315.84445638249514 523.0769230769231,315.7849497913137 572.3076923076924,313.09723542295137 621.5384615384615,311.609570643415 670.7692307692308,319.1867432538535 720.0,319.1867432538535" fill="none" stroke="#795548" stroke-width="2"/>
+<polyline points="80.0,319.9107401132278 129.23076923076923,319.5239472705484 178.46153846153845,316.36018017273443 227.6923076923077,316.6676308938386 276.9230769230769,314.70391338485064 326.1538461538462,316.4692755899004 375.3846153846154,316.4692755899004 424.61538461538464,316.4692755899004 473.84615384615387,316.4692755899004 523.0769230769231,316.4692755899004 572.3076923076924,316.4692755899004 621.5384615384615,316.4692755899004 670.7692307692308,316.0428116864333 720.0,316.0428116864333" fill="none" stroke="#607d8b" stroke-width="2"/>
+</svg>

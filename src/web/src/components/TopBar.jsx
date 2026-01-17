@@ -11,7 +11,7 @@ export const TopBar = ({ title, leftContent, rightContent }) => {
             borderBottom: '1px solid var(--color-border)',
             background: 'var(--color-bg-elevated)',
             zIndex: 100,
-            height: '50px',
+            height: '40px',
             flexShrink: 0
         }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>

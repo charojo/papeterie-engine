@@ -1,3 +1,4 @@
+import re
 import shutil
 
 from fastapi import Depends, Header, HTTPException, status
@@ -7,6 +8,11 @@ from src.server.logger import AssetLogger
 
 # Singleton instance for use across routers
 asset_logger = AssetLogger(ASSETS_DIR)
+
+
+def is_safe_id(id_str: str) -> bool:
+    """Checks if an ID contains only alphanumeric characters, underscores, or hyphens."""
+    return bool(re.match(r"^[a-zA-Z0-9_\-]+$", id_str))
 
 
 async def get_current_user(authorization: str = Header(None)):
@@ -26,6 +32,13 @@ async def get_current_user(authorization: str = Header(None)):
 
     # In a real app, we'd parse JWT here. For now, we'll treat the token as the user_id
     token = authorization.replace("Bearer ", "")
+
+    if not is_safe_id(token):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid user identification format",
+        )
+
     return token
 
 

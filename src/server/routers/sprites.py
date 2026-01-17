@@ -54,12 +54,27 @@ class CompileRequest(BaseModel):
 async def get_sprite_asset(user_id: str, sprite_name: str, filename: str, request: Request):
     """
     Direct access to sprite assets with special handling for prompt metadata.
-    The path is relative to the router prefix (/api), but main.py mounts it differently
-    if it's intended to be compatible with legacy /assets/... URLs.
-    However, the goal is to centralize this logic here.
+    Includes path traversal protection.
     """
-    # Note: ASSETS_DIR is defined in config and imported via dependencies or directly
-    file_path = ASSETS_DIR / "users" / user_id / "sprites" / sprite_name / filename
+    from src.server.dependencies import is_safe_id
+
+    # Validate inputs to prevent ../ or other character injections
+    if not (is_safe_id(user_id) and is_safe_id(sprite_name)):
+        raise HTTPException(status_code=400, detail="Invalid path components")
+
+    # Further sanitize filename (allow dots for extensions but no ../)
+    if ".." in filename or "/" in filename or "\\" in filename:
+        raise HTTPException(status_code=400, detail="Invalid filename")
+
+    # Resolve absolute path
+    file_path = (ASSETS_DIR / "users" / user_id / "sprites" / sprite_name / filename).resolve()
+
+    # SEC-002: Ensure we are still within the assets directory after resolution
+    try:
+        file_path.relative_to(ASSETS_DIR.resolve())
+    except ValueError:
+        logger.warning(f"Attempted path traversal blocked: {file_path}")
+        raise HTTPException(status_code=403, detail="Access denied")
 
     if filename.endswith(".prompt.json") and not file_path.exists():
         return {}  # Return empty JSON instead of 404

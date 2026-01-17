@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Icon } from './Icon';
+import { Button } from './Button';
 import { BehaviorTypes, CoordinateTypes, createDefaultBehavior } from './BehaviorConstants';
 import { API_BASE } from '../config';
 
@@ -58,13 +59,12 @@ export function BehaviorEditor({ behaviors = [], onChange, readOnly = false, spr
 
                             {!readOnly && !inline && (
                                 <div className="relative">
-                                    <button
-                                        className="btn-icon"
+                                    <Button
+                                        variant="icon"
                                         onClick={() => setIsAdding(!isAdding)}
                                         title="Add Behavior"
-                                    >
-                                        <Icon name="add" size={16} />
-                                    </button>
+                                        icon="add"
+                                    />
                                     {isAdding && (
                                         <div className="absolute top-full right-0 z-10 panel shadow-lg min-w-120">
                                             {Object.values(BehaviorTypes).filter(t =>
@@ -89,13 +89,15 @@ export function BehaviorEditor({ behaviors = [], onChange, readOnly = false, spr
                     {/* Tabs */}
                     <div className="tab-container">
                         {TABS.map(tab => (
-                            <button
+                            <Button
                                 key={tab}
-                                className={`tab-btn ${activeTab === tab ? 'active' : ''} text-xs`}
+                                variant="ghost"
+                                isTab
+                                active={activeTab === tab}
                                 onClick={() => setActiveTab(tab)}
                             >
                                 {tab}
-                            </button>
+                            </Button>
                         ))}
                     </div>
                 </>
@@ -230,9 +232,13 @@ function BehaviorCard({ behavior, _index, onChange, onRemove, onSelect, readOnly
                     <span className="text-subtle text-xs ml-1">({behavior.coordinate || 'y'})</span>
                 </span>
                 {!readOnly && (
-                    <button className="btn-icon" onClick={(e) => { e.stopPropagation(); onRemove(); }} title="Delete Behavior">
-                        <Icon name="delete" size={12} />
-                    </button>
+                    <Button
+                        variant="icon"
+                        size="xs"
+                        onClick={(e) => { e.stopPropagation(); onRemove(); }}
+                        title="Delete Behavior"
+                        icon="delete"
+                    />
                 )}
             </div>
 

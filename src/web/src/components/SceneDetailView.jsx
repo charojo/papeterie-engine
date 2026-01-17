@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { AssetDetailLayout } from './AssetDetailLayout';
 import { ImageViewer } from './ImageViewer';
 import { Icon } from './Icon';
+import { Button } from './Button';
 import { DeleteConfirmationDialog } from './DeleteConfirmationDialog';
 import { SpriteListEditor } from './SpriteListEditor';
 import { TimelineEditor } from './TimelineEditor';
@@ -18,7 +19,8 @@ import './SceneDetailView.css';
 const log = createLogger('SceneDetailView');
 const SCENE_DURATION = 30;
 
-export function SceneDetailView({ asset, refresh, onDelete, isExpanded, toggleExpand, sprites, setContextualActions, onOpenSprite }) {
+export function SceneDetailView({ asset, user, refresh, onDelete, isExpanded, toggleExpand, sprites, setContextualActions, onOpenSprite }) {
+    const userId = user?.user_id || user?.username || 'default';
     const {
 
         isOptimizing,
@@ -188,9 +190,18 @@ export function SceneDetailView({ asset, refresh, onDelete, isExpanded, toggleEx
         return {
             play: null,
             search: null,
-            right: null
+            right: (
+                <>
+                    <Button
+                        variant="icon"
+                        onClick={handleDeleteClick}
+                        title="Delete Scene"
+                        icon="delete"
+                    />
+                </>
+            )
         };
-    }, []);
+    }, [onDelete, handleDeleteClick]);
 
     // Global Key Listener for Escape (Clear Selection)
     useEffect(() => {
@@ -394,15 +405,11 @@ export function SceneDetailView({ asset, refresh, onDelete, isExpanded, toggleEx
             />
 
             <AssetDetailLayout
-                title={asset.name}
-                status={<StatusStepper currentStatus={asset.status} />}
-                onBack={onDelete}
-                isExpanded={isExpanded}
-                toggleExpand={toggleExpand}
                 resizableState={mainLayoutResizable}
                 onResizeHandleDoubleClick={handleResizeHandleDoubleClick}
                 visualContent={
                     <div ref={theatreTimelineContainerRef} className="scene-detail-visual-wrapper">
+
                         {/* Theatre Surface */}
                         <div
                             className="scene-detail-theatre-container"
@@ -412,6 +419,7 @@ export function SceneDetailView({ asset, refresh, onDelete, isExpanded, toggleEx
                                 style={{ flex: 1 }}
                                 scene={asset.config}
                                 sceneName={asset.name}
+                                userId={userId}
                                 currentTime={currentTime}
                                 onTimeUpdate={(t) => setCurrentTime(t >= SCENE_DURATION ? 0 : t)}
                                 onTelemetry={handleTelemetry}
@@ -503,31 +511,38 @@ export function SceneDetailView({ asset, refresh, onDelete, isExpanded, toggleEx
                                         onChange={e => setVisualPrompt(e.target.value)}
                                         title="Visualize changes with AI"
                                     />
-                                    <button
-                                        className="btn btn-primary h-auto"
+                                    <Button
+                                        variant="primary"
+                                        className="h-auto"
                                         onClick={handleOptimize}
                                         disabled={isOptimizing || !visualPrompt.trim()}
+                                        loading={isOptimizing}
+                                        icon="optimize"
                                         title="Apply AI visualization"
                                     >
-                                        {isOptimizing ? <Icon name="optimize" className="animate-spin" size={14} /> : 'Optimize'}
-                                    </button>
+                                        Optimize
+                                    </Button>
                                 </div>
                             </div>
                         )}
 
-                        <div className="scene-detail-tabs-header">
-                            <button
-                                className={`scene-detail-tab-btn ${activeTab === 'sprites' ? 'active' : 'inactive'}`}
+                        <div className="tab-container tab-container-flush">
+                            <Button
+                                variant="ghost"
+                                isTab
+                                active={activeTab === 'sprites'}
                                 onClick={() => handleTabChange('sprites')}
                             >
                                 Sprites
-                            </button>
-                            <button
-                                className={`scene-detail-tab-btn ${activeTab === 'json' ? 'active' : 'inactive'}`}
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                isTab
+                                active={activeTab === 'json'}
                                 onClick={() => handleTabChange('json')}
                             >
                                 Config
-                            </button>
+                            </Button>
                         </div>
 
                         <div className="scene-detail-tab-content-wrapper">
@@ -555,14 +570,16 @@ export function SceneDetailView({ asset, refresh, onDelete, isExpanded, toggleEx
                                     />
                                     {selectedSprites?.length > 0 && (
                                         <div className="flex flex-col border-t border-muted bg-surface-alt p-1">
-                                            <button
-                                                className={`btn ${selectedSprites?.length > 1 ? 'btn-primary' : 'btn-secondary'} btn-sm w-full gap-2`}
+                                            <Button
+                                                variant={selectedSprites?.length > 1 ? 'primary' : 'secondary'}
+                                                size="sm"
+                                                isBlock
                                                 onClick={handleClearSelection}
                                                 title={selectedSprites?.length > 1 ? "Lock in the current selection order and clear selection" : ""}
+                                                icon={selectedSprites.length > 1 ? "check" : "close"}
                                             >
-                                                <Icon name={selectedSprites.length > 1 ? "check" : "close"} size={14} />
                                                 {selectedSprites.length > 1 ? 'Set Order' : 'Clear Selection'}
-                                            </button>
+                                            </Button>
                                         </div>
                                     )}
                                 </div>
@@ -578,14 +595,14 @@ export function SceneDetailView({ asset, refresh, onDelete, isExpanded, toggleEx
                                             onChange={e => setConfigPrompt(e.target.value)}
                                             title="Refine Configuration"
                                         />
-                                        <button
-                                            className="btn btn-primary h-auto"
+                                        <Button
+                                            variant="primary"
+                                            className="h-auto"
                                             onClick={handleUpdateConfig}
                                             disabled={isOptimizing || !configPrompt.trim()}
                                             title="Apply AI refinements"
-                                        >
-                                            <Icon name="config" size={14} />
-                                        </button>
+                                            icon="config"
+                                        />
                                     </div>
                                     <SmartConfigViewer configData={configData} selectedImage={selectedImage} type="scene" scrollContainerRef={configScrollRef} />
                                 </div>
@@ -602,17 +619,19 @@ export function SceneDetailView({ asset, refresh, onDelete, isExpanded, toggleEx
                                 <span>Details</span>
                                 <div className="flex gap-1 items-center">
                                     {['on', 'off'].map(mode => (
-                                        <button
+                                        <Button
                                             key={mode}
-                                            className={`btn btn-xs ${detailsMode === mode ? 'btn-primary' : ''} p-1 text-xs capitalize`}
+                                            variant={detailsMode === mode ? 'primary' : 'ghost'}
+                                            size="xs"
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 setDetailsMode(prev => (prev === mode && mode === 'on' ? 'off' : mode));
                                             }}
                                             title={`Toggle details columns ${mode}`}
+                                            className="capitalize"
                                         >
                                             {mode}
-                                        </button>
+                                        </Button>
                                     ))}
                                 </div>
                             </div>
@@ -624,29 +643,24 @@ export function SceneDetailView({ asset, refresh, onDelete, isExpanded, toggleEx
                                 <span>Overlay</span>
                                 <div className="flex gap-1 items-center">
                                     {['on', 'off'].map(mode => (
-                                        <button
+                                        <Button
                                             key={mode}
-                                            className={`btn btn-xs ${debugOverlayMode === mode ? 'btn-primary' : ''} p-1 text-xs capitalize`}
+                                            variant={debugOverlayMode === mode ? 'primary' : 'ghost'}
+                                            size="xs"
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 setDebugOverlayMode(prev => (prev === mode && mode === 'on' ? 'off' : mode));
                                             }}
                                             title={mode}
+                                            className="capitalize"
                                         >
                                             {mode}
-                                        </button>
+                                        </Button>
                                     ))}
                                 </div>
                             </div>
                         </div>
                     </div>
-                }
-                actions={
-                    <>
-                        <button className="btn-icon" onClick={handleDeleteClick} title="Delete Scene">
-                            <Icon name="trash" size={16} />
-                        </button>
-                    </>
                 }
             />
         </>

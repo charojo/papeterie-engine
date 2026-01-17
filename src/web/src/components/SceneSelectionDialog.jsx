@@ -40,12 +40,12 @@ export const SceneSelectionDialog = ({ scenes, onSelect, onCreate, onCancel }) =
                                 style={{ maxWidth: '80%', maxHeight: '80%', objectFit: 'contain' }}
                             />
                             <div style={{ position: 'absolute', bottom: 4, right: 4 }}>
-                                <Icon name="scene" size={12} opacity={0.5} />
+                                <Icon name="scene" variant="tight" opacity={0.5} />
                             </div>
                         </div>
                     );
                 }
-                return <Icon name="scene" size={32} opacity={0.2} />;
+                return <Icon name="scene" variant="roomy" opacity={0.2} />;
             }}
         />
     );

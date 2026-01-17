@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { Icon } from './Icon';
+import { Button } from './Button';
 import { BehaviorEditor } from './BehaviorEditor';
 import { BehaviorTypes, createDefaultBehavior } from './BehaviorConstants';
 
@@ -274,7 +276,53 @@ export function SpriteListEditor({
             </div>
         </div>
     );
+
 }
+
+const ThumbnailPortal = ({ src, rect }) => {
+    if (!rect) return null;
+
+    // Scale 2.5x
+    const scale = 2.5;
+    const width = 48 * scale;
+    const height = 48 * scale;
+
+    // Center over original
+    const top = rect.top + (rect.height / 2) - (height / 2);
+    const left = rect.left + (rect.width / 2) - (width / 2);
+
+    const style = {
+        position: 'fixed',
+        top: `${top}px`,
+        left: `${left}px`,
+        width: `${width}px`,
+        height: `${height}px`,
+        zIndex: 9999,
+        pointerEvents: 'none',
+        backgroundColor: 'var(--color-bg-base)',
+        border: '1px solid var(--color-primary)',
+        borderRadius: '4px',
+        boxShadow: 'var(--shadow-xl)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundImage: 'linear-gradient(45deg, var(--color-bg-elevated) 25%, transparent 25%), linear-gradient(-45deg, var(--color-bg-elevated) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, var(--color-bg-elevated) 75%), linear-gradient(-45deg, transparent 75%, var(--color-bg-elevated) 75%)',
+        backgroundSize: '8px 8px',
+        backgroundPosition: '0 0, 0 4px, 4px 4px, 4px 0',
+    };
+
+    return createPortal(
+        <div style={style} className="sl-thumbnail-portal-zoom">
+            <img
+                src={src}
+                alt=""
+                className="w-full h-full object-contain"
+                onError={(e) => { e.target.style.display = 'none'; }}
+            />
+        </div>,
+        document.body
+    );
+};
 
 function SpriteAccordionItem({
     layer,
@@ -297,6 +345,7 @@ function SpriteAccordionItem({
 }) {
     const [isExpanded, setIsExpanded] = useState(isSelected);
     const [isAdding, setIsAdding] = useState(false);
+    const [hoveredRect, setHoveredRect] = useState(null);
 
     const itemRef = useRef(null);
 
@@ -354,7 +403,7 @@ function SpriteAccordionItem({
         <div
             ref={itemRef}
             id={`sprite-list-item-${layer.sprite_name}`}
-            className={`card card-interactive p-0 flex-shrink-0 no-round ${isSelected ? 'selected' : ''}`}
+            className={`card card-interactive sl-row p-0 flex-shrink-0 no-round ${isSelected ? 'selected' : ''}`}
             style={{ zIndex: isAdding ? 100 : (isSelected ? 1 : 'auto'), position: (isAdding || isSelected) ? 'relative' : 'static' }}
         >
             <div
@@ -369,42 +418,45 @@ function SpriteAccordionItem({
             >
                 {/* Visibility Toggle (Left) */}
                 <div className="flex items-center justify-center sl-col-vis">
-                    <button
-                        className="btn-icon flex items-center justify-center"
+                    <Button
+                        variant="icon"
+                        size="xs"
                         style={{ opacity: isVisible ? 1 : 0.5 }}
                         onClick={(e) => {
                             e.stopPropagation();
                             onToggleVisibility();
                         }}
                         title={isVisible ? "Hide Sprite" : "Show Sprite"}
-                    >
-                        <Icon name={isVisible ? "visible" : "hidden"} size={15} />
-                    </button>
+                        icon={isVisible ? "visible" : "hidden"}
+                    />
                 </div>
 
                 {/* Add Behavior Button (Relocated to Right of Eye) */}
                 <div className="flex items-center justify-center relative sl-col-add">
-                    <button
-                        className="btn-icon flex items-center justify-center"
+                    <Button
+                        variant="icon"
+                        size="xs"
                         onClick={(e) => {
                             e.stopPropagation();
                             setIsAdding(!isAdding);
                         }}
                         title="Add Behavior"
-                    >
-                        <Icon name="add" size={15} />
-                    </button>
+                        icon="add"
+                    />
                     {/* Add Behavior Menu - Left aligned */}
                     {isAdding && (
                         <div className="sl-behavior-popup" onClick={e => e.stopPropagation()}>
                             {Object.values(BehaviorTypes).map(type => (
-                                <div
+                                <Button
                                     key={type}
+                                    variant="ghost"
+                                    size="xs"
+                                    isBlock
                                     className="sl-behavior-menu-item"
                                     onClick={() => handleAddBehavior(type)}
                                 >
                                     {type.charAt(0).toUpperCase() + type.slice(1)}
-                                </div>
+                                </Button>
                             ))}
                         </div>
                     )}
@@ -444,12 +496,19 @@ function SpriteAccordionItem({
                 </div>
 
                 {/* Thumbnail - Shrink by 20% (40->32) and reduce zoom */}
-                <div className="flex items-center justify-start flex-shrink-0 sl-col-thumb">
+                <div
+                    className="flex items-center justify-start flex-shrink-0 sl-col-thumb"
+                    onMouseEnter={(e) => {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        setHoveredRect(rect);
+                    }}
+                    onMouseLeave={() => setHoveredRect(null)}
+                >
                     <div className="sl-thumbnail-checkerboard rounded-sm flex items-center justify-center overflow-hidden border border-muted shadow-sm">
                         <img
                             src={thumbnailSrc}
                             alt=""
-                            className="max-w-[75%] max-h-[75%] object-contain"
+                            className="w-full h-full object-contain"
                             onError={(e) => { e.target.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=' }}
                         />
                     </div>
@@ -494,20 +553,22 @@ function SpriteAccordionItem({
                 <div className="flex-shrink-0 flex items-center justify-end gap-0 relative">
                     <div className="flex items-center" style={{ gap: 0 }} onClick={e => e.stopPropagation()}>
                         {isScene && (
-                            <button
-                                className="btn-icon btn-icon-sm flex items-center justify-center text-error sl-col-actions"
+                            <Button
+                                variant="icon"
+                                size="xs"
+                                className="text-error sl-col-actions"
                                 onClick={() => onDeleteSprite()}
                                 title="Delete Sprite"
-                            >
-                                <Icon name="delete" size={15} />
-                            </button>
+                                icon="delete"
+                            />
                         )}
-                        <button
-                            className="btn-icon btn-icon-sm flex items-center justify-center sl-col-actions"
+                        <Button
+                            variant="icon"
+                            size="xs"
+                            className="sl-col-actions"
                             title={isExpanded ? "Collapse Behaviors" : "Expand Behaviors"}
-                        >
-                            <Icon name={isExpanded ? "collapse" : "expand"} size={16} />
-                        </button>
+                            icon={isExpanded ? "collapse" : "expand"}
+                        />
                     </div>
                 </div>
             </div >
@@ -530,6 +591,9 @@ function SpriteAccordionItem({
                     </div>
                 )
             }
+            {hoveredRect && (
+                <ThumbnailPortal src={thumbnailSrc} rect={hoveredRect} />
+            )}
         </div >
     );
 }

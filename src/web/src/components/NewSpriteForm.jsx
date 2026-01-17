@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { toast } from 'sonner';
 import { Icon } from './Icon';
+import { Button } from './Button';
 import { API_BASE } from '../config';
-import './Forms.css';
+
 
 export function NewSpriteForm({ onSuccess, onCancel }) {
     const [name, setName] = useState('');
@@ -59,13 +60,22 @@ export function NewSpriteForm({ onSuccess, onCancel }) {
                 }} accept="image/png" className="input" />
             </div>
             <div className="form-actions">
-                <button type="submit" className="btn btn-primary" disabled={loading}>
-                    {loading ? <Icon name="image" className="animate-spin" /> : 'Create Sprite'}
-                </button>
+                <Button
+                    type="submit"
+                    variant="primary"
+                    loading={loading}
+                    icon="image"
+                >
+                    Create Sprite
+                </Button>
                 {onCancel && (
-                    <button type="button" className="btn" onClick={onCancel} disabled={loading}>
+                    <Button
+                        variant="secondary"
+                        onClick={onCancel}
+                        disabled={loading}
+                    >
                         Cancel
-                    </button>
+                    </Button>
                 )}
             </div>
         </form>

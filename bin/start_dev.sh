@@ -42,7 +42,7 @@ fi
 echo "Starting backend server..."
 cd "$PROJECT_ROOT"
 # Using --reload for development
-uv run uvicorn src.server.main:app --reload --port 8000 &
+uv run uvicorn src.server.main:app --reload --host 127.0.0.1 --port 8000 &
 BACKEND_PID=$!
 
 echo "Starting frontend server..."

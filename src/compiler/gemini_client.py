@@ -1,12 +1,15 @@
+import logging
 import os
 
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 
-from .token_logger import log_token_usage
+from .token_logger import log_response_usage
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 
 class GeminiCompilerClient:
@@ -36,15 +39,7 @@ class GeminiCompilerClient:
             raise ValueError("Gemini returned an empty response. Check API usage limits.")
 
         # Log usage to ledger
-        if hasattr(response, "usage_metadata") and response.usage_metadata:
-            usage = response.usage_metadata
-            log_token_usage(
-                model_name=self.model_name,
-                prompt_tokens=usage.prompt_token_count,
-                candidate_tokens=usage.candidates_token_count,
-                total_tokens=usage.total_token_count,
-                task_name="compiler_metadata_generation",
-            )
+        log_response_usage(response, self.model_name, "compiler_metadata_generation")
 
         return response.text
 
@@ -61,15 +56,7 @@ class GeminiCompilerClient:
         if not response.text:
             raise ValueError("Gemini returned an empty response.")
 
-        if hasattr(response, "usage_metadata") and response.usage_metadata:
-            usage = response.usage_metadata
-            log_token_usage(
-                model_name=self.model_name,
-                prompt_tokens=usage.prompt_token_count,
-                candidate_tokens=usage.candidates_token_count,
-                total_tokens=usage.total_token_count,
-                task_name="generate_text",
-            )
+        log_response_usage(response, self.model_name, "generate_text")
 
         return response.text
 
@@ -78,7 +65,6 @@ class GeminiCompilerClient:
         Generates an image from a text prompt using Gemini 3 Pro.
         """
         model_name = "gemini-3-pro-image-preview"
-        # Or imagen-3.0-generate-001 if available/preferred, but 3-pro is unified
 
         try:
             response = self.client.models.generate_content(
@@ -90,16 +76,7 @@ class GeminiCompilerClient:
                 ),
             )
 
-            # Log usage
-            if hasattr(response, "usage_metadata") and response.usage_metadata:
-                usage = response.usage_metadata
-                log_token_usage(
-                    model_name=model_name,
-                    prompt_tokens=usage.prompt_token_count,
-                    candidate_tokens=usage.candidates_token_count,
-                    total_tokens=usage.total_token_count,
-                    task_name="generate_image",
-                )
+            log_response_usage(response, model_name, "generate_image")
 
             if not response.candidates:
                 raise ValueError(f"No candidates returned. Text: {response.text}")
@@ -116,7 +93,7 @@ class GeminiCompilerClient:
             raise ValueError("No inline_data found in response parts.")
 
         except Exception as e:
-            print(f"Gemini Image Gen Error: {e}")
+            logger.error(f"Gemini Image Gen Error: {e}")
             raise
 
     def edit_image(
@@ -154,16 +131,7 @@ class GeminiCompilerClient:
                 ),
             )
 
-            # Log usage
-            if hasattr(response, "usage_metadata") and response.usage_metadata:
-                usage = response.usage_metadata
-                log_token_usage(
-                    model_name=model_name,
-                    prompt_tokens=usage.prompt_token_count,
-                    candidate_tokens=usage.candidates_token_count,
-                    total_tokens=usage.total_token_count,
-                    task_name="edit_image",
-                )
+            log_response_usage(response, model_name, "edit_image")
 
             # Extract Image from response
             if not response.candidates:
@@ -184,7 +152,6 @@ class GeminiCompilerClient:
 
             for part in candidate.content.parts:
                 if hasattr(part, "inline_data") and part.inline_data:
-                    # print("DEBUG: Found generated inline_data (image)")
                     image_data = part.inline_data.data
                 elif hasattr(part, "text") and part.text:
                     text_explanation.append(part.text)
@@ -194,16 +161,12 @@ class GeminiCompilerClient:
 
             # If no image found, return the text explanation as the error
             full_explanation = "\n".join(text_explanation)
-            # print(f"DEBUG: Model returned text explanation: {full_explanation[:200]}...")
             raise ValueError(
                 f"Model returned text instead of image (Refusal?). Explanation: {full_explanation}"
             )
 
         except Exception as e:
-            print(f"Image generation failed: {e}")
-            import traceback
-
-            traceback.print_exc()
+            logger.error(f"Image generation failed: {e}")
             raise
 
     def decompose_scene(self, scene_image_path: str, system_instruction: str) -> str:
@@ -216,9 +179,6 @@ class GeminiCompilerClient:
 
             img = Image.open(scene_image_path)
 
-            # Use the standard model_name configured in __init__ (gemini-2.5-flash by default)
-            # as it supports multimodal input and JSON mode well.
-
             response = self.client.models.generate_content(
                 model=self.model_name,
                 contents=["Analyze this scene.", img],
@@ -228,19 +188,11 @@ class GeminiCompilerClient:
                 },
             )
 
-            if hasattr(response, "usage_metadata") and response.usage_metadata:
-                usage = response.usage_metadata
-                log_token_usage(
-                    self.model_name,
-                    usage.prompt_token_count,
-                    usage.candidates_token_count,
-                    usage.total_token_count,
-                    "decompose_scene",
-                )
+            log_response_usage(response, self.model_name, "decompose_scene")
 
             return response.text
         except Exception as e:
-            print(f"Decomposition Error: {e}")
+            logger.error(f"Decomposition Error: {e}")
             raise
 
     def extract_element_image(
@@ -274,23 +226,14 @@ class GeminiCompilerClient:
                 contents=["Analyze this scene.", img],
                 config={
                     "system_instruction": system_instruction,
-                    # No JSON enforcement here, we want free-form/YAML
                 },
             )
 
-            if hasattr(response, "usage_metadata") and response.usage_metadata:
-                usage = response.usage_metadata
-                log_token_usage(
-                    self.model_name,
-                    usage.prompt_token_count,
-                    usage.candidates_token_count,
-                    usage.total_token_count,
-                    "descriptive_scene_analysis",
-                )
+            log_response_usage(response, self.model_name, "descriptive_scene_analysis")
 
             return response.text
         except Exception as e:
-            print(f"Descriptive Analysis Error: {e}")
+            logger.error(f"Descriptive Analysis Error: {e}")
             raise
 
     def structure_behaviors(self, description_text: str, system_instruction: str) -> str:
@@ -307,17 +250,9 @@ class GeminiCompilerClient:
                 },
             )
 
-            if hasattr(response, "usage_metadata") and response.usage_metadata:
-                usage = response.usage_metadata
-                log_token_usage(
-                    self.model_name,
-                    usage.prompt_token_count,
-                    usage.candidates_token_count,
-                    usage.total_token_count,
-                    "structure_behaviors",
-                )
+            log_response_usage(response, self.model_name, "structure_behaviors")
 
             return response.text
         except Exception as e:
-            print(f"Structuring Error: {e}")
+            logger.error(f"Structuring Error: {e}")
             raise

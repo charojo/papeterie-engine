@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { Icon } from './Icon';
+import { Button } from './Button';
 
 export function KeymapHelpDialog({ isOpen, onClose }) {
     useEffect(() => {
@@ -22,9 +23,7 @@ export function KeymapHelpDialog({ isOpen, onClose }) {
             <div className="bg-surface border border-muted rounded-lg shadow-xl w-full max-w-md overflow-hidden" onClick={e => e.stopPropagation()}>
                 <div className="flex items-center justify-between px-4 py-3 border-b border-muted bg-surface-hover">
                     <h3 className="text-sm font-bold uppercase tracking-wider text-main">Keyboard Shortcuts</h3>
-                    <button onClick={onClose} className="btn-icon">
-                        <Icon name="close" size={16} />
-                    </button>
+                    <Button variant="icon" onClick={onClose} icon="close" />
                 </div>
                 <div className="p-4 space-y-4">
                     <div className="space-y-2">
@@ -98,7 +97,7 @@ export function KeymapHelpDialog({ isOpen, onClose }) {
                     </div>
                 </div>
                 <div className="px-4 py-3 border-t border-muted bg-bg-base flex justify-end">
-                    <button className="btn btn-secondary text-xs" onClick={onClose}>Close</button>
+                    <Button variant="secondary" size="sm" onClick={onClose}>Close</Button>
                 </div>
             </div>
         </div>

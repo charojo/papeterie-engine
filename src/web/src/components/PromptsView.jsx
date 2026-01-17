@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Icon } from './Icon';
+import { Button } from './Button';
 import { toast } from 'sonner';
 import { API_BASE } from '../config';
 
@@ -78,19 +79,20 @@ export const PromptsView = ({ user }) => {
             <aside className="w-70 border-r flex flex-col bg-surface">
                 <div className="p-5 border-b">
                     <h2 className="m-0 text-md flex items-center gap-2">
-                        <Icon name="config" size={20} /> System Prompts
+                        <Icon name="config" variant="tight" /> System Prompts
                     </h2>
                 </div>
                 <div className="flex-1 overflow-y-auto p-3">
                     <div className="flex flex-col gap-1">
                         {prompts.map(name => (
-                            <button
+                            <Button
                                 key={name}
-                                className={`btn text-left justify-start px-4 py-2 text-sm border-none ${selectedPrompt === name ? 'btn-primary bg-primary text-white' : 'transparent text-main'}`}
+                                variant={selectedPrompt === name ? 'primary' : 'ghost'}
+                                isBlock
                                 onClick={() => fetchPromptContent(name)}
                             >
                                 {name}.prompt
-                            </button>
+                            </Button>
                         ))}
                     </div>
                 </div>
@@ -104,18 +106,19 @@ export const PromptsView = ({ user }) => {
                             <div>
                                 <h3 className="m-0 text-sm">Editing: <span className="opacity-70">{selectedPrompt}.prompt</span></h3>
                             </div>
-                            <button
-                                className="btn btn-primary flex items-center gap-2"
+                            <Button
+                                variant="primary"
                                 onClick={handleSave}
                                 disabled={isSaving || isLoading}
+                                icon="save"
                             >
-                                <Icon name="save" size={16} /> Save Changes
-                            </button>
+                                Save Changes
+                            </Button>
                         </header>
                         <div className="flex-1 p-0 relative overflow-hidden">
                             {isLoading && (
                                 <div className="absolute inset-0 bg-overlay z-10 flex items-center justify-center">
-                                    <Icon name="generate" className="animate-spin" size={32} />
+                                    <Icon name="generate" className="animate-spin" variant="roomy" />
                                 </div>
                             )}
                             <textarea

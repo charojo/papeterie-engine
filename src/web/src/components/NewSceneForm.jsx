@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { toast } from 'sonner';
 import { Icon } from './Icon';
+import { Button } from './Button';
 import { API_BASE } from '../config';
-import './Forms.css';
+
 
 export function NewSceneForm({ onSuccess }) {
     const [name, setName] = useState('');
@@ -57,9 +58,16 @@ export function NewSceneForm({ onSuccess }) {
                     }
                 }} accept="image/*" className="input" />
             </div>
-            <button type="submit" className="btn btn-primary btn-form-submit" data-testid="upload-scene-submit" disabled={loading}>
-                {loading ? <Icon name="image" className="animate-spin" /> : 'Upload Scene'}
-            </button>
+            <Button
+                type="submit"
+                variant="primary"
+                className="btn-form-submit"
+                data-testid="upload-scene-submit"
+                loading={loading}
+                icon="image"
+            >
+                Upload Scene
+            </Button>
         </form>
     )
 }

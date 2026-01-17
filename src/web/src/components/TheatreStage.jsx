@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Theatre } from '../engine/Theatre';
 import { Icon } from './Icon';
+import { Button } from './Button';
 import './TheatreStage.css';
 import { KeymapHelpDialog } from './KeymapHelpDialog';
 import { createLogger } from '../utils/logger';
@@ -40,7 +41,8 @@ export function TheatreStage({
     hasChanges,
     onPlayPause,
     inputContext = 'vis', // 'vis' | 'timeline'
-    onTimelineArrow
+    onTimelineArrow,
+    userId = 'default'
 }) {
     const canvasRef = useRef(null);
     const theatreRef = useRef(null);
@@ -68,7 +70,7 @@ export function TheatreStage({
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    user_id: 'default', // TODO: Use actual user ID if auth implemented
+                    user_id: userId,
                     scene_name: sceneName,
                     duration: duration,
                     width: 1280,
@@ -588,65 +590,58 @@ export function TheatreStage({
                     );
                 })()}
                 {toggleExpand && (
-                    <button
+                    <Button
+                        variant="icon"
+                        active={isExpanded}
                         onClick={toggleExpand}
-                        className={`btn-icon ${isExpanded ? 'active' : ''}`}
                         title={isExpanded ? "Collapse" : "Maximize (Zen Mode)"}
-                    >
-                        <Icon name={isExpanded ? "close" : "maximize"} size={16} />
-                    </button>
+                        icon={isExpanded ? "close" : "maximize"}
+                    />
                 )}
 
-                <button
-                    className={`btn-icon ${showLayersPanel ? 'active' : ''}`}
+                <Button
+                    variant="icon"
+                    active={showLayersPanel}
                     onClick={() => setShowLayersPanel(!showLayersPanel)}
                     title="Toggle Layers Panel"
-                >
-                    <Icon name="background" size={16} />
-                </button>
+                    icon="background"
+                />
 
                 <div className="theatre-toolbar-divider theatre-toolbar-divider-v"></div>
 
                 <div className="theatre-button-group">
 
 
-                    <button
-                        className="btn-icon"
+                    <Button
+                        variant="icon"
                         onClick={() => {
                             log.debug('Button Zoom In');
                             setZoom(zoom * 1.2);
                         }}
                         title="Zoom In"
-                    >
-                        <Icon name="zoomIn" size={16} />
-                    </button>
-                    <button
-                        className="btn-icon"
+                        icon="zoomIn"
+                    />
+                    <Button
+                        variant="icon"
                         onClick={() => {
                             log.debug('Button Zoom Out');
                             setZoom(zoom / 1.2);
                         }}
                         title="Zoom Out"
-                    >
-                        <Icon name="zoomOut" size={16} />
-                    </button>
-                    <button
-                        className="btn-icon"
+                        icon="zoomOut"
+                    />
+                    <Button
+                        variant="icon"
                         onClick={() => resetCamera()}
                         title="Reset View"
                         disabled={zoom === 1.0 && pan.x === 0 && pan.y === 0}
-                        style={{
-                            opacity: (zoom === 1.0 && pan.x === 0 && pan.y === 0) ? 0.3 : 1,
-                            cursor: (zoom === 1.0 && pan.x === 0 && pan.y === 0) ? 'default' : 'pointer'
-                        }}
-                    >
-                        <Icon name="revert" size={16} />
-                    </button>
+                        icon="revert"
+                    />
 
                     <div className="theatre-toolbar-divider theatre-toolbar-divider-h my-1 bg-transparent border-t border-white/10" style={{ height: '0', width: '100%' }}></div>
 
-                    <button
-                        className="btn-icon"
+                    <Button
+                        variant="icon"
                         onClick={() => {
                             // Pause playback before opening export
                             if (!isPaused) {
@@ -656,17 +651,16 @@ export function TheatreStage({
                             setShowExportDialog(true);
                         }}
                         title="Export Video"
-                    >
-                        <Icon name="share" size={16} />
-                    </button>
+                        icon="share"
+                    />
 
-                    <button
-                        className={`btn-icon ${showKeymap ? 'active' : ''}`}
+                    <Button
+                        variant="icon"
+                        active={showKeymap}
                         onClick={() => setShowKeymap(true)}
                         title="Keyboard Shortcuts"
-                    >
-                        <Icon name="keyboard" size={16} />
-                    </button>
+                        icon="keyboard"
+                    />
                 </div>
             </div>
 
@@ -704,13 +698,13 @@ export function TheatreStage({
 
                         {/* Add Behavior - Moved Next to Play */}
                         {onAddBehavior && (
-                            <button
+                            <Button
+                                variant="icon"
+                                size="sm"
                                 onClick={onAddBehavior}
-                                className="btn-icon"
                                 title="Add Behavior"
-                            >
-                                <Icon name="add" size={16} />
-                            </button>
+                                icon="add"
+                            />
                         )}
 
                         <div className="theatre-toolbar-divider theatre-toolbar-divider-h" />
@@ -718,11 +712,9 @@ export function TheatreStage({
                         {/* Rotation */}
                         {onSpriteRotationChanged && (
                             <div className="rotation-control">
-                                <Icon
-                                    name="rotate"
-                                    size={16}
-                                    className="text-muted cursor-pointer hover:text-white transition-colors"
-                                    title="Click to rotate 90°"
+                                <Button
+                                    variant="icon"
+                                    size="sm"
                                     onClick={() => {
                                         let nextRot = (localRotation + 90);
                                         if (nextRot > 180) nextRot -= 360;
@@ -736,6 +728,8 @@ export function TheatreStage({
                                         updateTheatreRotation(nextRot);
                                         onSpriteRotationChanged(selectedSprite, nextRot, currentTime || 0);
                                     }}
+                                    title="Click to rotate 90°"
+                                    icon="rotate"
                                 />
                                 <input
                                     type="range"
@@ -773,56 +767,54 @@ export function TheatreStage({
 
                         {/* Toggle Visibility */}
                         {onToggleSpriteVisibility && (
-                            <button
+                            <Button
+                                variant="icon"
+                                size="sm"
                                 onClick={onToggleSpriteVisibility}
-                                className="btn-icon"
                                 title={isSpriteVisible ? "Hide Sprite" : "Show Sprite"}
+                                active={isSpriteVisible}
                                 style={{ opacity: isSpriteVisible ? 1 : 0.5 }}
-                            >
-                                <Icon name={isSpriteVisible ? "visible" : "hidden"} size={16} />
-                            </button>
+                                icon={isSpriteVisible ? "visible" : "hidden"}
+                            />
                         )}
 
                         {/* Crop - Toggle Mode */}
-                        <button
-                            className={`btn-icon ${isCropMode ? 'active' : ''}`}
+                        <Button
+                            variant="icon"
+                            size="sm"
+                            active={isCropMode}
                             title={isCropMode ? "Exit Crop Mode" : "Crop Sprite"}
                             onClick={() => {
                                 const newMode = !isCropMode;
                                 setIsCropMode(newMode);
                                 if (theatreRef.current) theatreRef.current.setCropMode(newMode);
                             }}
-                        >
-                            <Icon name="crop" size={16} />
-                        </button>
+                            icon="crop"
+                        />
 
                         {/* Delete */}
                         {onDeleteSprite && (
-                            <button
+                            <Button
+                                variant="icon"
+                                size="sm"
                                 onClick={onDeleteSprite}
-                                className="btn-icon"
                                 title="Delete Sprite"
-                            >
-                                <Icon name="delete" size={16} />
-                            </button>
+                                icon="delete"
+                            />
                         )}
 
                         {/* Save */}
                         {onSave && (
                             <>
                                 <div className="theatre-toolbar-divider theatre-toolbar-divider-h" />
-                                <button
+                                <Button
+                                    variant="icon"
+                                    size="sm"
                                     onClick={hasChanges ? onSave : undefined}
-                                    className="btn-icon"
                                     title={hasChanges ? "Save Changes" : "No Changes to Save"}
-                                    style={{
-                                        filter: hasChanges ? 'none' : 'grayscale(1)',
-                                        opacity: hasChanges ? 1 : 0.5,
-                                        cursor: hasChanges ? 'pointer' : 'default'
-                                    }}
-                                >
-                                    <Icon name="save" size={16} />
-                                </button>
+                                    disabled={!hasChanges}
+                                    icon="save"
+                                />
                             </>
                         )}
                     </div>

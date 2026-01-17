@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Button } from './Button';
 import './DeleteConfirmationDialog.css';
 
 const DELETE_MODES = {
@@ -118,10 +119,10 @@ export function DeleteConfirmationDialog({ isOpen, onClose, onConfirm, type, ass
                 </div>
 
                 <div className="modal-footer">
-                    <button className="btn" onClick={onClose}>Cancel</button>
-                    <button className="btn btn-primary" onClick={handleConfirm}>
+                    <Button variant="secondary" onClick={onClose}>Cancel</Button>
+                    <Button variant="primary" onClick={handleConfirm}>
                         Confirm
-                    </button>
+                    </Button>
                 </div>
             </div>
         </div>

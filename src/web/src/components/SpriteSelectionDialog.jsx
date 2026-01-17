@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { AssetSelectionGrid } from './AssetSelectionGrid';
 import { NewSpriteForm } from './NewSpriteForm';
 import { Icon } from './Icon';
+import { Button } from './Button';
 import { ASSET_BASE } from '../config';
 
 /**
@@ -16,9 +17,13 @@ export const SpriteSelectionDialog = ({ sprites, onAdd, onClose }) => {
             <div style={{ padding: '24px', flex: 1, overflowY: 'auto' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                     <h2>Upload New Sprite</h2>
-                    <button className="btn" onClick={() => setShowUpload(false)}>
-                        <Icon name="back" size={16} /> Back
-                    </button>
+                    <Button
+                        variant="secondary"
+                        onClick={() => setShowUpload(false)}
+                        icon="back"
+                    >
+                        Back
+                    </Button>
                 </div>
                 <div className="card glass" style={{ padding: '24px', maxWidth: '600px' }}>
                     <NewSpriteForm

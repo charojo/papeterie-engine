@@ -92,6 +92,7 @@ Derived from `docs/design/css_design.md` and `docs/design/architecture_review.md
 | **Inline Styles** | ~73 | Excessive inline styles in `DeleteConfirmationDialog`, `TheatreStage`, etc. | Resolved |
 | **Component Size** | 6 files | Components > 500 lines (`scenes.py`, `TimelineEditor`, etc.). | In Progress |
 | **Security** | 4 items | SEC-001 to SEC-004 (Hardcoded keys, etc.). | Fixed/Tracked |
+| **Cleanup** | 1 item | Removed `SampleTSComponent` and legacy "Back to List" button. | Resolved |
 
 ---
 
@@ -101,3 +102,16 @@ Derived from `docs/design/css_design.md` and `docs/design/architecture_review.md
 | :--- | :--- | :--- |
 | **UX-001** | **Escape Key Closing**<br>Escape key does not close the "Add Behavior" popup. | [FIXED] |
 
+---
+
+## 7. Active Defects & Technical Debt (Migrated from Backlog)
+
+| ID | Issue / Concern | Description | Priority | Related Requirement |
+| :--- | :--- | :--- | :--- | :--- |
+| **DEF-004** | **Sprite Selection Z-Index** | When a sprite is selected, it needs to visually "pop" to the top in both the main view and the timeline. No Z-index override logic exists for selection. | **Medium** | **REQ-009** (UX Consistency) |
+| **DEF-006** | **Sprite Loading Regression** | Sprites for community scenes (e.g., Sailboat) fail to load if a user has a shadowing local copy. Need to prioritize community scenes or handle conflict in `Theatre.js`. | **Medium** | **REQ-001** (Sprite Compilation) |
+| **SEC-001** | **Auth Path Traversal** | Sanitize the `user_id` in `get_current_user` to prevent arbitrary directory creation via the `Authorization` header. Reference: `security_review.md`. | **High** | **REQ-006** (User Isolation) |
+| **SEC-002** | **Asset Path Traversal** | Implement path validation in `get_sprite_asset` to ensure file retrieval is restricted to the `ASSETS_DIR` and prevent `../` attacks. | **High** | **REQ-006** (User Isolation) |
+| **SEC-004** | **Sanitize API Errors** | Ensure internal server errors and tracebacks are not leaked to the client in `HTTPException` details. | **Medium** | **REQ-028** (Security Best Practices) |
+| **TASK-005** | **Button Variant Review** | Consolidate dialog buttons to use only "Small" and "Normal" variants. Strictly enforce `btn` base class. | **Low** | **REQ-009** (UX Consistency) |
+| **TECH-001** | **Refactor `main.py`** | The entry point is currently too large and logic should be distributed. | **Medium** | **REQ-029** (Code Maintainability) |

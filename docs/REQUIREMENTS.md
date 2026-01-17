@@ -38,6 +38,18 @@ This document captures the requirements for the Papeterie Engine, including impl
 | **REQ-027** | **Robust Testing**<br>Ensure a test failure is able to check both backend and frontend and reports them as a test failure that aborts additional tests until resolved. | Implemented | `validate.sh`, `test_e2e_wrapper.py` | - | Validated by process; enforces fail-fast. |
 | **REQ-028** | **Security Best Practices**<br>Ensure sensitive configuration (keys, secrets) are managed via environment variables and not hardcoded. | Implemented | `config.py` | [`subsystem_design.md`](design/subsystem_design.md#2-persistence--user-management) | Covers HP-004. |
 | **REQ-029** | **Code Maintainability**<br>Adhere to architectural best practices (SRP, Modularization) to ensure system extensibility. | Continuous | - | [`architecture_review.md`](design/architecture_review.md) | Covers architectural refactoring like CR-001. |
+| **REQ-030** | **Sprite List Hover Zoom**<br>Display a 250% scale preview of sprite thumbnails when hovering in the sprite list for better visibility. | Implemented | - | [`subsystem_design.md`](design/subsystem_design.md#6-ux-design-system) | Enhances asset identification. |
+| **REQ-031** | **PythonAnywhere Hosting**<br>Support hosting on PythonAnywhere including WSGI configuration and static file serving. | Planned | - | - | Migrated from BACKLOG `TASK-002`. |
+| **REQ-032** | **Compiler User-Scope Support**<br>Update compiler to support user-scoped directories. | Planned | - | - | Migrated from BACKLOG `TECH-002`. |
+| **REQ-033** | **Audio Fade-In**<br>Implement fade_in functionality for audio playback. | Planned | - | - | Migrated from BACKLOG `TECH-003`. |
+| **REQ-034** | **Twinkling Stars Effect**<br>Implement a visual effect for star sprites that makes them appear to twinkle. | Planned | - | - | Migrated from BACKLOG `IDEA-001`. |
+| **REQ-035** | **Git Hooks for Validation**<br>Implement pre-commit/push hooks to automatically run validation. | Planned | - | - | Migrated from BACKLOG `IDEA-015`. |
+| **REQ-036** | **Export Scene to Movie**<br>Export scene segments to movie files (MP4/GIF). | Planned | - | [`export_scene_design.md`](design/export_scene_design.md) | Migrated from BACKLOG `IDEA-002`. |
+| **REQ-037** | **Agent Self-Reflection**<br>Enhance `SpriteCompiler` to allow agent to generate its own unit tests. | Planned | - | - | Migrated from BACKLOG `IDEA-003`. |
+| **REQ-038** | **Sprite Remixing**<br>Allow users to "remix" existing sprites by editing prompts. | Planned | - | - | Migrated from BACKLOG `IDEA-005`. |
+| **REQ-039** | **Scene Templates**<br>Provide pre-configured scene templates. | Planned | - | - | Migrated from BACKLOG `IDEA-006`. |
+| **REQ-040** | **SMTP Email Verification**<br>Implement real email verification. | Planned | - | - | Migrated from BACKLOG `IDEA-007`. |
+| **REQ-041** | **Local Model Selection**<br>Allow users to choose between different rembg models. | Planned | - | - | Migrated from BACKLOG `IDEA-014`. |
 
 ---
 
@@ -49,6 +61,7 @@ This document captures the requirements for the Papeterie Engine, including impl
 | **RULE-002** | **Timeline Nav**: Arrow keys move layer Z. | Implemented | [`layer_and_selection_rules`](#) (Consolidated) |
 | **RULE-003** | **List Editability**: Z-Depth input editable. | Implemented | [`layer_and_selection_rules`](#) (Consolidated) |
 | **RULE-004** | **Selection Scroll**: Auto-scroll to selected item. | Implemented | [`layer_and_selection_rules`](#) (Consolidated) |
+| **RULE-005** | **Hover Zoom**: Sprite thumbnails enlarge (2.5x) on hover. | Implemented | [`subsystem_design.md`](design/subsystem_design.md#6-ux-design-system) |
 
 ---
 

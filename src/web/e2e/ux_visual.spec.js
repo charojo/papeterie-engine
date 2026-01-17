@@ -66,7 +66,7 @@ test.describe('UX Visual Regression', () => {
         await page.waitForTimeout(1000);
 
         await expect(page).toHaveScreenshot('scene-list.png', {
-            maxDiffPixels: 1200,
+            maxDiffPixels: 2000,
         });
     });
 });

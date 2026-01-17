@@ -97,8 +97,15 @@ const icons = {
     keyboard: Keyboard,
 };
 
-export const Icon = ({ name, size = 16, className, ...props }) => {
+const VARIANTS = {
+    tight: 16,
+    roomy: 32
+};
+
+export const Icon = ({ name, size, variant = 'tight', className, ...props }) => {
     const LucideIcon = icons[name] || icons.image;
-    return <LucideIcon size={size} className={className} {...props} />;
+    // Prefer explicit size if provided (backwards compat), otherwise use variant
+    const finalSize = size || VARIANTS[variant] || VARIANTS.tight;
+    return <LucideIcon size={finalSize} className={className} {...props} />;
 };
 

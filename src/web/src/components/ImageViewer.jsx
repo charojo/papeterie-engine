@@ -37,11 +37,12 @@ export const ImageViewer = ({
     onPlayPause,
     onTimeUpdate,
     isPlaying,
+    userId,
     style // Style prop for flex sizing
 }) => {
     return (
         <div
-            className={`flex flex-col w-full ${isExpanded ? 'h-full' : 'h-auto'}`}
+            className={`flex flex-col w-full ${isExpanded ? 'h-full' : 'h-full'}`}
             style={style}
         >
             {/* Unified Scene Stage */}
@@ -56,6 +57,7 @@ export const ImageViewer = ({
                     onPlayPause={onPlayPause}
                     scene={scene}
                     sceneName={sceneName}
+                    userId={userId}
                     currentTime={currentTime}
                     layerVisibility={layerVisibility}
                     onToggleVisibility={onToggleVisibility}

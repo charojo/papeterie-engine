@@ -5,6 +5,8 @@
     overflow: hidden;
 }
 
+
+
 .asset-detail-main {
     display: flex;
     flex-direction: row;
@@ -68,13 +70,6 @@
     align-items: center;
 }
 
-.logs-btn-tool {
-    padding: 2px 4px;
-    line-height: 1;
-    background: transparent;
-    border: none;
-    font-size: 0.7rem;
-}
 
 .logs-pre {
     flex: 1;

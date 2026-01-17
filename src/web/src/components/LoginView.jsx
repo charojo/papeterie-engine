@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Icon } from './Icon';
+import { Button } from './Button';
 import { toast } from 'sonner';
 import { API_BASE } from '../config';
 import './LoginView.css';
@@ -67,12 +68,13 @@ export function LoginView({ onLogin }) {
                             </p>
                         </div>
 
-                        <button
-                            className="btn btn-primary login-local-enter-btn"
+                        <Button
+                            variant="primary"
+                            className="login-local-enter-btn w-90p h-11 rounded-12"
                             onClick={() => onLogin({ user: { username: 'Guest' }, access_token: 'default', type: 'local' })}
                         >
                             Enter Local Theater
-                        </button>
+                        </Button>
                     </div>
                 </div>
 
@@ -119,9 +121,14 @@ export function LoginView({ onLogin }) {
                                     <div className="login-password-header">
                                         <label className="label-premium m-0">Password</label>
                                         {!isRegistering && (
-                                            <button type="button" className="login-forgot-btn">
+                                            <Button
+                                                variant="ghost"
+                                                size="xs"
+                                                type="button"
+                                                className="login-forgot-btn"
+                                            >
                                                 Forgot?
-                                            </button>
+                                            </Button>
                                         )}
                                     </div>
                                     <input
@@ -134,20 +141,15 @@ export function LoginView({ onLogin }) {
                                     />
                                 </div>
 
-                                <button
+                                <Button
                                     type="submit"
-                                    className="btn btn-secondary login-submit-btn"
-                                    disabled={loading}
+                                    variant="secondary"
+                                    className="login-submit-btn w-full h-10 rounded-12"
+                                    loading={loading}
+                                    icon="login"
                                 >
-                                    {loading ? (
-                                        <div className="animate-spin"><Icon name="generate" size={16} /></div>
-                                    ) : (
-                                        <>
-                                            {isRegistering ? 'Create Account' : 'Sign In'}
-                                            <Icon name="login" size={14} />
-                                        </>
-                                    )}
-                                </button>
+                                    {isRegistering ? 'Create Account' : 'Sign In'}
+                                </Button>
                             </div>
                         </form>
 
@@ -155,12 +157,14 @@ export function LoginView({ onLogin }) {
                             <span className="login-toggle-text">
                                 {isRegistering ? 'Cast member?' : "New here?"}
                             </span>
-                            <button
-                                className="login-toggle-btn"
+                            <Button
+                                variant="ghost"
+                                size="xs"
+                                className="login-toggle-btn ml-1"
                                 onClick={() => setIsRegistering(!isRegistering)}
                             >
                                 {isRegistering ? 'Sign In' : 'Sign Up'}
-                            </button>
+                            </Button>
                         </div>
                     </div>
                 </div>
